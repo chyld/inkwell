@@ -6,7 +6,7 @@ import type { DialogApi } from './Dialogs';
 const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
 /** Uploads still running, in any note. Switching notes or signing out waits for them (briefly). */
-const pendingUploads = new Set<Promise<unknown>>();
+const pendingUploads = new Map<Promise<unknown>, number>(); // job -> upload epoch
 
 /** Bumped by cancelUploads (sign-out): batches started before it upload nothing more. */
 let uploadEpoch = 0;
@@ -14,17 +14,22 @@ export function cancelUploads() {
   uploadEpoch++;
 }
 
+/** Uploads started since the last sign-out (an earlier user's are not this user's business). */
+function currentUploads(): Promise<unknown>[] {
+  return [...pendingUploads].filter(([, e]) => e === uploadEpoch).map(([job]) => job);
+}
+
 export function hasPendingUploads(): boolean {
-  return pendingUploads.size > 0;
+  return currentUploads().length > 0;
 }
 
 /** Wait until running uploads have finished, or `ms` has passed. Resolves true if none is left. */
 export async function waitForUploads(ms: number): Promise<boolean> {
   const end = Date.now() + ms;
-  while (pendingUploads.size > 0) {
+  while (currentUploads().length > 0) {
     const left = end - Date.now();
     if (left <= 0) return false;
-    await Promise.race([Promise.allSettled([...pendingUploads]), new Promise((r) => setTimeout(r, left))]);
+    await Promise.race([Promise.allSettled(currentUploads()), new Promise((r) => setTimeout(r, left))]);
   }
   return true;
 }
@@ -90,7 +95,7 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
         await uploadOne(f, pos);
       }
     })();
-    pendingUploads.add(job);
+    pendingUploads.set(job, epoch);
     try {
       await job;
     } finally {

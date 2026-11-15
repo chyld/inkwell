@@ -11,10 +11,15 @@ import { signOutFlow } from './signout';
 import { emptyTrashFlow } from './trash';
 import { cancelUploads, hasPendingUploads } from './components/images';
 import { NoteSaver } from './saver';
-import { newAuthEpoch } from './api';
+import { newAuthEpoch, setExpectedUser } from './api';
 
 export function App() {
-  const [me, setMe] = useState<Me | null | undefined>(undefined);
+  const [me, setMeState] = useState<Me | null | undefined>(undefined);
+  // Set synchronously with the user, before any child component sends a request.
+  const setMe = useCallback((m: Me | null) => {
+    setExpectedUser(m ? m.id : null);
+    setMeState(m);
+  }, []);
 
   useEffect(() => {
     setUnauthorizedHandler(() => setMe(null));
@@ -257,8 +262,9 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
   }
 
   async function emptyTrash() {
+    let emptied = false;
     try {
-      await emptyTrashFlow({
+      emptied = await emptyTrashFlow({
         userId: me.id,
         drafts: localDrafts,
         trashedIds: async () => {
@@ -276,7 +282,9 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
       });
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
+      return;
     }
+    if (!emptied) return; // cancelled: nothing changed, the open note stays open
     setSelected(null);
     loadList(false, null);
     refreshTags();

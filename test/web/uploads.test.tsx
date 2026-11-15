@@ -125,5 +125,17 @@ describe('image uploads', () => {
     await waitForUploads(3000);
     expect(hasPendingUploads()).toBe(false);
   });
+
+  it('an upload left running by a signed-out user does not count as pending for the next user', async () => {
+    const t = setup();
+    cleanup = (await render(<t.Probe />)).unmount;
+    await act(async () => {
+      t.api().handleFiles([png()] as any);
+    });
+    expect(hasPendingUploads()).toBe(true);
+    cancelUploads(); // sign-out
+    expect(hasPendingUploads()).toBe(false);
+    expect(await waitForUploads(50)).toBe(true);
+  });
 });
 

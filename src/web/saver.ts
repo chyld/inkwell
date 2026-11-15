@@ -8,7 +8,7 @@ export type SaveStatus = 'saved' | 'saving' | 'unsaved';
 export interface SaverDeps {
   put(noteId: string, payload: { title: string; body: unknown; version: number }): Promise<{ version: number; updatedAt?: string }>;
   drafts: DraftStore;
-  onStatus(status: SaveStatus, message?: string): void;
+  onStatus(status: SaveStatus, message?: string, error?: ApiError): void;
   onConflict(serverVersion: number): void;
   onSaved?(info: { version: number; updatedAt?: string; title: string; body: unknown }): void;
   onUnauthorized?(): void;
@@ -180,7 +180,7 @@ export class NoteSaver {
       }
       if (err.status === 400) {
         this.blocked = 'fatal';
-        this.deps.onStatus('unsaved', `Not saved: ${err.message}`);
+        this.deps.onStatus('unsaved', `Not saved: ${err.message}`, err);
         return;
       }
       if (err.status === 404) {

@@ -33,6 +33,12 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
     if (!user) {
       return reply.status(401).send(errorBody('unauthorized', 'Please sign in.'));
     }
+    // A browser tab says which user it believes is signed in. If the shared cookie now belongs
+    // to someone else (another tab signed in as them), the tab must not act on their account.
+    const expected = req.headers['x-notes-user'];
+    if (expected !== undefined && expected !== user.id) {
+      return reply.status(401).send(errorBody('wrong_user', 'You were signed in as someone else in another tab. Please sign in again.'));
+    }
     req.user = user;
   });
 

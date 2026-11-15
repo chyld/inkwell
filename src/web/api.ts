@@ -16,6 +16,12 @@ let authEpoch = 0;
 export function newAuthEpoch() {
   authEpoch++;
 }
+/** The user this tab believes is signed in; sent with every request so the server can refuse
+ *  a request whose shared cookie now belongs to someone who signed in in another tab. */
+let expectedUser: string | null = null;
+export function setExpectedUser(id: string | null) {
+  expectedUser = id;
+}
 export function setUnauthorizedHandler(f: () => void) {
   unauthorizedHandler = f;
 }
@@ -27,7 +33,10 @@ export async function api<T = any>(method: string, path: string, body?: unknown,
     res = await fetch(`/api${path}`, {
       method,
       credentials: 'same-origin',
-      headers: opts.form ? {} : body !== undefined ? { 'content-type': 'application/json' } : {},
+      headers: {
+        ...(opts.form || body === undefined ? {} : { 'content-type': 'application/json' }),
+        ...(expectedUser ? { 'x-notes-user': expectedUser } : {}),
+      },
       body: opts.form ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
   } catch {

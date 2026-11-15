@@ -245,7 +245,8 @@ export class Store {
       this.db.prepare('DELETE FROM folders WHERE user_id = ?').run(user.id);
       this.db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
     });
-    fs.rmSync(path.join(this.imagesDir, user.id), { recursive: true, force: true });
+    // A running data copy may still need these files; the copy removes the directory when it ends.
+    if (!this.copyInProgress()) fs.rmSync(path.join(this.imagesDir, user.id), { recursive: true, force: true });
   }
 
   /** Check a username/password. Returns the user only if enabled and the password matches. */
@@ -567,7 +568,16 @@ export class Store {
 
   private assertImagesOwned(userId: string, ids: string[]) {
     const q = this.db.prepare('SELECT 1 FROM images WHERE id = ? AND user_id = ?');
-    for (const id of ids) if (!q.get(id, userId)) throw badRequest('The note refers to an image that does not exist.', 'invalid_body');
+    const missing = ids.filter((id) => !q.get(id, userId));
+    if (missing.length) {
+      throw new AppError(
+        400,
+        'image_missing',
+        `The note refers to ${missing.length === 1 ? 'an image that no longer exists' : `${missing.length} images that no longer exist`} ` +
+          '(an image that no note uses is removed after 24 hours). Remove it from the note to save.',
+        { images: missing },
+      );
+    }
   }
 
   private setImageLinks(seq: number, ids: string[]) {
@@ -1047,6 +1057,17 @@ export class Store {
       cleanup();
       process.removeListener('SIGINT', onSignal);
       process.removeListener('SIGTERM', onSignal);
+      // Work postponed while the copy ran (unless another copy is still running).
+      if (!this.copyInProgress()) {
+        try {
+          this.cleanupImages();
+          for (const dir of fs.readdirSync(this.imagesDir)) {
+            if (!this.getUser(dir)) fs.rmSync(path.join(this.imagesDir, dir), { recursive: true, force: true });
+          }
+        } catch {
+          // Clean-up runs again daily and at start-up.
+        }
+      }
     }
   }
 

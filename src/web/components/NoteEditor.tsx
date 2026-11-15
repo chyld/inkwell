@@ -97,6 +97,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   const [status, setStatus] = useState<SaveStatus>('saved');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [conflict, setConflict] = useState(false);
+  const [missingImages, setMissingImages] = useState<string[]>([]);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [folderId, setFolderId] = useState(note.folderId);
   const [tags, setTags] = useState(note.tags);
@@ -111,9 +112,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
       const s = new NoteSaver(me.id, note.id, version, {
         put: (id, payload) => api('PUT', `/notes/${id}`, payload),
         drafts: localDrafts,
-        onStatus: (st, msg) => {
+        onStatus: (st, msg, err) => {
           setStatus(st);
           setStatusMsg(msg ?? null);
+          setMissingImages(err?.code === 'image_missing' && Array.isArray(err.extra.images) ? (err.extra.images as string[]) : []);
         },
         onConflict: () => setConflict(true),
         onSaved: (info) => {
@@ -223,6 +225,20 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     setDraft(null);
   }
 
+  /** Take images that no longer exist on the server out of the note, so it can be saved. */
+  function removeMissingImages() {
+    if (!editor) return;
+    const srcs = new Set(missingImages.map((id) => `/api/images/${id}`));
+    const ranges: [number, number][] = [];
+    editor.state.doc.descendants((node, pos) => {
+      if (node.type.name === 'image' && srcs.has(node.attrs.src)) ranges.push([pos, pos + node.nodeSize]);
+    });
+    const tr = editor.state.tr;
+    for (const [from, to] of ranges.reverse()) tr.delete(from, to);
+    editor.view.dispatch(tr);
+    setMissingImages([]);
+  }
+
   function keepMine() {
     setConflict(false);
     saverRef.current?.keepMine();
@@ -265,7 +281,14 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   async function trash() {
     const saved = (await saverRef.current?.flush(3000)) ?? true;
     // A stored draft (offer still open, or a save that never got through) means unsaved changes too.
-    if (!saved || localDrafts.get(me.id, note.id) !== null) {
+    const stored = localDrafts.get(me.id, note.id);
+    if (saved && stored && !draft) {
+      // This tab's own changes are saved, so the draft was left by another tab: offer it.
+      setDraft(stored);
+      dialogs.notice('The note was not moved to Trash: this device has changes to it from another tab. Restore or discard them first.');
+      return;
+    }
+    if (!saved || stored !== null) {
       dialogs.notice('The note was not moved to Trash: its latest changes are not saved yet. Try again once they are saved.');
       return;
     }
@@ -320,7 +343,18 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           </button>
         )}
       </header>
-      {statusMsg && status === 'unsaved' && !conflict && <div className="banner warn">{statusMsg}</div>}
+      {statusMsg && status === 'unsaved' && !conflict && (
+        <div className="banner warn">
+          <span>{statusMsg}</span>
+          {missingImages.length > 0 && !locked && (
+            <span className="banner-actions">
+              <button className="primary" onClick={removeMissingImages}>
+                Remove missing images
+              </button>
+            </span>
+          )}
+        </div>
+      )}
       {draft && (
         <div className="banner">
           <span>

@@ -68,3 +68,26 @@ Summary: 15 fixed, 1 not a defect, 0 not fixed.
 | R14 | Tags and Move to… stayed editable while the draft offer was open | b10 | fixed | `web/editor.test.tsx` "tags and Move to… are also locked while the offer is open". |
 | R15 | Caddy's error log (for example a 502) bypassed the access-log filter | b16 | fixed | `deploy.test.ts` "Caddy's default logger (used for errors such as a 502) applies the same filter…". Live: before, the 502 line carried the query string, the client address and a custom secret header; after, it is `{"request":{"method":"GET","uri":"/api/notes"},"duration":…,"status":502,…}`. |
 | R16 | The README said Empty Trash frees image space, but images are removed only once they are 24 hours old | b16 | fixed (README) | SPEC 6.5 requires the 24-hour grace, so the code is right. README §9 now says an image uploaded today keeps counting until the next day, even after Empty Trash. |
+
+## Round 3
+
+The round-3 reviews in `reviews-code3/` confirmed all 15 round-2 fixes and
+upheld R8. The remaining findings are below, handled as before. The whole suite
+passed three consecutive times (`npm test`: 166 of 166 each run). No Docker file
+changed, so instead of a Compose run the browser flows were rerun against a
+local server. They include a two-tab check: after tab B signs in as Bob, Alice's
+stale tab A gets the sign-in page on "New note", and Bob's notes and session are
+untouched.
+
+Summary: 8 fixed, 0 not a defect, 0 not fixed.
+
+| # | Finding | Raised by | Verdict | Evidence |
+|---|---|---|---|---|
+| T1 | A tab left open as one user keeps working after another tab signs in as someone else; its uploads, new notes and Empty Trash act on the new user's account | b01, b04 | fixed | `expected-user.test.ts` "a request that expects another user is refused with 401 and changes nothing" (including Empty Trash and sign-out, which no longer ends the other user's session); `web/api.test.ts` "every request, uploads included, says which user this tab is signed in as" and "a wrong_user 401 shows the sign-in page". The stale tab's drafts are left alone; the next sign-in in that tab removes drafts of other users, as SPEC 6.3 says. |
+| T2 | A user's first upload creates `images/<user>` but `images/` itself is not fsynced | b03, b05, b09, b14, b15 | fixed | `images.test.ts` "syncs the uploaded file before recording it, and its directory after the rename": a first upload now syncs file, row, user directory, then `images/`; a later upload syncs only the user directory. The old exact-order assertion was extended, not relaxed. |
+| T3 | Cancelling Empty Trash, or a failed Trash listing, still cleared the selection and reloaded | b10, b11, b12 | fixed | `web/app.test.tsx` "cancelling keeps the open note open" and "a failed Trash listing keeps the open note open and says so" (both rendered the whole App; before the fix the editor closed). |
+| T4 | `user delete` during `data copy` removed the user's image directory without honouring the copy marker | b05, b14 | fixed | `images.test.ts` "deleting a user during a data copy does not remove image files the copy needs; they go when it ends": the copy now contains the files, and the directory is removed when the copy finishes. |
+| T5 | Image clean-up postponed by a copy did not run when the copy ended | b16 | fixed | `images.test.ts` "an image clean-up postponed by a data copy runs when the copy ends". The R2 test that called `cleanupImages()` by hand after the copy now asserts, more strictly, that the image is already gone when the copy returns. |
+| T6 | Clean-up removed an image that only a local draft older than 24 hours referenced, and restoring then failed with an unhelpful message | b03 | fixed | The 24-hour rule (SPEC 6.5) is unchanged. `images.test.ts` "a save that refers to an image removed by clean-up gets a clear error naming the image" (400 `image_missing`, the ids, and why). `web/editor.test.tsx` "a save refused because an image no longer exists says so and offers to remove it": one click removes the missing images and the note saves. |
+| T7 | A signed-out user's in-flight upload still counted as pending for the next user | b10 | fixed | `web/uploads.test.tsx` "an upload left running by a signed-out user does not count as pending for the next user": pending uploads are tagged with the sign-in they belong to. |
+| T8 | A tab refused Trash because of another tab's stored draft was never offered that draft | b10 | fixed | `web/editor.test.tsx` "when Trash is refused because another tab left a draft, that draft is offered" (Restore/Discard appears; nothing is trashed). |

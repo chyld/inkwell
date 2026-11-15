@@ -197,3 +197,31 @@ describe('draft offer, round 2', () => {
   });
 });
 
+describe('round 3', () => {
+  it('when Trash is refused because another tab left a draft, that draft is offered', async () => {
+    const v = await open();
+    localDrafts.set('u1', NOTE_ID, { ...storedDraft, owner: 'closed-tab' }); // written by another tab after this one opened
+    await click(button(v.container, 'Move to Trash'));
+    await waitFor(() => !!button(v.container, 'Restore'), 3000, 'restore offer');
+    expect(requests.some((r) => r.path.endsWith('/trash'))).toBe(false);
+  });
+
+  it('a save refused because an image no longer exists says so and offers to remove it', async () => {
+    const missing = '44444444-4444-4444-8444-444444444444';
+    const withImage = serverNote({ body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'server text' }] }, { type: 'image', attrs: { src: `/api/images/${missing}`, alt: 'gone', title: null, width: null, height: null } }] } });
+    const v = await open(props(), withImage, (method, _path, body) =>
+      method === 'PUT' && JSON.stringify(body.body).includes(missing)
+        ? { status: 400, json: { error: { code: 'image_missing', message: 'The note refers to an image that no longer exists (an image that no note uses is removed after 24 hours). Remove it from the note to save.', images: [missing] } } }
+        : null,
+    );
+    await act(async () => {
+      editorOf(v.container).commands.insertContent(' edit');
+    });
+    await waitFor(() => !!button(v.container, 'Remove missing images'), 4000, 'remove button');
+    expect(v.container.textContent).toMatch(/no longer exists/);
+    await click(button(v.container, 'Remove missing images'));
+    await waitFor(() => requests.some((r) => r.method === 'PUT' && !JSON.stringify(r.body.body).includes(missing)), 4000, 'save without the image');
+    await waitFor(() => v.container.querySelector('.save-status')?.textContent === 'Saved', 4000, 'saved');
+  });
+});
+

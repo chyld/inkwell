@@ -107,9 +107,10 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
       store.insertImageRow(user.id, id, mime, size);
       try {
         const dest = store.imagePath(user.id, id);
-        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        const created = fs.mkdirSync(path.dirname(dest), { recursive: true }) !== undefined;
         fs.renameSync(tmp, dest);
         fsyncPath(path.dirname(dest));
+        if (created) fsyncPath(store.imagesDir); // the new user directory's own entry
       } catch (e) {
         store.deleteImageRow(id);
         throw e;
