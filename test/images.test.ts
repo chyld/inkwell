@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import sharp from 'sharp';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeEnv, userClient, upload, doc, p, type Client, type Env } from './helpers.js';
 import { DAY, HOUR } from '../src/server/store.js';
 
@@ -190,7 +190,7 @@ describe('image clean-up', () => {
   it('data copy includes the image files', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
     const dest = path.join(env.dir, 'copy');
-    const r = env.store.dataCopy(dest);
+    const r = await env.store.dataCopy(dest);
     expect(r.images).toBe(1);
     const aliceId = env.store.getUserByUsername('alice')!.id;
     expect(fs.existsSync(path.join(dest, 'images', aliceId, id))).toBe(true);
@@ -217,7 +217,10 @@ describe('image review fixes', () => {
     const etag = String(first.headers.etag);
     expect(etag).toMatch(/^".+"$/);
     // The owner revalidates cheaply; anyone else still gets 404, never 304.
-    expect((await alice.req('GET', src, undefined, { 'if-none-match': etag })).statusCode).toBe(304);
+    const notModified = await alice.req('GET', src, undefined, { 'if-none-match': etag });
+    expect(notModified.statusCode).toBe(304);
+    // A 304's headers are merged into the cached copy, so it must carry the image's sandbox CSP.
+    expect(notModified.headers['content-security-policy']).toBe("default-src 'none'; sandbox");
     expect((await bob.req('GET', src, undefined, { 'if-none-match': etag })).statusCode).toBe(404);
     expect((await env.app.inject({ method: 'GET', url: src, headers: { 'if-none-match': etag } })).statusCode).toBe(401);
   });
@@ -226,28 +229,76 @@ describe('image review fixes', () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
     fs.rmSync(env.store.imagePath(env.store.getUserByUsername('alice')!.id, id));
     const dest = path.join(env.dir, 'copy-missing');
-    expect(() => env.store.dataCopy(dest)).toThrow(/missing/i);
+    await expect(env.store.dataCopy(dest)).rejects.toThrow(/missing/i);
     expect(fs.existsSync(dest)).toBe(false);
+    expect(fs.readdirSync(env.dir).filter((f) => f.startsWith('copy-missing'))).toEqual([]);
   });
 
-  it('data copy holds the write lock while it copies, so image clean-up cannot run in the middle', async () => {
-    const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+  // Round 2: this test used to assert that the copy holds the write lock. That lock was the
+  // regression (it stalled the app's writes), so the test now checks what the lock was for:
+  // clean-up cannot remove an image the copy needs, even when it runs in the middle.
+  it('image clean-up that runs in the middle of a data copy does not remove an image the copy needs', async () => {
+    const { src, id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    const n = await put(alice, 'n', imageNode(src));
+    env.clock.t += 2 * DAY;
+    await alice.post(`/api/notes/${n.id}/trash`);
+    const aliceId = env.store.getUserByUsername('alice')!.id;
+    const dest = path.join(env.dir, 'copy-cleanup');
+    await env.store.dataCopy(dest, {
+      afterSnapshot: async () => {
+        // The snapshot still has the note and the image; now the note is deleted permanently,
+        // which runs the clean-up for an unreferenced image older than 24 hours.
+        expect((await alice.del(`/api/notes/${n.id}`)).statusCode).toBe(200);
+      },
+    });
+    expect(fs.existsSync(path.join(dest, 'images', aliceId, id))).toBe(true);
+    // Once the copy is done, the next clean-up removes it as usual.
+    expect(env.store.cleanupImages()).toBe(1);
+    expect(fs.existsSync(env.store.imagePath(aliceId, id))).toBe(false);
+  });
+
+  it('data copy does not block the running app’s writes', async () => {
+    await upload(alice, 'a.png', 'image/png', await img().png().toBuffer());
     const other = new (await import('better-sqlite3')).default(path.join(env.dir, 'notes.db'));
     other.pragma('busy_timeout = 0');
-    let blocked = false;
-    const dest = path.join(env.dir, 'copy-locked');
-    env.store.dataCopy(dest, {
+    let wrote = false;
+    await env.store.dataCopy(path.join(env.dir, 'copy-nolock'), {
       afterSnapshot: () => {
-        try {
-          other.prepare('DELETE FROM images WHERE id = ?').run(id);
-        } catch (e) {
-          blocked = (e as { code?: string }).code === 'SQLITE_BUSY';
-        }
+        other.prepare("UPDATE users SET created_at = created_at WHERE username = 'alice'").run();
+        wrote = true;
       },
     });
     other.close();
-    expect(blocked).toBe(true);
+    expect(wrote).toBe(true);
+  });
+
+  it('an image whose file is renamed into place just after the snapshot is copied, not reported missing', async () => {
+    const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    const file = env.store.imagePath(env.store.getUserByUsername('alice')!.id, id);
+    const aside = file + '.aside';
+    const dest = path.join(env.dir, 'copy-upload');
+    await env.store.dataCopy(dest, {
+      afterSnapshot: () => {
+        // As during an upload: the row is committed, the rename follows a moment later.
+        fs.renameSync(file, aside);
+        setTimeout(() => fs.renameSync(aside, file), 200);
+      },
+    });
     expect(fs.existsSync(path.join(dest, 'images', env.store.getUserByUsername('alice')!.id, id))).toBe(true);
+  });
+
+  it('the target directory appears only when the copy is complete; a partial one from an interrupted run does not block the next', async () => {
+    await upload(alice, 'a.png', 'image/png', await img().png().toBuffer());
+    const dest = path.join(env.dir, 'copy-target');
+    const stale = `${dest}.partial-999999999`; // left by a copy that was killed
+    fs.mkdirSync(stale);
+    fs.writeFileSync(path.join(stale, 'notes.db'), 'half');
+    let seenDuring = true;
+    await env.store.dataCopy(dest, { afterSnapshot: () => void (seenDuring = fs.existsSync(dest)) });
+    expect(seenDuring).toBe(false);
+    expect(fs.existsSync(path.join(dest, 'notes.db'))).toBe(true);
+    expect(fs.existsSync(stale)).toBe(false);
+    expect(fs.readdirSync(env.dir).filter((f) => f.includes('.partial-'))).toEqual([]);
   });
 
   it('decodes one image at a time, however many uploads arrive together', async () => {
@@ -277,3 +328,27 @@ describe('image review fixes', () => {
     expect(env.store.reconcileImageFiles().orphanFiles).toBe(1);
   });
 });
+
+describe('image review fixes, round 2', () => {
+  it('syncs the uploaded file before recording it, and its directory after the rename', async () => {
+    const calls: string[] = [];
+    const realFsync = fs.fsyncSync;
+    const realInsert = env.store.insertImageRow.bind(env.store);
+    const spy = vi.spyOn(fs, 'fsyncSync').mockImplementation((fd: number) => {
+      calls.push(fs.fstatSync(fd).isDirectory() ? 'fsync-dir' : 'fsync-file');
+      return realFsync(fd);
+    });
+    env.store.insertImageRow = (...a: Parameters<typeof realInsert>) => {
+      calls.push('insert-row');
+      return realInsert(...a);
+    };
+    try {
+      expect((await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).statusCode).toBe(201);
+    } finally {
+      spy.mockRestore();
+      env.store.insertImageRow = realInsert;
+    }
+    expect(calls).toEqual(['fsync-file', 'insert-row', 'fsync-dir']);
+  });
+});
+

@@ -212,3 +212,27 @@ describe('NoteSaver review fixes', () => {
     expect((await c.get(`/api/notes/${n.id}`)).json().body).toEqual(doc(p('after restore')));
   });
 });
+
+describe('NoteSaver round 2', () => {
+  it('sign-out disposes every live saver, including one still flushing after a note switch', async () => {
+    const drafts = memDrafts();
+    let resolve: (v: any) => void = () => {};
+    const calls: any[] = [];
+    const put = (_id: string, payload: any) =>
+      new Promise<any>((r) => {
+        calls.push(payload);
+        resolve = r;
+      });
+    const noteA = new NoteSaver('u', 'nA', 1, { put, drafts, onStatus: () => {}, onConflict: () => {}, setTimer: () => ({}), clearTimer: () => {} });
+    noteA.change('t', doc(p('one')), true);
+    noteA.change('t', doc(p('two')), true); // in flight + one more: still flushing after the switch
+    NoteSaver.disposeAll(); // sign-out
+    drafts.removeAllFor('u');
+    resolve({ version: 2 });
+    await new Promise((r) => setTimeout(r, 10));
+    expect(drafts.map.size).toBe(0);
+    expect(calls).toHaveLength(1);
+    expect(NoteSaver.anyUnconfirmed()).toBe(false);
+  });
+});
+

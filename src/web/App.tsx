@@ -8,6 +8,10 @@ import { NoteList } from './components/NoteList';
 import { NoteEditorPane, activeSaver } from './components/NoteEditor';
 import { waitForUploads } from './components/images';
 import { signOutFlow } from './signout';
+import { emptyTrashFlow } from './trash';
+import { cancelUploads, hasPendingUploads } from './components/images';
+import { NoteSaver } from './saver';
+import { newAuthEpoch } from './api';
 
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
@@ -27,6 +31,7 @@ export function App() {
           onSignedIn={(m) => {
             // Drafts that belong to any other user are removed at sign-in.
             localDrafts.removeAllExcept(m.id);
+            newAuthEpoch(); // a late 401 from before this sign-in must not sign this user out
             setMe(m);
           }}
         />
@@ -188,7 +193,8 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
   // "Leave site?" warning while changes are unconfirmed. No save is attempted during unload.
   useEffect(() => {
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (activeSaver.current?.hasUnconfirmed()) {
+      // Unconfirmed changes in any note (one may still be saving after a switch), or an image still uploading.
+      if (NoteSaver.anyUnconfirmed() || hasPendingUploads()) {
         e.preventDefault();
         e.returnValue = '';
       }
@@ -211,12 +217,16 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
         }),
       deleteSession: () => api('DELETE', '/session', undefined, { noAuthRedirect: true }),
       disposeSaver: () => {
-        activeSaver.current?.dispose();
+        cancelUploads();
+        NoteSaver.disposeAll();
         activeSaver.current = null;
       },
       notice: dialogs.notice,
     });
-    if (done) setMe(null);
+    if (done) {
+      newAuthEpoch();
+      setMe(null);
+    }
   }
 
   function patchItem(id: string, patch: Partial<NoteItem>) {
@@ -247,15 +257,23 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
   }
 
   async function emptyTrash() {
-    const ok = await dialogs.confirm({
-      title: 'Empty Trash',
-      message: 'Permanently delete every note in Trash? This cannot be undone.',
-      confirmLabel: 'Empty Trash',
-      danger: true,
-    });
-    if (!ok) return;
     try {
-      await api('DELETE', '/trash');
+      await emptyTrashFlow({
+        userId: me.id,
+        drafts: localDrafts,
+        trashedIds: async () => {
+          const ids: string[] = [];
+          let cursor: string | null = null;
+          do {
+            const r: { notes: NoteItem[]; nextCursor: string | null } = await api('GET', `/notes?view=trash${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
+            ids.push(...r.notes.map((n) => n.id));
+            cursor = r.nextCursor;
+          } while (cursor);
+          return ids;
+        },
+        confirm: (message) => dialogs.confirm({ title: 'Empty Trash', message, confirmLabel: 'Empty Trash', danger: true }),
+        emptyTrash: () => api('DELETE', '/trash'),
+      });
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
     }

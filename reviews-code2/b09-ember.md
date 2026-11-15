@@ -1,0 +1,2 @@
+VERDICT: SHIP – In the data layer (SPEC 6, 7, 12) each fixed RESPONSE item (#4 synchronous=FULL, #6 snapshot under BEGIN IMMEDIATE, #10 dataCopy lock/link/fail, #20 server-side unfiled, #25 serialized decode, #26 unlink catch) is real and complete and its named test fails on the pre-fix code, and the "not a defect" verdicts (#5 missing-image rows per SPEC 6.5, #14 folder reads since FK ON DELETE CASCADE plus FK on prevents orphans, #3 IPv6-only with IPv4-only Compose) are correct, with no regressions or serious missed defects found.
+END-OF-REVIEW

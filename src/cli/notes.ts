@@ -220,7 +220,7 @@ async function run(argv: string[], config: Config, store: Store): Promise<void> 
     }
     case 'data copy': {
       need(1, 'data copy <dir>');
-      const r = store.dataCopy(args[0]);
+      const r = await store.dataCopy(args[0]);
       console.log(`Wrote ${r.db} and ${r.images} image file(s) under ${args[0]}.`);
       console.log('This is a one-off copy. Move it off the server, for example with "docker compose cp", then delete it here.');
       return;

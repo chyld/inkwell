@@ -139,7 +139,9 @@ describe('Trash', () => {
     await c.post(`/api/notes/${n2}/trash`);
     expect((await c.del(`/api/notes/${n1}`)).statusCode).toBe(200);
     expect((await c.get(`/api/notes/${n1}`)).statusCode).toBe(404);
-    expect((await c.del('/api/trash')).json().deleted).toBe(1);
+    const emptied = (await c.del('/api/trash')).json();
+    expect(emptied.deleted).toBe(1);
+    expect(emptied.deletedIds).toEqual([n2]); // so the browser can drop those notes' local drafts
     expect((await c.get(`/api/notes/${n2}`)).statusCode).toBe(404);
     expect((await c.get(`/api/notes/${n3}`)).statusCode).toBe(200);
     expect((await c.get('/api/notes?view=trash')).json().notes).toHaveLength(0);

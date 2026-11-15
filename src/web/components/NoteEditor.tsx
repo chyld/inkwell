@@ -212,6 +212,13 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   }
 
   function discardDraft() {
+    const current = localDrafts.get(me.id, note.id);
+    if (current && draft && (current.savedAt !== draft.savedAt || current.owner !== draft.owner)) {
+      // Another tab wrote a newer draft since the offer appeared: keep it, and offer that one.
+      setDraft(current);
+      dialogs.notice('These unsaved changes were updated in another tab. Check them, then choose again.');
+      return;
+    }
     localDrafts.remove(me.id, note.id);
     setDraft(null);
   }
@@ -257,7 +264,8 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 
   async function trash() {
     const saved = (await saverRef.current?.flush(3000)) ?? true;
-    if (!saved) {
+    // A stored draft (offer still open, or a save that never got through) means unsaved changes too.
+    if (!saved || localDrafts.get(me.id, note.id) !== null) {
       dialogs.notice('The note was not moved to Trash: its latest changes are not saved yet. Try again once they are saved.');
       return;
     }
@@ -294,7 +302,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         </button>
         <div className="editor-location">
           {!trashed && (
-            <button className="link-button" onClick={moveTo} title="Move to…">
+            <button className="link-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
               📁 {location} ▾
             </button>
           )}
@@ -368,7 +376,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           }}
           aria-label="Title"
         />
-        <TagEditor tags={tags} allTags={props.allTags} readOnly={trashed} onChange={setNoteTags} />
+        <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />
         <EditorContent editor={editor} className="editor-content" />
         <p className="editor-dates">
           Created {new Date(note.createdAt).toLocaleString()} · Updated {relativeTime(note.updatedAt)}

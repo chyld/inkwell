@@ -134,7 +134,14 @@ export function migrate(db: DB, dataDir: string, migrations: Migration[] = MIGRA
   if ((db.pragma('user_version', { simple: true }) as number) >= latest) return 0;
 
   const snapshot = path.join(dataDir, 'pre-upgrade.db');
-  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.exec('BEGIN IMMEDIATE');
+  } catch (e) {
+    throw new MigrationError(
+      `could not lock the database to migrate it: the database is in use by another process (${(e as Error).message}). ` +
+        'Nothing was changed; try again.',
+    );
+  }
   let now = 0;
   let todo: Migration[] = [];
   try {

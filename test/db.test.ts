@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { MIGRATIONS, migrate, openDatabase, type DB } from '../src/server/db.js';
+import { MIGRATIONS, MigrationError, migrate, openDatabase, type DB } from '../src/server/db.js';
 
 let dir: string;
 let db: DB;
@@ -62,4 +62,19 @@ describe('database', () => {
     expect(snap.prepare('SELECT username FROM users').all()).toEqual([{ username: 'alice' }]);
     snap.close();
   });
+
+  it('a database lock that cannot be obtained is reported as a migration failure', () => {
+    const other = new Database(path.join(dir, 'notes.db'));
+    other.exec('BEGIN IMMEDIATE');
+    db.pragma('busy_timeout = 100');
+    try {
+      expect(() => migrate(db, dir, MIGRATIONS)).toThrow(MigrationError);
+      expect(() => migrate(db, dir, MIGRATIONS)).toThrow(/database is in use/);
+    } finally {
+      other.exec('ROLLBACK');
+      other.close();
+    }
+    expect(db.pragma('user_version', { simple: true })).toBe(0);
+  });
 });
+

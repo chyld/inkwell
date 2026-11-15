@@ -31,3 +31,16 @@ describe('Caddyfile access log', () => {
     expect(block).toMatch(/request>uri regexp "\\\?\.\*\$" ""/);
   });
 });
+
+describe('Caddyfile error log (round 2)', () => {
+  it('Caddy’s default logger (used for errors such as a 502) applies the same filter as the access log', () => {
+    const global = /^\{\n([\s\S]*?)\n\}/m.exec(caddyfile)?.[1] ?? '';
+    const block = /log default \{[\s\S]*?format filter \{([\s\S]*?)\n\t\t\}/.exec(global)?.[1] ?? '';
+    const deleted = new Set([...block.matchAll(/^\s*(\S+)\s+delete\s*$/gm)].map((m) => m[1]));
+    for (const field of ['request>remote_ip', 'request>remote_port', 'request>client_ip', 'request>proto', 'request>host', 'request>headers', 'request>tls', 'bytes_read', 'user_id', 'size', 'resp_headers']) {
+      expect(deleted, field).toContain(field);
+    }
+    expect(block).toMatch(/request>uri regexp "\\\?\.\*\$" ""/);
+  });
+});
+

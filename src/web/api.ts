@@ -11,11 +11,17 @@ export class ApiError extends Error {
 export class NetworkError extends Error {}
 
 let unauthorizedHandler: () => void = () => {};
+/** Changes at every sign-in and sign-out; a 401 only counts for the epoch its request was sent in. */
+let authEpoch = 0;
+export function newAuthEpoch() {
+  authEpoch++;
+}
 export function setUnauthorizedHandler(f: () => void) {
   unauthorizedHandler = f;
 }
 
 export async function api<T = any>(method: string, path: string, body?: unknown, opts: { form?: FormData; noAuthRedirect?: boolean } = {}): Promise<T> {
+  const epoch = authEpoch;
   let res: Response;
   try {
     res = await fetch(`/api${path}`, {
@@ -39,7 +45,7 @@ export async function api<T = any>(method: string, path: string, body?: unknown,
   if (!res.ok) {
     const e = data?.error ?? {};
     const { code, message, ...extra } = e;
-    if (res.status === 401 && !opts.noAuthRedirect) unauthorizedHandler();
+    if (res.status === 401 && !opts.noAuthRedirect && epoch === authEpoch) unauthorizedHandler();
     throw new ApiError(res.status, code ?? 'http_' + res.status, message ?? `The server answered ${res.status}.`, extra);
   }
   return data as T;

@@ -1,4 +1,4 @@
-import { useRef, useState, type MutableRefObject } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { Editor } from '@tiptap/react';
 import { api, ApiError } from '../api';
 import type { DialogApi } from './Dialogs';
@@ -7,6 +7,16 @@ const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
 /** Uploads still running, in any note. Switching notes or signing out waits for them (briefly). */
 const pendingUploads = new Set<Promise<unknown>>();
+
+/** Bumped by cancelUploads (sign-out): batches started before it upload nothing more. */
+let uploadEpoch = 0;
+export function cancelUploads() {
+  uploadEpoch++;
+}
+
+export function hasPendingUploads(): boolean {
+  return pendingUploads.size > 0;
+}
 
 /** Wait until running uploads have finished, or `ms` has passed. Resolves true if none is left. */
 export async function waitForUploads(ms: number): Promise<boolean> {
@@ -24,6 +34,14 @@ const MAX = 10 * 1024 * 1024;
 export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialogs: DialogApi, onStorageChanged: () => void) {
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Closing the note stops a batch: files not yet sent are not sent.
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+    };
+  }, []);
 
   async function uploadOne(file: File, dropPos?: number) {
     if (!ACCEPT.includes(file.type)) {
@@ -63,8 +81,14 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
 
   async function uploadAll(files: File[], pos?: number) {
     setBusy(true);
+    const epoch = uploadEpoch;
     const job = (async () => {
-      for (const f of files) await uploadOne(f, pos);
+      for (const f of files) {
+        // Never send a queued file after sign-out (the next request would carry another
+        // user's session) or after the note was closed.
+        if (epoch !== uploadEpoch || closed.current) return;
+        await uploadOne(f, pos);
+      }
     })();
     pendingUploads.add(job);
     try {

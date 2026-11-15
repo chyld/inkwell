@@ -29,8 +29,11 @@ docker compose exec app rm -rf /data/copy-2026-11-15
 files into a new directory inside the data volume (image files never change, so
 they are hard-linked there, which is instant and takes no extra space); `docker
 compose cp` copies it out to the VPS's own disk, and from there you can `scp` it
-to your own machine. If an image file is missing the copy fails and nothing is
-left behind. Delete the copy on the VPS when you have it elsewhere.
+to your own machine. The app keeps working during the copy (it only postpones
+removing unused images until the copy is done). If an image file is missing
+the copy fails and nothing is left behind; an interrupted copy leaves at most a
+`<dir>.partial-<number>` directory, which the next copy to `<dir>` removes.
+Delete the copy on the VPS when you have it elsewhere.
 
 Contents:
 
@@ -473,8 +476,11 @@ change to the app is needed afterwards; Caddy retries automatically.
 
 **Storage limit reached** ("Not saved: your storage limit has been reached",
 uploads refused): notes in Trash still count. Empty Trash, or delete large notes
-and images (unused images are removed within 24 hours of no longer being used,
-or when Trash is emptied). To raise the limit for everyone, set
+and images. Deleted notes free their space at once. An image is removed only
+once it is more than 24 hours old and no note (Trash included) uses it; that
+check runs when Trash is emptied or a note is deleted permanently, and once a
+day. So an image uploaded today keeps counting until tomorrow, even after
+Empty Trash. To raise the limit for everyone, set
 `NOTES_USER_QUOTA_MB` in `.env` and run `docker compose up -d`. Check usage with
 `docker compose exec app notes user list`.
 

@@ -4,7 +4,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, useRef } from 'react';
 import { Editor } from '@tiptap/core';
 import { noteExtensions } from '../../src/shared/schema';
-import { useImageUpload, waitForUploads } from '../../src/web/components/images';
+import { cancelUploads, hasPendingUploads, useImageUpload, waitForUploads } from '../../src/web/components/images';
+import { requests } from './harness';
 import { mockFetch, render, settle, waitFor } from './harness';
 
 const IMG = '22222222-2222-4222-8222-222222222222';
@@ -83,4 +84,46 @@ describe('image uploads', () => {
     await w;
     expect(JSON.stringify(t.editor.getJSON())).toContain(IMG);
   });
+
+  it('a queued upload does not start after sign-out (it would be sent with the next user’s session)', async () => {
+    const t = setup();
+    cleanup = (await render(<t.Probe />)).unmount;
+    await act(async () => {
+      t.api().handleFiles([png(), png()] as any);
+    });
+    await waitFor(() => requests.filter((r) => r.path === '/api/images').length === 1, 2000, 'first upload');
+    cancelUploads(); // sign-out
+    release();
+    await settle();
+    await settle();
+    expect(requests.filter((r) => r.path === '/api/images')).toHaveLength(1);
+  });
+
+  it('a queued upload does not start after the note is closed', async () => {
+    const t = setup();
+    const r = await render(<t.Probe />);
+    await act(async () => {
+      t.api().handleFiles([png(), png()] as any);
+    });
+    await waitFor(() => requests.filter((x) => x.path === '/api/images').length === 1, 2000, 'first upload');
+    await r.unmount();
+    release();
+    await settle();
+    await settle();
+    expect(requests.filter((x) => x.path === '/api/images')).toHaveLength(1);
+  });
+
+  it('reports pending uploads (for the leave-site warning) until they finish', async () => {
+    const t = setup();
+    cleanup = (await render(<t.Probe />)).unmount;
+    expect(hasPendingUploads()).toBe(false);
+    await act(async () => {
+      t.api().handleFiles([png()] as any);
+    });
+    expect(hasPendingUploads()).toBe(true);
+    release();
+    await waitForUploads(3000);
+    expect(hasPendingUploads()).toBe(false);
+  });
 });
+

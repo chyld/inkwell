@@ -35,6 +35,15 @@ function exclusive<T>(f: () => Promise<T>): Promise<T> {
   return run;
 }
 
+function fsyncPath(p: string) {
+  const fd = fs.openSync(p, 'r');
+  try {
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
 const notAnImage = () => badRequest('The file is not a PNG, JPEG, GIF or WebP image that can be read.', 'invalid_image');
 
 /** Decide the type by fully decoding the file. Throws AppError 400 if it is not acceptable. */
@@ -91,6 +100,8 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
       if (part.file.truncated) throw new AppError(413, 'too_large', 'An image can be at most 10 MB.');
       const { mime } = await inspectImage(tmp);
       const size = fs.statSync(tmp).size;
+      // The file is on disk before the row says it exists, and the rename is on disk before 201.
+      fsyncPath(tmp);
       const id = crypto.randomUUID();
       // One transaction checks the storage limit and inserts the row; then the file is renamed into place.
       store.insertImageRow(user.id, id, mime, size);
@@ -98,6 +109,7 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
         const dest = store.imagePath(user.id, id);
         fs.mkdirSync(path.dirname(dest), { recursive: true });
         fs.renameSync(tmp, dest);
+        fsyncPath(path.dirname(dest));
       } catch (e) {
         store.deleteImageRow(id);
         throw e;
@@ -114,7 +126,11 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
     // image is never shown to someone else using the same browser. Revalidation of
     // the owner's copy is cheap: image ids never change content.
     const etag = `"${img.id}"`;
-    reply.header('etag', etag).header('cache-control', 'private, no-cache').header('x-content-type-options', 'nosniff');
+    reply
+      .header('etag', etag)
+      .header('cache-control', 'private, no-cache')
+      .header('x-content-type-options', 'nosniff')
+      .header('content-security-policy', IMAGE_CSP);
     if (req.headers['if-none-match'] === etag) return reply.status(304).send();
     const file = store.imagePath(img.user_id, img.id);
     let stream: fs.ReadStream;

@@ -117,9 +117,9 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
   });
 
   api.delete('/trash', async (req) => {
-    const deleted = store.emptyTrash(req.user!.id);
+    const deletedIds = store.emptyTrash(req.user!.id);
     store.cleanupImages();
-    return { deleted };
+    return { deleted: deletedIds.length, deletedIds };
   });
 
   // ---- folders ----

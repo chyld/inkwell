@@ -159,3 +159,41 @@ describe('autosave callbacks', () => {
     expect(p.onMeta).not.toHaveBeenCalled();
   });
 });
+
+describe('draft offer, round 2', () => {
+  it('tags and Move to… are also locked while the offer is open', async () => {
+    localDrafts.set('u1', NOTE_ID, storedDraft);
+    const v = await open();
+    await waitFor(() => !!button(v.container, 'Restore'), 2000, 'restore banner');
+    expect(v.container.querySelector('input[aria-label="Add tag"]')).toBe(null);
+    expect((button(v.container, 'Move to…') as HTMLButtonElement).disabled).toBe(true);
+    await click(button(v.container, 'Discard'));
+    expect(v.container.querySelector('input[aria-label="Add tag"]')).not.toBe(null);
+    expect((button(v.container, 'Move to…') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it('Discard keeps a newer draft another tab wrote after the offer appeared, and offers that one', async () => {
+    localDrafts.set('u1', NOTE_ID, storedDraft);
+    const v = await open();
+    await waitFor(() => !!button(v.container, 'Restore'), 2000, 'restore banner');
+    const newer = { ...storedDraft, title: 'Other tab', body: doc('other tab text'), savedAt: Date.now(), owner: 'other-tab' };
+    localDrafts.set('u1', NOTE_ID, newer);
+    await click(button(v.container, 'Discard'));
+    expect(localDrafts.get('u1', NOTE_ID)?.title).toBe('Other tab');
+    expect(button(v.container, 'Restore')).toBeDefined(); // the offer stays, now for the newer draft
+    await click(button(v.container, 'Discard'));
+    expect(localDrafts.get('u1', NOTE_ID)).toBe(null);
+  });
+
+  it('a note with changes stored only on this device is not moved to Trash', async () => {
+    localDrafts.set('u1', NOTE_ID, storedDraft);
+    const v = await open();
+    await waitFor(() => !!button(v.container, 'Restore'), 2000, 'restore banner');
+    const t = button(v.container, 'Move to Trash');
+    if (t && !t.disabled) await click(t);
+    await settle();
+    expect(requests.some((r) => r.path.endsWith('/trash'))).toBe(false);
+    expect(localDrafts.get('u1', NOTE_ID)).not.toBe(null);
+  });
+});
+

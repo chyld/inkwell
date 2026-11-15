@@ -20,6 +20,20 @@ export const DEBOUNCE_MS = 1000;
 export const RETRY_DELAYS_MS = [2000, 5000, 15000];
 
 export class NoteSaver {
+  /** Every saver not yet disposed, including one still flushing after its note was closed. */
+  private static live = new Set<NoteSaver>();
+
+  /** Sign-out: stop every saver before the drafts are removed. */
+  static disposeAll() {
+    for (const s of [...NoteSaver.live]) s.dispose();
+  }
+
+  /** True if any live saver has changes the server has not confirmed. */
+  static anyUnconfirmed(): boolean {
+    for (const s of NoteSaver.live) if (s.hasUnconfirmed()) return true;
+    return false;
+  }
+
   private base: number;
   private latest: { title: string; body: unknown } | null = null;
   private latestSeq = 0;
@@ -45,6 +59,7 @@ export class NoteSaver {
     private deps: SaverDeps,
   ) {
     this.base = baseVersion;
+    NoteSaver.live.add(this);
     this.setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
     this.clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
   }
@@ -244,6 +259,7 @@ export class NoteSaver {
 
   dispose() {
     this.disposed = true;
+    NoteSaver.live.delete(this);
     if (this.debounce) this.clearTimer(this.debounce);
     if (this.retry) this.clearTimer(this.retry);
     this.debounce = this.retry = null;
