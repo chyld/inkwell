@@ -141,11 +141,18 @@ export function migrate(db: DB, dataDir: string, migrations: Migration[] = MIGRA
   }
   log(`database snapshot written to ${snapshot} before migrating from version ${current}`);
 
-  const target = pending[pending.length - 1].version;
   db.exec('BEGIN IMMEDIATE');
-  let applying = pending[0];
+  // Another process (the app or the CLI) may have migrated while we waited for the lock.
+  const now = db.pragma('user_version', { simple: true }) as number;
+  const todo = migrations.filter((m) => m.version > now).sort((a, b) => a.version - b.version);
+  if (todo.length === 0) {
+    db.exec('COMMIT');
+    return 0;
+  }
+  const target = todo[todo.length - 1].version;
+  let applying = todo[0];
   try {
-    for (const m of pending) {
+    for (const m of todo) {
       applying = m;
       m.up(db);
     }
@@ -155,9 +162,9 @@ export function migrate(db: DB, dataDir: string, migrations: Migration[] = MIGRA
     if (db.inTransaction) db.exec('ROLLBACK');
     throw new MigrationError(
       `migration ${applying.version} (${applying.name}) failed: ${(e as Error).message}. ` +
-        `The database was left at version ${current}; the snapshot is ${snapshot}.`,
+        `The database was left at version ${now}; the snapshot is ${snapshot}.`,
     );
   }
-  log(`database migrated from version ${current} to ${target}`);
-  return pending.length;
+  log(`database migrated from version ${now} to ${target}`);
+  return todo.length;
 }

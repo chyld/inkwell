@@ -8,6 +8,7 @@ import type { Config } from './config.js';
 import type { Store, UserRow } from './store.js';
 import { AppError } from './errors.js';
 import { registerApi } from './api.js';
+import { registerMcp } from './mcp.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -102,6 +103,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   });
 
   await app.register(async (api) => registerApi(api, opts), { prefix: '/api' });
+  await app.register(async (scope) => registerMcp(scope, opts));
 
   // Built front end (if present).
   const indexFile = path.join(config.webDir, 'index.html');
