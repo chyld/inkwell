@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.env
+*.db
+*.db-wal
+*.db-shm
+drafts
+reviews
+reviews2
+test
+coverage
+docker-compose.override.yml

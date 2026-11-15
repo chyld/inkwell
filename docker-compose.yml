@@ -1,0 +1,55 @@
+# Notes app: two services, one network with a fixed subnet, three named volumes.
+# Settings come from .env (see .env.example).
+name: notes
+
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      NOTES_HOST: ${NOTES_HOST:?Set NOTES_HOST in .env, for example NOTES_HOST=chyld-notes.duckdns.org}
+      NOTES_USER_QUOTA_MB: ${NOTES_USER_QUOTA_MB:-1024}
+      NOTES_AGENT_RATE_PER_HOUR: ${NOTES_AGENT_RATE_PER_HOUR:-60}
+      # Only Caddy, on this network, may set X-Forwarded-For.
+      NOTES_TRUSTED_PROXY: 172.30.87.0/24
+    volumes:
+      - notes-data:/data
+    networks:
+      - notes
+    # No published ports: the app is reachable only through Caddy.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  caddy:
+    image: caddy:2.11
+    restart: unless-stopped
+    environment:
+      NOTES_HOST: ${NOTES_HOST:?Set NOTES_HOST in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - notes
+    depends_on:
+      app:
+        condition: service_healthy
+
+networks:
+  notes:
+    ipam:
+      config:
+        - subnet: 172.30.87.0/24
+
+volumes:
+  notes-data:
+  caddy-data:
+  caddy-config:
