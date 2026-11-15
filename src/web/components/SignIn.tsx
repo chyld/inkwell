@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api, ApiError, type Me } from '../api';
+import { api, ApiError, setExpectedUser, type Me } from '../api';
 
 export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   const [username, setUsername] = useState('');
@@ -12,7 +12,8 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
     setBusy(true);
     setError(null);
     try {
-      await api('POST', '/session', { username, password }, { noAuthRedirect: true });
+      const s = await api<{ id: string }>('POST', '/session', { username, password }, { noAuthRedirect: true });
+      setExpectedUser(s.id); // this tab is now signed in as this user
       const me = await api<Me>('GET', '/me');
       onSignedIn(me);
     } catch (err) {

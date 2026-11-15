@@ -11,22 +11,57 @@ import { signOutFlow } from './signout';
 import { emptyTrashFlow } from './trash';
 import { cancelUploads, hasPendingUploads } from './components/images';
 import { NoteSaver } from './saver';
-import { newAuthEpoch, setExpectedUser } from './api';
+import { currentAuthEpoch, getExpectedUser, newAuthEpoch, setExpectedUser } from './api';
+
+// The user this tab signed in as. It is kept, also across reloads of the tab, until a sign-in or
+// a confirmed sign-out in this tab: a 401 never clears it, so after another tab signs in as
+// someone else this tab's requests keep saying who they are for and are refused.
+const TAB_USER = 'notes:tab-user';
+function rememberTabUser(id: string | null) {
+  setExpectedUser(id);
+  try {
+    if (id) sessionStorage.setItem(TAB_USER, id);
+    else sessionStorage.removeItem(TAB_USER);
+  } catch {
+    /* tolerated */
+  }
+}
+function storedTabUser(): string | null {
+  try {
+    return sessionStorage.getItem(TAB_USER);
+  } catch {
+    return null;
+  }
+}
 
 export function App() {
   const [me, setMeState] = useState<Me | null | undefined>(undefined);
-  // Set synchronously with the user, before any child component sends a request.
-  const setMe = useCallback((m: Me | null) => {
-    setExpectedUser(m ? m.id : null);
-    setMeState(m);
+  /** Accept user details only for the user this tab is signed in as. */
+  const updateMe = useCallback((m: Me) => {
+    if (m.id === getExpectedUser()) setMeState(m);
+  }, []);
+  const signedOut = useCallback(() => {
+    rememberTabUser(null);
+    setMeState(null);
   }, []);
 
   useEffect(() => {
-    setUnauthorizedHandler(() => setMe(null));
-    api<Me>('GET', '/me', undefined, { noAuthRedirect: true })
-      .then(setMe)
-      .catch(() => setMe(null));
-  }, []);
+    setUnauthorizedHandler(() => {
+      cancelUploads();
+      newAuthEpoch(); // continuations started before this (e.g. New note) stop
+      setMeState(null); // the sign-in page; the tab's user id is kept
+    });
+    (async () => {
+      try {
+        // A new tab asks whose session the cookie holds; a tab that already signed in keeps its user.
+        const id = getExpectedUser() ?? storedTabUser() ?? (await api<{ id: string }>('GET', '/session', undefined, { noAuthRedirect: true })).id;
+        rememberTabUser(id);
+        updateMe(await api<Me>('GET', '/me', undefined, { noAuthRedirect: true }));
+      } catch {
+        setMeState(null);
+      }
+    })();
+  }, [updateMe]);
 
   if (me === undefined) return <div className="boot">Loading…</div>;
   return (
@@ -37,11 +72,12 @@ export function App() {
             // Drafts that belong to any other user are removed at sign-in.
             localDrafts.removeAllExcept(m.id);
             newAuthEpoch(); // a late 401 from before this sign-in must not sign this user out
-            setMe(m);
+            rememberTabUser(m.id);
+            setMeState(m);
           }}
         />
       ) : (
-        <Main me={me} setMe={setMe} />
+        <Main me={me} updateMe={updateMe} onSignedOut={signedOut} />
       )}
     </DialogProvider>
   );
@@ -60,7 +96,7 @@ function viewQuery(v: View): string {
   }
 }
 
-function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
+function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void; onSignedOut: () => void }) {
   const dialogs = useDialogs();
   const [folders, setFolders] = useState<FolderNode[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
@@ -82,8 +118,8 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
     api<{ tags: TagCount[] }>('GET', '/tags').then((r) => setTags(r.tags), () => {});
   }, []);
   const refreshMe = useCallback(() => {
-    api<Me>('GET', '/me').then(setMe, () => {});
-  }, [setMe]);
+    api<Me>('GET', '/me').then(updateMe, () => {});
+  }, [updateMe]);
 
   useEffect(() => {
     refreshFolders();
@@ -165,7 +201,9 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
 
   async function newNote() {
     if (view.kind === 'trash') return;
+    const epoch = currentAuthEpoch();
     await settleCurrent();
+    if (epoch !== currentAuthEpoch()) return; // signed out (or refused) while waiting
     const folderId = view.kind === 'folder' ? view.id : view.kind === 'inbox' ? me.inboxId : null;
     try {
       const n = await api<NoteItem & { version: number }>('POST', '/notes', { folderId });
@@ -230,7 +268,7 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
     });
     if (done) {
       newAuthEpoch();
-      setMe(null);
+      onSignedOut();
     }
   }
 

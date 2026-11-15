@@ -5,9 +5,9 @@ import { vi } from 'vitest';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
-export type Handler = (method: string, path: string, body: any) => { status: number; json?: unknown } | Promise<{ status: number; json?: unknown }> | 'network-error';
+export type Handler = (method: string, path: string, body: any, headers: Record<string, string>) => { status: number; json?: unknown } | Promise<{ status: number; json?: unknown }> | 'network-error';
 
-export const requests: { method: string; path: string; body: any }[] = [];
+export const requests: { method: string; path: string; body: any; headers: Record<string, string> }[] = [];
 
 export function mockFetch(handler: Handler) {
   requests.length = 0;
@@ -15,8 +15,9 @@ export function mockFetch(handler: Handler) {
     const method = init.method ?? 'GET';
     const path = String(url);
     const body = typeof init.body === 'string' ? JSON.parse(init.body) : init.body;
-    requests.push({ method, path, body });
-    const r = await handler(method, path, body);
+    const headers = Object.fromEntries(new Headers(init.headers ?? {}).entries());
+    requests.push({ method, path, body, headers });
+    const r = await handler(method, path, body, headers);
     if (r === 'network-error') throw new TypeError('Failed to fetch');
     return new Response(r.json === undefined ? '' : JSON.stringify(r.json), { status: r.status, headers: { 'content-type': 'application/json' } });
   }) as any;
@@ -40,7 +41,7 @@ export async function render(el: ReactElement): Promise<{ root: Root; container:
 export async function waitFor(cond: () => boolean, ms = 4000, what = 'condition') {
   const end = Date.now() + ms;
   while (!cond()) {
-    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}; requests: ${requests.map((r) => r.method + ' ' + r.path + ' [' + (r.headers['x-notes-user'] ?? '-') + ']').join(', ')}`);
     await act(async () => {
       await new Promise((r) => setTimeout(r, 20));
     });

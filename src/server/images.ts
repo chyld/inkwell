@@ -121,7 +121,7 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
     }
   });
 
-  api.get('/images/:id', async (req, reply) => {
+  api.get('/images/:id', { config: { identity: true } }, async (req, reply) => {
     const img = store.getImage(req.user!.id, (req.params as { id: string }).id);
     // Cached copies must be revalidated with the session on every use, so a cached
     // image is never shown to someone else using the same browser. Revalidation of

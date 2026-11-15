@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 // Round 3: cancelling Empty Trash, or a failed Trash listing, leaves the open note alone.
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
 import { button, click, mockFetch, render, settle, waitFor } from './harness';
 
@@ -9,6 +10,10 @@ const item = { id: NOTE, title: 'Trashed one', snippet: 'x', folderId: null, tag
 const note = { ...item, body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }] }, version: 2 };
 
 let view: Awaited<ReturnType<typeof render>> | null = null;
+beforeEach(() => {
+  setExpectedUser(null); // a fresh tab
+  sessionStorage.clear();
+});
 afterEach(async () => {
   await view?.unmount();
   view = null;
@@ -18,6 +23,7 @@ afterEach(async () => {
 async function openTrashedNote(trashListing: () => { status: number; json?: unknown }) {
   let listed = 0;
   mockFetch((method, path) => {
+    if (method === 'GET' && path === '/api/session') return { status: 200, json: { id: 'u1', username: 'alice' } };
     if (path === '/api/me') return { status: 200, json: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1, inboxId: 'inbox' } };
     if (path === '/api/folders') return { status: 200, json: { folders: [] } };
     if (path === '/api/tags') return { status: 200, json: { tags: [] } };

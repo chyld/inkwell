@@ -367,6 +367,15 @@ describe('image review fixes, round 2', () => {
 });
 
 describe('image review fixes, round 3', () => {
+  it('an image can be shown by an <img> element (which cannot send X-Notes-User), still only to its owner', async () => {
+    const { src } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    expect((await alice.req('GET', src, undefined, { 'x-notes-user': '' })).statusCode).toBe(200);
+    expect((await bob.req('GET', src, undefined, { 'x-notes-user': '' })).statusCode).toBe(404);
+    // Only reading an image is exempt; uploading one still needs the header.
+    const m = (await import('./helpers.js')).multipart('a.png', 'image/png', await img().png().toBuffer());
+    expect((await alice.req('POST', '/api/images', m.payload, { ...m.headers, 'x-notes-user': '' })).statusCode).toBe(401);
+  });
+
   it('deleting a user during a data copy does not remove image files the copy needs; they go when it ends', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
     const aliceId = env.store.getUserByUsername('alice')!.id;

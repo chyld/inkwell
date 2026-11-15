@@ -52,6 +52,8 @@ export async function makeEnv(overrides: Record<string, string> = {}): Promise<E
 
 export class Client {
   cookie = '';
+  /** The user this client signed in as; sent as X-Notes-User like a browser tab does. */
+  userId = '';
   constructor(
     public env: Env,
     public ip = '172.30.87.2',
@@ -62,6 +64,8 @@ export class Client {
     if (this.cookie) h.cookie = this.cookie;
     if (!['GET', 'HEAD'].includes(method) && !('origin' in h)) h.origin = ORIGIN;
     if (h.origin === '') delete h.origin;
+    if (this.userId && !('x-notes-user' in h)) h['x-notes-user'] = this.userId;
+    if (h['x-notes-user'] === '') delete h['x-notes-user'];
     return this.env.app.inject({ method: method as any, url, payload: payload as any, headers: h, remoteAddress: this.ip });
   }
 
@@ -86,6 +90,7 @@ export class Client {
     if (r.statusCode === 200) {
       const c = r.cookies.find((c) => c.name === 'notes_session');
       this.cookie = `notes_session=${c!.value}`;
+      this.userId = r.json().id;
     }
     return r;
   }

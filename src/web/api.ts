@@ -16,11 +16,17 @@ let authEpoch = 0;
 export function newAuthEpoch() {
   authEpoch++;
 }
+export function currentAuthEpoch() {
+  return authEpoch;
+}
 /** The user this tab believes is signed in; sent with every request so the server can refuse
  *  a request whose shared cookie now belongs to someone who signed in in another tab. */
 let expectedUser: string | null = null;
 export function setExpectedUser(id: string | null) {
   expectedUser = id;
+}
+export function getExpectedUser() {
+  return expectedUser;
 }
 export function setUnauthorizedHandler(f: () => void) {
   unauthorizedHandler = f;

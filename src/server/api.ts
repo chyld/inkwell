@@ -33,10 +33,15 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
     if (!user) {
       return reply.status(401).send(errorBody('unauthorized', 'Please sign in.'));
     }
-    // A browser tab says which user it believes is signed in. If the shared cookie now belongs
-    // to someone else (another tab signed in as them), the tab must not act on their account.
+    // Every request says which user its tab is signed in as. If the shared cookie belongs to
+    // someone else (another tab signed in as them), or the request does not say, it is refused,
+    // so a tab can never act on an account it did not sign in to. Exceptions: GET /session, part
+    // of signing in (it tells a new tab whose session the cookie holds), and GET /images/:id,
+    // which an <img> element loads without custom headers (a read, owner-checked by the cookie's
+    // user; a stale tab only knows its own user's image ids, so it can only get 404).
     const expected = req.headers['x-notes-user'];
-    if (expected !== undefined && expected !== user.id) {
+    const identityOnly = (req.routeOptions.config as { identity?: boolean } | undefined)?.identity === true;
+    if (!identityOnly && expected !== user.id) {
       return reply.status(401).send(errorBody('wrong_user', 'You were signed in as someone else in another tab. Please sign in again.'));
     }
     req.user = user;
@@ -67,6 +72,9 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
     reply.setCookie(SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: SESSION_MAX_AGE_S });
     return { id: user.id, username: user.username };
   });
+
+  // Which user the session cookie belongs to (id and username only).
+  api.get('/session', { config: { identity: true } }, async (req) => ({ id: req.user!.id, username: req.user!.username }));
 
   api.delete('/session', async (req, reply) => {
     store.deleteSession(req.cookies[SESSION_COOKIE]);
