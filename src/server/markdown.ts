@@ -17,7 +17,10 @@ type Ctx = { schema: Schema; defs: Map<string, Definition>; cells: number };
  * before cells are built: GFM pads short rows, so a few bytes of Markdown could
  * otherwise ask for millions of cells.
  */
-const MAX_TABLE_CELLS = Math.floor(MAX_BODY_BYTES / 100);
+export const MAX_TABLE_CELLS = Math.floor(MAX_BODY_BYTES / 100);
+
+/** Table cells built so far (a test seam: shows the budget rejects before building). */
+export const conversionStats = { cellsBuilt: 0 };
 
 function addMark(marks: readonly Mark[], mark: Mark): readonly Mark[] {
   return mark.addToSet(marks);
@@ -134,6 +137,7 @@ function table(ctx: Ctx, t: Table): PMNode {
       const align = t.align?.[c] ?? null;
       const para = s.nodes.paragraph.create(null, cell ? inline(ctx, cell.children, []) : []);
       cells.push(cellType.create({ align }, para));
+      conversionStats.cellsBuilt++;
     }
     return s.nodes.tableRow.create(null, cells);
   });
