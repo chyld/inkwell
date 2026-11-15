@@ -1,7 +1,9 @@
 // Acceptance criterion 11 (and session basics from SPEC 5).
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import crypto from 'node:crypto';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client, makeEnv, userClient, PASSWORD, type Env } from './helpers.js';
 import { DAY, HOUR } from '../src/server/store.js';
+import { hashPassword } from '../src/server/passwords.js';
 
 let env: Env;
 beforeEach(async () => (env = await makeEnv()));
@@ -128,4 +130,47 @@ describe('sessions', () => {
       expect((await c.req(m, u, m === 'GET' ? undefined : {})).statusCode, `${m} ${u}`).toBe(401);
     }
   });
+
+  it('a sign-in that is verifying when the password changes does not get a session', async () => {
+    await env.store.createUser('alice', PASSWORD);
+    const newHash = await hashPassword('the new long password');
+    // Make verification slow so the change lands while it runs.
+    const real = crypto.argon2;
+    const spy = vi.spyOn(crypto, 'argon2').mockImplementation(((alg: any, params: any, cb: any) => {
+      setTimeout(() => real(alg, params, cb), 300);
+    }) as any);
+    try {
+      const pending = new Client(env).signIn('alice', PASSWORD);
+      await new Promise((r) => setTimeout(r, 100));
+      // Exactly what `notes user passwd` commits.
+      const user = env.store.getUserByUsername('alice')!;
+      env.store.tx(() => {
+        env.store.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
+        env.store.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+      });
+      const r = await pending;
+      expect(r.statusCode).toBe(401);
+      expect(env.store.db.prepare('SELECT count(*) c FROM sessions').get()).toEqual({ c: 0 });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('a sign-in that is verifying when the user is disabled does not get a session', async () => {
+    await env.store.createUser('alice', PASSWORD);
+    const real = crypto.argon2;
+    const spy = vi.spyOn(crypto, 'argon2').mockImplementation(((alg: any, params: any, cb: any) => {
+      setTimeout(() => real(alg, params, cb), 300);
+    }) as any);
+    try {
+      const pending = new Client(env).signIn('alice', PASSWORD);
+      await new Promise((r) => setTimeout(r, 100));
+      env.store.setDisabled('alice', true);
+      expect((await pending).statusCode).toBe(401);
+      expect(env.store.db.prepare('SELECT count(*) c FROM sessions').get()).toEqual({ c: 0 });
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
+

@@ -19,14 +19,23 @@
 		header_up X-Forwarded-For {remote_host}
 	}
 
-	# Access log on stdout. Credentials and query strings are removed; bodies are never logged.
+	# Access log on stdout: method, path (query string removed), status and
+	# duration only. Everything else Caddy would log, including all headers and
+	# the client address, is deleted. Bodies are never logged.
 	log {
 		output stdout
 		format filter {
-			request>headers>Authorization delete
-			request>headers>Cookie delete
-			request>headers>Proxy-Authorization delete
-			resp_headers>Set-Cookie delete
+			request>remote_ip delete
+			request>remote_port delete
+			request>client_ip delete
+			request>proto delete
+			request>host delete
+			request>headers delete
+			request>tls delete
+			bytes_read delete
+			user_id delete
+			size delete
+			resp_headers delete
 			request>uri regexp "\?.*$" ""
 			wrap json
 		}

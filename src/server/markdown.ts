@@ -5,11 +5,19 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import type { Root, RootContent, PhrasingContent, Definition, ListItem, Table } from 'mdast';
 import { Fragment, type Mark, type Node as PMNode, type Schema } from '@tiptap/pm/model';
-import { isAllowedHref, noteSchema } from '../shared/schema.js';
+import { isAllowedHref, MAX_BODY_BYTES, NoteValidationError, noteSchema } from '../shared/schema.js';
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 
-type Ctx = { schema: Schema; defs: Map<string, Definition> };
+type Ctx = { schema: Schema; defs: Map<string, Definition>; cells: number };
+
+/**
+ * Every table cell, even an empty one, takes well over 100 bytes of stored JSON,
+ * so a document with more cells than this cannot fit in a 1 MB body. Checked
+ * before cells are built: GFM pads short rows, so a few bytes of Markdown could
+ * otherwise ask for millions of cells.
+ */
+const MAX_TABLE_CELLS = Math.floor(MAX_BODY_BYTES / 100);
 
 function addMark(marks: readonly Mark[], mark: Mark): readonly Mark[] {
   return mark.addToSet(marks);
@@ -114,7 +122,10 @@ function listItemContent(ctx: Ctx, item: ListItem): PMNode[] {
 
 function table(ctx: Ctx, t: Table): PMNode {
   const s = ctx.schema;
-  const width = Math.max(1, ...t.children.map((r) => r.children.length));
+  let width = 1;
+  for (const r of t.children) width = Math.max(width, r.children.length);
+  ctx.cells += width * t.children.length;
+  if (ctx.cells > MAX_TABLE_CELLS) throw new NoteValidationError('note body is larger than 1 MB (the tables have too many cells)');
   const rows = t.children.map((row, i) => {
     const cellType = i === 0 ? s.nodes.tableHeader : s.nodes.tableCell;
     const cells: PMNode[] = [];
@@ -203,7 +214,7 @@ export function markdownToDoc(markdown: string): unknown {
   const tree = parser.parse(markdown) as Root;
   const defs = new Map<string, Definition>();
   collectDefinitions(tree, defs);
-  const blocks = blocksOf({ schema, defs }, tree.children);
+  const blocks = blocksOf({ schema, defs, cells: 0 }, tree.children);
   const doc = schema.nodes.doc.create(null, blocks.length ? blocks : [schema.nodes.paragraph.create()]);
   return doc.toJSON();
 }

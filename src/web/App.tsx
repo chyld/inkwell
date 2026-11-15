@@ -6,6 +6,8 @@ import { SignIn } from './components/SignIn';
 import { Sidebar, findFolder, sameView, type View } from './components/Sidebar';
 import { NoteList } from './components/NoteList';
 import { NoteEditorPane, activeSaver } from './components/NoteEditor';
+import { waitForUploads } from './components/images';
+import { signOutFlow } from './signout';
 
 export function App() {
   const [me, setMe] = useState<Me | null | undefined>(undefined);
@@ -87,13 +89,13 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
       setListError(null);
       try {
         if (searching) {
-          const narrow: Record<string, string> = {};
+          const narrow: Record<string, string | boolean> = {};
           if (view.kind === 'folder') narrow.folderId = view.id;
           if (view.kind === 'inbox') narrow.folderId = me.inboxId;
           if (view.kind === 'tag') narrow.tag = view.name;
+          if (view.kind === 'unfiled') narrow.unfiled = true;
           const r = await api<{ results: NoteItem[] }>('POST', '/search', { query, ...narrow });
-          let results = r.results;
-          if (view.kind === 'unfiled') results = results.filter((n) => n.folderId === null);
+          const results = r.results;
           if (seq !== listSeq.current) return;
           setItems(results);
           setCursor(null);
@@ -122,10 +124,13 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
 
   /** Wait up to 3 s for a pending save; tell the user if changes stay only on this device. */
   async function settleCurrent(): Promise<void> {
+    const start = Date.now();
+    // An image still uploading is inserted (and then saved) when it arrives.
+    const uploadsDone = await waitForUploads(3000);
     const s = activeSaver.current;
-    if (!s || !s.hasUnconfirmed()) return;
-    const ok = await s.flush(3000);
+    const ok = !s || !s.hasUnconfirmed() || (await s.flush(Math.max(500, 3000 - (Date.now() - start))));
     if (!ok) dialogs.notice('Some changes could not be saved yet. They are kept on this device and will be offered when you open the note again.');
+    else if (!uploadsDone) dialogs.notice('An image is still uploading; it will not be added to the note you are leaving.');
   }
 
   async function select(id: string) {
@@ -194,25 +199,24 @@ function Main({ me, setMe }: { me: Me; setMe: (m: Me | null) => void }) {
 
   async function signOut() {
     await settleCurrent();
-    const unsaved = localDrafts.list(me.id);
-    if (unsaved.length) {
-      const ok = await dialogs.confirm({
-        title: 'Sign out',
-        message: `${unsaved.length === 1 ? 'One note has' : `${unsaved.length} notes have`} changes that are only on this device. Signing out discards them.`,
-        confirmLabel: 'Discard and sign out',
-        danger: true,
-      });
-      if (!ok) return;
-    }
-    localDrafts.removeAllFor(me.id);
-    activeSaver.current?.dispose();
-    activeSaver.current = null;
-    try {
-      await api('DELETE', '/session', undefined, { noAuthRedirect: true });
-    } catch {
-      /* the cookie may already be gone */
-    }
-    setMe(null);
+    const done = await signOutFlow({
+      userId: me.id,
+      drafts: localDrafts,
+      confirmDiscard: (count) =>
+        dialogs.confirm({
+          title: 'Sign out',
+          message: `${count === 1 ? 'One note has' : `${count} notes have`} changes that are only on this device. Signing out discards them.`,
+          confirmLabel: 'Discard and sign out',
+          danger: true,
+        }),
+      deleteSession: () => api('DELETE', '/session', undefined, { noAuthRedirect: true }),
+      disposeSaver: () => {
+        activeSaver.current?.dispose();
+        activeSaver.current = null;
+      },
+      notice: dialogs.notice,
+    });
+    if (done) setMe(null);
   }
 
   function patchItem(id: string, patch: Partial<NoteItem>) {

@@ -68,4 +68,26 @@ describe('sign-in rate limits', () => {
     const r = await c.req('POST', '/api/session', { username: 'alice', password: PASSWORD }, { 'x-forwarded-for': '10.9.9.9, 198.51.100.9' });
     expect(r.statusCode).toBe(429);
   });
+
+  it('counts attempts that are still in flight: concurrent guesses cannot get past the limits', async () => {
+    const a = viaProxy('198.51.100.20');
+    const results = await Promise.all(Array.from({ length: 30 }, () => a('alice', 'wrong password!')));
+    const codes = results.map((r) => r.statusCode);
+    expect(codes.filter((c) => c === 401).length).toBeLessThanOrEqual(5);
+    expect(codes.filter((c) => c === 429).length).toBeGreaterThanOrEqual(25);
+    expect((await a('alice', PASSWORD)).statusCode).toBe(429);
+
+    const b = viaProxy('198.51.100.21');
+    const many = await Promise.all(Array.from({ length: 40 }, (_, i) => b(`nobody${i}`, 'wrong password!')));
+    expect(many.filter((r) => r.statusCode === 401).length).toBeLessThanOrEqual(20);
+    expect((await b('alice', PASSWORD)).statusCode).toBe(429);
+  });
+
+  it('a successful sign-in releases its reservation', async () => {
+    const a = viaProxy('198.51.100.30');
+    const ok = await Promise.all(Array.from({ length: 5 }, () => a('alice', PASSWORD)));
+    expect(ok.map((r) => r.statusCode)).toEqual([200, 200, 200, 200, 200]);
+    expect((await a('alice', PASSWORD)).statusCode).toBe(200);
+  });
 });
+

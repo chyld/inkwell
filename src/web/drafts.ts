@@ -5,6 +5,8 @@ export interface Draft {
   body: unknown;
   version: number;
   savedAt: number;
+  /** The editor (tab) that wrote it. */
+  owner?: string;
 }
 
 export interface DraftStore {

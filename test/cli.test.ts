@@ -154,6 +154,11 @@ describe('notes CLI against a running app', () => {
     expect((await mcpList(token)).status).toBe(401);
     expect((await cli(['agent', 'list'])).out).toMatch(/Claude Code.*revoked/);
     expect((await cli(['agent', 'revoke', 'alice', 'Claude Code'])).code).toBe(1);
+    // A revoked agent keeps its name (its history stays in agent list); the CLI says what to do.
+    const again = await cli(['agent', 'add', 'alice', 'Claude Code']);
+    expect(again.code).toBe(1);
+    expect(again.err).toMatch(/revoked/);
+    expect(again.err).toMatch(/another name/);
   });
 
   it('data copy writes a consistent database copy into a new directory', async () => {

@@ -26,10 +26,11 @@ docker compose exec app rm -rf /data/copy-2026-11-15
 ```
 
 `data copy` writes a consistent copy of the database (`notes.db`) and all image
-files into a new directory inside the data volume; `docker compose cp` copies it
-out to the VPS's own disk, and from there you can `scp` it to your own machine.
-Delete the copy on the VPS when you have it elsewhere (it counts against the
-VPS's disk, not against anyone's storage limit).
+files into a new directory inside the data volume (image files never change, so
+they are hard-linked there, which is instant and takes no extra space); `docker
+compose cp` copies it out to the VPS's own disk, and from there you can `scp` it
+to your own machine. If an image file is missing the copy fails and nothing is
+left behind. Delete the copy on the VPS when you have it elsewhere.
 
 Contents:
 
@@ -185,7 +186,8 @@ docker compose exec app notes agent add chyld "Claude Code"
 
 This prints the agent's token **once** (it starts with `nta_`) together with the
 ready-to-paste commands for each client in section 5. Only a hash of the token is
-stored; if you lose it, revoke the agent and add a new one. Notes the agent
+stored; if you lose it, revoke the agent and add a new one under another name
+(for example "Claude Code 2"): a revoked agent keeps its name in `agent list`. Notes the agent
 creates land in that user's Inbox, marked "by Claude Code".
 
 Revoke an agent (its token stops working immediately; its notes stay):

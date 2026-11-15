@@ -155,3 +155,60 @@ describe('NoteSaver', () => {
     expect(gone.timers).toHaveLength(0);
   });
 });
+
+describe('NoteSaver review fixes', () => {
+  function deferredPut() {
+    const calls: { payload: any; resolve: (v: any) => void; reject: (e: unknown) => void }[] = [];
+    const put = (_id: string, payload: any) =>
+      new Promise<any>((resolve, reject) => {
+        calls.push({ payload, resolve, reject });
+      });
+    return { put, calls };
+  }
+  const tick = () => new Promise((r) => setTimeout(r, 10));
+  const noTimers = { setTimer: () => ({}), clearTimer: () => {} };
+
+  it('a save that finishes after sign-out (drafts discarded, saver disposed) writes no draft and sends nothing more', async () => {
+    const drafts = memDrafts();
+    const { put, calls } = deferredPut();
+    const s = new NoteSaver('u', 'n1', 1, { put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
+    s.change('t', doc(p('first')), true);
+    s.change('t', doc(p('second')), true); // made while the first save is in flight
+    expect(calls).toHaveLength(1);
+    // Sign-out: dispose the saver, then remove the user's drafts.
+    s.dispose();
+    drafts.removeAllFor('u');
+    calls[0].resolve({ version: 2 });
+    await tick();
+    expect(drafts.map.size).toBe(0);
+    expect(calls).toHaveLength(1);
+  });
+
+  it('one tab’s confirmed save does not delete a draft another tab wrote for the same note', async () => {
+    const drafts = memDrafts();
+    const a = deferredPut();
+    const tabA = new NoteSaver('u', 'n1', 1, { put: a.put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
+    const tabB = new NoteSaver('u', 'n1', 1, { put: deferredPut().put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
+    tabA.change('A', doc(p('from A')), true);
+    tabB.change('B', doc(p('from B'))); // debounced: only the draft is written so far
+    expect(drafts.get('u', 'n1')!.title).toBe('B');
+    a.calls[0].resolve({ version: 2 });
+    await tick();
+    expect(drafts.get('u', 'n1')?.title).toBe('B');
+    expect(tabB.hasUnconfirmed()).toBe(true);
+  });
+
+  it('after a save is refused because the note is in Trash, the next edit tries again (e.g. once it is restored)', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    const s = makeSaver(n.id, 1);
+    await c.post(`/api/notes/${n.id}/trash`);
+    s.saver.change('t', doc(p('while trashed')), true);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(s.statuses.at(-1)).toBe('unsaved');
+    expect(s.timers).toHaveLength(0); // not retried automatically
+    await c.post(`/api/notes/${n.id}/restore`);
+    s.saver.change('t', doc(p('after restore')), true);
+    expect(await s.saver.flush(3000)).toBe(true);
+    expect((await c.get(`/api/notes/${n.id}`)).json().body).toEqual(doc(p('after restore')));
+  });
+});

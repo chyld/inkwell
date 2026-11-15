@@ -33,6 +33,8 @@ export class NoteSaver {
   private conflictVersion = 0;
   private disposed = false;
   private waiters = new Set<() => boolean>();
+  /** Identifies this editor's drafts, so another tab's draft for the same note is never deleted by this one. */
+  private readonly owner = Math.random().toString(36).slice(2) + Date.now().toString(36);
   private setTimer: (fn: () => void, ms: number) => unknown;
   private clearTimer: (h: unknown) => void;
 
@@ -84,7 +86,13 @@ export class NoteSaver {
 
   private writeDraft() {
     if (!this.latest || !this.hasUnconfirmed()) return;
-    this.deps.drafts.set(this.userId, this.noteId, { title: this.latest.title, body: this.latest.body, version: this.base, savedAt: Date.now() });
+    this.deps.drafts.set(this.userId, this.noteId, { title: this.latest.title, body: this.latest.body, version: this.base, savedAt: Date.now(), owner: this.owner });
+  }
+
+  /** Remove the stored draft only if this editor wrote it. */
+  private clearOwnDraft() {
+    const d = this.deps.drafts.get(this.userId, this.noteId);
+    if (d && d.owner === this.owner) this.deps.drafts.remove(this.userId, this.noteId);
   }
 
   private send() {
@@ -108,11 +116,13 @@ export class NoteSaver {
       .put(this.noteId, { title: snapshot.title, body: snapshot.body, version: this.base })
       .then(
         (res) => {
+          // After dispose (sign-out, "load theirs", note closed) nothing more is written or sent.
+          if (this.disposed) return;
           this.base = res.version;
           this.confirmedSeq = seq;
           this.retries = 0;
           if (this.latestSeq === seq) {
-            this.deps.drafts.remove(this.userId, this.noteId);
+            this.clearOwnDraft();
             this.deps.onStatus('saved');
           } else {
             this.writeDraft(); // remaining changes are now based on the new version
@@ -120,7 +130,9 @@ export class NoteSaver {
           }
           this.deps.onSaved?.({ version: res.version, updatedAt: res.updatedAt, title: snapshot.title, body: snapshot.body });
         },
-        (err) => this.handleError(err),
+        (err) => {
+          if (!this.disposed) this.handleError(err);
+        },
       )
       .finally(() => {
         this.inFlight = null;
@@ -162,7 +174,9 @@ export class NoteSaver {
         return;
       }
       if (err.status === 409) {
-        this.blocked = 'gone';
+        // For example the note is in Trash: not retried automatically, but the next edit
+        // tries again, which succeeds once the note has been restored.
+        this.blocked = 'fatal';
         this.deps.onStatus('unsaved', `Not saved: ${err.message}`);
         return;
       }
@@ -193,7 +207,7 @@ export class NoteSaver {
 
   /** "Load theirs": drop the local copy. The caller reloads the note. */
   discardLocal() {
-    this.deps.drafts.remove(this.userId, this.noteId);
+    this.clearOwnDraft();
     this.confirmedSeq = this.latestSeq;
     this.dispose();
   }

@@ -4,6 +4,20 @@ import { api, ApiError } from '../api';
 import type { DialogApi } from './Dialogs';
 
 const ACCEPT = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+
+/** Uploads still running, in any note. Switching notes or signing out waits for them (briefly). */
+const pendingUploads = new Set<Promise<unknown>>();
+
+/** Wait until running uploads have finished, or `ms` has passed. Resolves true if none is left. */
+export async function waitForUploads(ms: number): Promise<boolean> {
+  const end = Date.now() + ms;
+  while (pendingUploads.size > 0) {
+    const left = end - Date.now();
+    if (left <= 0) return false;
+    await Promise.race([Promise.allSettled([...pendingUploads]), new Promise((r) => setTimeout(r, left))]);
+  }
+  return true;
+}
 const MAX = 10 * 1024 * 1024;
 
 /** Upload button, paste and drop for images (SPEC 6.5). */
@@ -11,7 +25,7 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  async function uploadOne(file: File, pos?: number) {
+  async function uploadOne(file: File, dropPos?: number) {
     if (!ACCEPT.includes(file.type)) {
       dialogs.notice(`“${file.name}” is not a PNG, JPEG, GIF or WebP image.`);
       return;
@@ -22,24 +36,41 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
     }
     const form = new FormData();
     form.append('file', file, file.name);
+    // Keep the drop position pointing at the same place while the note changes during the upload.
+    const started = editorRef.current;
+    let pos = dropPos;
+    const track = ({ transaction }: { transaction: { mapping: { map(p: number): number } } }) => {
+      if (pos !== undefined) pos = transaction.mapping.map(pos);
+    };
+    if (started && pos !== undefined) started.on('transaction', track);
     try {
       const r = await api<{ id: string; src: string }>('POST', '/images', undefined, { form });
       const ed = editorRef.current;
-      if (!ed || ed.isDestroyed) return;
+      if (!ed || ed.isDestroyed || ed !== started) {
+        dialogs.notice(`“${file.name}” finished uploading after the note was closed, so it was not added to the note.`);
+        return;
+      }
       const node = { type: 'image', attrs: { src: r.src, alt: file.name.replace(/\.[a-z0-9]+$/i, '') } };
-      if (pos !== undefined) ed.chain().focus().insertContentAt(pos, node).run();
+      if (pos !== undefined) ed.chain().focus().insertContentAt(Math.min(pos, ed.state.doc.content.size), node).run();
       else ed.chain().focus().insertContent(node).run();
       onStorageChanged();
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? `Image not added: ${e.message}` : 'Image not added: the server could not be reached.');
+    } finally {
+      if (started && !started.isDestroyed) started.off('transaction', track);
     }
   }
 
   async function uploadAll(files: File[], pos?: number) {
     setBusy(true);
-    try {
+    const job = (async () => {
       for (const f of files) await uploadOne(f, pos);
+    })();
+    pendingUploads.add(job);
+    try {
+      await job;
     } finally {
+      pendingUploads.delete(job);
       setBusy(false);
     }
   }

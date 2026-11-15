@@ -113,42 +113,56 @@ export function openDatabase(file: string): DB {
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
   db.pragma('foreign_keys = ON');
-  db.pragma('synchronous = NORMAL');
+  // FULL: every commit is synced, so a save the client saw confirmed survives a power loss.
+  db.pragma('synchronous = FULL');
   return db;
 }
 
 export class MigrationError extends Error {}
 
 /**
- * Apply pending migrations (SPEC 12). Before changing anything, write a
- * snapshot with VACUUM INTO to a temporary file in `dataDir`, then rename it
- * to `pre-upgrade.db`. All pending migrations run in one transaction; on
- * failure the transaction is rolled back and a MigrationError is thrown.
+ * Apply pending migrations (SPEC 12). The write lock (BEGIN IMMEDIATE) is taken
+ * first and held throughout: the version is read under it, the snapshot is
+ * written under it (by VACUUM INTO on a second, read-only connection; WAL lets
+ * it read while we hold the lock) and renamed to `pre-upgrade.db`, and then all
+ * pending migrations run in that same transaction. So no other process (the
+ * app or the CLI) can commit between the check, the snapshot and the change.
+ * On failure the transaction is rolled back and a MigrationError is thrown.
  */
 export function migrate(db: DB, dataDir: string, migrations: Migration[] = MIGRATIONS, log: (msg: string) => void = () => {}): number {
-  const current = db.pragma('user_version', { simple: true }) as number;
-  const pending = migrations.filter((m) => m.version > current).sort((a, b) => a.version - b.version);
-  if (pending.length === 0) return 0;
+  const latest = Math.max(0, ...migrations.map((m) => m.version));
+  if ((db.pragma('user_version', { simple: true }) as number) >= latest) return 0;
 
-  const tmp = path.join(dataDir, `.pre-upgrade-${process.pid}-${Date.now()}.db.tmp`);
   const snapshot = path.join(dataDir, 'pre-upgrade.db');
-  try {
-    db.prepare('VACUUM INTO ?').run(tmp);
-    fs.renameSync(tmp, snapshot);
-  } catch (e) {
-    fs.rmSync(tmp, { force: true });
-    throw new MigrationError(`could not write the pre-upgrade snapshot: ${(e as Error).message}`);
-  }
-  log(`database snapshot written to ${snapshot} before migrating from version ${current}`);
-
   db.exec('BEGIN IMMEDIATE');
-  // Another process (the app or the CLI) may have migrated while we waited for the lock.
-  const now = db.pragma('user_version', { simple: true }) as number;
-  const todo = migrations.filter((m) => m.version > now).sort((a, b) => a.version - b.version);
-  if (todo.length === 0) {
-    db.exec('COMMIT');
-    return 0;
+  let now = 0;
+  let todo: Migration[] = [];
+  try {
+    now = db.pragma('user_version', { simple: true }) as number;
+    todo = migrations.filter((m) => m.version > now).sort((a, b) => a.version - b.version);
+    if (todo.length === 0) {
+      db.exec('COMMIT'); // another process migrated while we waited for the lock
+      return 0;
+    }
+    const tmp = path.join(dataDir, `.pre-upgrade-${process.pid}-${Date.now()}.db.tmp`);
+    try {
+      const reader = new Database(db.name, { readonly: true });
+      try {
+        reader.prepare('VACUUM INTO ?').run(tmp);
+      } finally {
+        reader.close();
+      }
+      fs.renameSync(tmp, snapshot);
+    } catch (e) {
+      fs.rmSync(tmp, { force: true });
+      throw new MigrationError(`could not write the pre-upgrade snapshot: ${(e as Error).message}`);
+    }
+  } catch (e) {
+    if (db.inTransaction) db.exec('ROLLBACK');
+    throw e;
   }
+  log(`database snapshot written to ${snapshot} before migrating from version ${now}`);
+
   const target = todo[todo.length - 1].version;
   let applying = todo[0];
   try {

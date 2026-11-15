@@ -36,7 +36,7 @@ describe('versions and conflicts', () => {
     expect(keep.json().version).toBe(3);
     const now = (await c.get(`/api/notes/${n.id}`)).json();
     expect(now.title).toBe('mine');
-    expect(now.body).toEqual((await c.get(`/api/notes/${n.id}`)).json().body);
+    expect(now.body).toEqual(doc(p('mine')));
     expect(now.version).toBe(3);
   });
 
@@ -80,6 +80,12 @@ describe('versions and conflicts', () => {
       { type: 'doc', content: [{ type: 'table', content: [{ type: 'tableRow', content: [{ type: 'tableCell', attrs: { colspan: 2 }, content: [p('x')] }] }] }] },
       { type: 'paragraph' },
       'not an object',
+      // Names inherited from Object.prototype are not attributes either.
+      { type: 'doc', content: [{ type: 'paragraph', attrs: { valueOf: 1 } }] },
+      { type: 'doc', content: [{ type: 'paragraph', attrs: { hasOwnProperty: 1 } }] },
+      { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'bold', attrs: { constructor: 1 } }] }] }] },
+      { type: 'doc', content: [{ type: 'toString' }] },
+      { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: '__proto__' }] }] }] },
     ];
     for (const body of bad) {
       const r = await c.put(`/api/notes/${n.id}`, { title: 'x', body, version: 1 });

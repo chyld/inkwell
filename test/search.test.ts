@@ -107,4 +107,13 @@ describe('search', () => {
     expect(await search(alice, 'gamma')).toHaveLength(0);
     for (const w of ['delta', 'epsilon', 'zeta']) expect(await search(alice, w)).toHaveLength(1);
   });
+
+  it('can be narrowed to unfiled notes on the server, before the 50-result limit', async () => {
+    const f = (await alice.post('/api/folders', { name: 'Filed' })).json().id;
+    for (let i = 0; i < 55; i++) await note(alice, `heron heron ${i}`, 'heron heron heron', [], f);
+    const loose = await note(alice, 'other', 'a heron');
+    expect((await search(alice, 'heron')).map((r) => r.id)).not.toContain(loose);
+    expect((await search(alice, 'heron', { unfiled: true })).map((r) => r.id)).toEqual([loose]);
+  });
 });
+

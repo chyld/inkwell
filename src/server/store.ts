@@ -306,6 +306,18 @@ export class Store {
     return user;
   }
 
+  /**
+   * Create a session for a user whose password was just verified against `user.password_hash`,
+   * unless the password changed or the user was disabled meanwhile. Returns null in that case.
+   */
+  createSessionIfUnchanged(user: UserRow): string | null {
+    return this.tx(() => {
+      const now = this.getUser(user.id);
+      if (!now || now.disabled || now.password_hash !== user.password_hash) return null;
+      return this.createSession(user.id);
+    });
+  }
+
   deleteSession(token: string | undefined): void {
     if (token) this.db.prepare('DELETE FROM sessions WHERE id_hash = ?').run(sha256(token));
   }
@@ -325,8 +337,17 @@ export class Store {
     }
     const token = 'nta_' + crypto.randomBytes(32).toString('base64url');
     this.tx(() => {
-      if (this.db.prepare('SELECT 1 FROM agents WHERE user_id = ? AND name = ?').get(user.id, name)) {
-        throw new AppError(409, 'agent_exists', `User "${user.username}" already has an agent named "${name}".`);
+      const existing = this.db.prepare('SELECT revoked_at FROM agents WHERE user_id = ? AND name = ?').get(user.id, name) as
+        | { revoked_at: number | null }
+        | undefined;
+      if (existing) {
+        throw new AppError(
+          409,
+          'agent_exists',
+          existing.revoked_at !== null
+            ? `User "${user.username}" had an agent named "${name}"; it is revoked and keeps its name in "agent list". Choose another name, for example "${name} 2".`
+            : `User "${user.username}" already has an agent named "${name}". Choose another name.`,
+        );
       }
       this.db
         .prepare('INSERT INTO agents (id, user_id, name, token_hash, created_at) VALUES (?, ?, ?, ?, ?)')
@@ -769,7 +790,7 @@ export class Store {
       .all(userId) as { name: string; count: number }[];
   }
 
-  search(userId: string, input: { query?: unknown; folderId?: unknown; tag?: unknown }) {
+  search(userId: string, input: { query?: unknown; folderId?: unknown; tag?: unknown; unfiled?: unknown }) {
     const match = buildFtsQuery(input.query);
     if (match === null) return { results: [] };
     const where = ['notes_fts MATCH ?', 'n.user_id = ?', 'n.trashed_at IS NULL'];
@@ -781,6 +802,7 @@ export class Store {
       args.unshift(f.id);
       where.push('n.folder_id IN (SELECT id FROM sub)');
     }
+    if (input.unfiled === true) where.push('n.folder_id IS NULL');
     if (input.tag !== undefined && input.tag !== null) {
       const t = normalizeTag(input.tag);
       if (t === null) throw badRequest('Invalid tag.');
@@ -876,8 +898,13 @@ export class Store {
         return this.db.prepare('DELETE FROM images WHERE id = ?').run(v.id).changes > 0;
       });
       if (removed) {
-        fs.rmSync(this.imagePath(v.user_id, v.id), { force: true });
         n++;
+        try {
+          fs.rmSync(this.imagePath(v.user_id, v.id), { force: true });
+        } catch {
+          // The row is gone; a file that cannot be removed now is removed by the
+          // start-up reconciliation (files without a row).
+        }
       }
     }
     return n;
@@ -920,25 +947,59 @@ export class Store {
 
   // ---- data copy -------------------------------------------------------
 
-  /** Consistent copy of the database and the image files into a new directory (SPEC 9). */
-  dataCopy(dir: string): { db: string; images: number } {
+  /**
+   * Consistent copy of the database and the image files into a new directory (SPEC 9).
+   * The write lock is held while the database is copied and the image files are
+   * linked (or, across file systems, copied), so no image can be cleaned up in
+   * between. Image files never change once written, so a hard link is a faithful
+   * copy. A missing image file makes the whole copy fail, and nothing is left behind.
+   */
+  dataCopy(dir: string, hooks: { afterSnapshot?: () => void } = {}): { db: string; images: number } {
     const target = path.resolve(dir);
     if (fs.existsSync(target)) throw new AppError(409, 'exists', `${target} already exists. Choose a new directory.`);
     fs.mkdirSync(target, { recursive: true });
     const dbFile = path.join(target, 'notes.db');
-    this.db.prepare('VACUUM INTO ?').run(dbFile);
-    // Take the image list from the copy itself, so files and rows match.
-    const copy = new Database(dbFile, { readonly: true });
-    const rows = copy.prepare('SELECT id, user_id FROM images').all() as { id: string; user_id: string }[];
-    copy.close();
     let images = 0;
-    for (const r of rows) {
-      const src = this.imagePath(r.user_id, r.id);
-      if (!fs.existsSync(src)) continue;
-      const dest = path.join(target, 'images', r.user_id, r.id);
-      fs.mkdirSync(path.dirname(dest), { recursive: true });
-      fs.copyFileSync(src, dest);
-      images++;
+    try {
+      this.db.exec('BEGIN IMMEDIATE');
+      try {
+        // A second connection reads the database while this one holds the write lock.
+        const reader = new Database(this.db.name, { readonly: true });
+        try {
+          reader.prepare('VACUUM INTO ?').run(dbFile);
+        } finally {
+          reader.close();
+        }
+        hooks.afterSnapshot?.();
+        const copy = new Database(dbFile, { readonly: true });
+        const rows = copy.prepare('SELECT id, user_id FROM images').all() as { id: string; user_id: string }[];
+        copy.close();
+        const missing = rows.filter((r) => !fs.existsSync(this.imagePath(r.user_id, r.id)));
+        if (missing.length) {
+          throw new AppError(
+            500,
+            'image_missing',
+            `${missing.length} image file(s) are missing from the data volume (for example ${missing[0].id}); no copy was made. ` +
+              'Restart the app once (it removes rows without files on start) and run the copy again.',
+          );
+        }
+        for (const r of rows) {
+          const src = this.imagePath(r.user_id, r.id);
+          const dest = path.join(target, 'images', r.user_id, r.id);
+          fs.mkdirSync(path.dirname(dest), { recursive: true });
+          try {
+            fs.linkSync(src, dest);
+          } catch {
+            fs.copyFileSync(src, dest);
+          }
+          images++;
+        }
+      } finally {
+        if (this.db.inTransaction) this.db.exec('ROLLBACK');
+      }
+    } catch (e) {
+      fs.rmSync(target, { recursive: true, force: true });
+      throw e;
     }
     return { db: dbFile, images };
   }

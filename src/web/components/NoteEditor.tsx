@@ -101,6 +101,9 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   const [folderId, setFolderId] = useState(note.folderId);
   const [tags, setTags] = useState(note.tags);
   const saverRef = useRef<NoteSaver | null>(null);
+  // The saver outlives renders; it must call the current callbacks, not the first render's.
+  const propsRef = useRef(props);
+  propsRef.current = props;
 
   const makeSaver = useCallback(
     (version: number) => {
@@ -114,8 +117,8 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         },
         onConflict: () => setConflict(true),
         onSaved: (info) => {
-          props.onMeta(note.id, { title: info.title, updatedAt: info.updatedAt ?? new Date().toISOString(), snippet: editorRef.current?.getText().slice(0, 200) ?? '' });
-          props.onStorageChanged();
+          propsRef.current.onMeta(note.id, { title: info.title, updatedAt: info.updatedAt ?? new Date().toISOString(), snippet: editorRef.current?.getText().slice(0, 200) ?? '' });
+          propsRef.current.onStorageChanged();
         },
       });
       saverRef.current = s;
@@ -147,7 +150,11 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   }, []);
 
   const editorRef = useRef<Editor | null>(null);
-  const upload = useImageUpload(editorRef, dialogs, props.onStorageChanged);
+  const upload = useImageUpload(editorRef, dialogs, () => propsRef.current.onStorageChanged());
+  // Until the user answers the draft offer, nothing can be edited: an edit would overwrite the stored draft.
+  const locked = trashed || draft !== null;
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
 
   const editor = useEditor({
     extensions: noteExtensions,
@@ -166,10 +173,15 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
       },
     },
     onUpdate: ({ editor }) => {
+      if (lockedRef.current) return;
       saverRef.current?.change(titleRef.current, editor.getJSON());
     },
   });
   editorRef.current = editor;
+
+  useEffect(() => {
+    if (editor && !editor.isDestroyed && editor.isEditable === locked) editor.setEditable(!locked, false);
+  }, [editor, locked]);
 
   useEffect(() => {
     if (props.autoFocusTitle) document.getElementById('note-title')?.focus();
@@ -177,6 +189,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   }, []);
 
   function onTitle(v: string) {
+    if (locked) return;
     setTitle(v);
     titleRef.current = v;
     if (editor) saverRef.current?.change(v, editor.getJSON());
@@ -184,12 +197,18 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 
   function restoreDraft() {
     if (!draft || !editor) return;
-    const s = makeSaver(draft.version);
-    editor.commands.setContent(draft.body as any, { emitUpdate: false });
-    setTitle(draft.title);
-    titleRef.current = draft.title;
+    // Use the draft as stored now: another tab may have changed or removed it since the offer appeared.
+    const current = localDrafts.get(me.id, note.id);
     setDraft(null);
-    s.change(draft.title, editor.getJSON(), true);
+    if (!current) {
+      dialogs.notice('That draft is no longer on this device; the saved note is shown.');
+      return;
+    }
+    const s = makeSaver(current.version);
+    editor.commands.setContent(current.body as any, { emitUpdate: false });
+    setTitle(current.title);
+    titleRef.current = current.title;
+    s.change(current.title, editor.getJSON(), true);
   }
 
   function discardDraft() {
@@ -237,21 +256,31 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   }
 
   async function trash() {
-    await saverRef.current?.flush(3000);
+    const saved = (await saverRef.current?.flush(3000)) ?? true;
+    if (!saved) {
+      dialogs.notice('The note was not moved to Trash: its latest changes are not saved yet. Try again once they are saved.');
+      return;
+    }
     if (await act(() => api('POST', `/notes/${note.id}/trash`))) props.onTrashed(note.id);
   }
   async function restore() {
     if (await act(() => api('POST', `/notes/${note.id}/restore`))) props.onRestored(note.id);
   }
   async function deleteForever() {
+    const local = localDrafts.get(me.id, note.id) !== null;
     const ok = await dialogs.confirm({
       title: 'Delete permanently',
-      message: `Delete “${note.title || 'Untitled'}” permanently? This cannot be undone.`,
+      message:
+        `Delete “${note.title || 'Untitled'}” permanently? This cannot be undone.` +
+        (local ? ' This device also has changes to this note that exist only on this device; they are discarded too.' : ''),
       confirmLabel: 'Delete permanently',
       danger: true,
     });
     if (!ok) return;
-    if (await act(() => api('DELETE', `/notes/${note.id}`))) props.onDeleted(note.id);
+    if (await act(() => api('DELETE', `/notes/${note.id}`))) {
+      localDrafts.remove(me.id, note.id);
+      props.onDeleted(note.id);
+    }
   }
 
   const location = folderId ? folderPath(props.folders, folderId) || findFolder(props.folders, folderId)?.name || 'Folder' : 'Unfiled';
@@ -321,7 +350,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           </span>
         </div>
       )}
-      {!trashed && editor && <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} />}
+      {!locked && editor && <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} />}
       <div className="editor-scroll">
         <input
           id="note-title"
@@ -329,7 +358,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           placeholder="Untitled"
           value={title}
           maxLength={200}
-          readOnly={trashed}
+          readOnly={locked}
           onChange={(e) => onTitle(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {

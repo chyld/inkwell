@@ -18,10 +18,31 @@ const MIME: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', gif
 
 sharp.cache(false);
 
+/** One decode at a time: a full decode of a large image is the most memory-hungry thing the app does. */
+export const decodeStats = { active: 0, maxActive: 0 };
+let decodeChain: Promise<unknown> = Promise.resolve();
+function exclusive<T>(f: () => Promise<T>): Promise<T> {
+  const run = decodeChain.then(async () => {
+    decodeStats.active++;
+    decodeStats.maxActive = Math.max(decodeStats.maxActive, decodeStats.active);
+    try {
+      return await f();
+    } finally {
+      decodeStats.active--;
+    }
+  });
+  decodeChain = run.catch(() => {});
+  return run;
+}
+
 const notAnImage = () => badRequest('The file is not a PNG, JPEG, GIF or WebP image that can be read.', 'invalid_image');
 
 /** Decide the type by fully decoding the file. Throws AppError 400 if it is not acceptable. */
-export async function inspectImage(file: string): Promise<{ mime: string; width: number; height: number }> {
+export function inspectImage(file: string): Promise<{ mime: string; width: number; height: number }> {
+  return exclusive(() => inspectImageNow(file));
+}
+
+async function inspectImageNow(file: string): Promise<{ mime: string; width: number; height: number }> {
   let meta: Metadata;
   try {
     meta = await sharp(file, { animated: true, failOn: 'error' }).metadata();
@@ -89,6 +110,12 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
 
   api.get('/images/:id', async (req, reply) => {
     const img = store.getImage(req.user!.id, (req.params as { id: string }).id);
+    // Cached copies must be revalidated with the session on every use, so a cached
+    // image is never shown to someone else using the same browser. Revalidation of
+    // the owner's copy is cheap: image ids never change content.
+    const etag = `"${img.id}"`;
+    reply.header('etag', etag).header('cache-control', 'private, no-cache').header('x-content-type-options', 'nosniff');
+    if (req.headers['if-none-match'] === etag) return reply.status(304).send();
     const file = store.imagePath(img.user_id, img.id);
     let stream: fs.ReadStream;
     try {
@@ -102,7 +129,6 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
       .header('content-length', String(img.size))
       .header('x-content-type-options', 'nosniff')
       .header('content-security-policy', IMAGE_CSP)
-      .header('cache-control', 'private, max-age=31536000, immutable')
       .header('content-disposition', 'inline');
     return reply.send(stream);
   });

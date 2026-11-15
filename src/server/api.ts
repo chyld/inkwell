@@ -41,16 +41,23 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
     const username = normalizeUsername(typeof b.username === 'string' ? b.username : '').slice(0, 64);
     const password = typeof b.password === 'string' ? b.password : '';
     const ip = req.ip;
-    if (limiter.isBlocked(username, ip)) {
+    const attempt = limiter.begin(username, ip);
+    if (!attempt) {
       return reply.status(429).send(errorBody('rate_limited', 'Too many failed sign-in attempts. Please wait 15 minutes and try again.'));
     }
-    const user = await store.checkCredentials(username, password);
-    if (!user) {
-      limiter.recordFailure(username, ip);
+    let token: string | null = null;
+    let user;
+    try {
+      user = await store.checkCredentials(username, password);
+      // A fresh session; any session id already in the request is ignored. It is created only if
+      // the password and enabled state are still the ones just verified.
+      if (user) token = store.createSessionIfUnchanged(user);
+    } finally {
+      attempt.finish(token === null);
+    }
+    if (!user || token === null) {
       return reply.status(401).send(errorBody('invalid_credentials', 'Incorrect username or password.'));
     }
-    // A fresh session; any session id already in the request is ignored.
-    const token = store.createSession(user.id);
     reply.setCookie(SESSION_COOKIE, token, { httpOnly: true, secure: true, sameSite: 'lax', path: '/', maxAge: SESSION_MAX_AGE_S });
     return { id: user.id, username: user.username };
   });
@@ -145,6 +152,6 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
 
   api.post('/search', async (req) => {
     const b = body(req);
-    return store.search(req.user!.id, { query: b.query, folderId: b.folderId ?? null, tag: b.tag ?? null });
+    return store.search(req.user!.id, { query: b.query, folderId: b.folderId ?? null, tag: b.tag ?? null, unfiled: b.unfiled === true });
   });
 }

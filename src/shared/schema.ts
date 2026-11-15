@@ -163,7 +163,7 @@ function checkAttrs(where: string, attrs: unknown, allowed: Record<string, AttrC
   if (attrs === undefined || attrs === null) return;
   if (typeof attrs !== 'object' || Array.isArray(attrs)) fail(`${where}: attrs must be an object`);
   for (const [k, v] of Object.entries(attrs as Record<string, unknown>)) {
-    const check = allowed[k];
+    const check = Object.hasOwn(allowed, k) ? allowed[k] : undefined;
     if (!check) fail(`${where}: attribute "${k}" is not allowed`);
     if (!check(v)) fail(`${where}: attribute "${k}" has a value that is not allowed`);
   }
@@ -178,7 +178,7 @@ function walk(node: unknown, depth: number, imageIds: Set<string>) {
   for (const k of Object.keys(n)) {
     if (!['type', 'attrs', 'content', 'marks', 'text'].includes(k)) fail(`unexpected key "${k}"`);
   }
-  if (typeof n.type !== 'string' || !(n.type in NODE_ATTRS)) fail(`node type "${String(n.type)}" is not allowed`);
+  if (typeof n.type !== 'string' || !Object.hasOwn(NODE_ATTRS, n.type)) fail(`node type "${String(n.type)}" is not allowed`);
   const type = n.type;
   checkAttrs(type, n.attrs, NODE_ATTRS[type]);
   if (type === 'image') imageIds.add(imageIdFromSrc((n.attrs as Record<string, unknown>).src)!);
@@ -192,7 +192,7 @@ function walk(node: unknown, depth: number, imageIds: Set<string>) {
       if (typeof m !== 'object' || m === null) fail('mark must be an object');
       const mm = m as Record<string, unknown>;
       for (const k of Object.keys(mm)) if (k !== 'type' && k !== 'attrs') fail(`unexpected mark key "${k}"`);
-      if (typeof mm.type !== 'string' || !(mm.type in MARK_ATTRS)) fail(`mark type "${String(mm.type)}" is not allowed`);
+      if (typeof mm.type !== 'string' || !Object.hasOwn(MARK_ATTRS, mm.type)) fail(`mark type "${String(mm.type)}" is not allowed`);
       checkAttrs(mm.type, mm.attrs, MARK_ATTRS[mm.type]);
       if (mm.type === 'link' && mm.attrs === undefined) fail('link: href is required');
     }

@@ -205,3 +205,75 @@ describe('image clean-up', () => {
     expect(env.store.db.prepare('SELECT count(*) c FROM images').get()).toEqual({ c: 0 });
   });
 });
+
+describe('image review fixes', () => {
+  it('a cached image must be revalidated (with the session) before reuse, so another user of the browser cannot see it', async () => {
+    const { src } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    const first = await alice.get(src);
+    const cc = String(first.headers['cache-control']);
+    expect(cc).toMatch(/\bprivate\b/);
+    expect(cc).toMatch(/\bno-cache\b/);
+    expect(cc).not.toMatch(/immutable|max-age=[1-9]/);
+    const etag = String(first.headers.etag);
+    expect(etag).toMatch(/^".+"$/);
+    // The owner revalidates cheaply; anyone else still gets 404, never 304.
+    expect((await alice.req('GET', src, undefined, { 'if-none-match': etag })).statusCode).toBe(304);
+    expect((await bob.req('GET', src, undefined, { 'if-none-match': etag })).statusCode).toBe(404);
+    expect((await env.app.inject({ method: 'GET', url: src, headers: { 'if-none-match': etag } })).statusCode).toBe(401);
+  });
+
+  it('data copy fails, and leaves no partial directory, if an image file is missing', async () => {
+    const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    fs.rmSync(env.store.imagePath(env.store.getUserByUsername('alice')!.id, id));
+    const dest = path.join(env.dir, 'copy-missing');
+    expect(() => env.store.dataCopy(dest)).toThrow(/missing/i);
+    expect(fs.existsSync(dest)).toBe(false);
+  });
+
+  it('data copy holds the write lock while it copies, so image clean-up cannot run in the middle', async () => {
+    const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    const other = new (await import('better-sqlite3')).default(path.join(env.dir, 'notes.db'));
+    other.pragma('busy_timeout = 0');
+    let blocked = false;
+    const dest = path.join(env.dir, 'copy-locked');
+    env.store.dataCopy(dest, {
+      afterSnapshot: () => {
+        try {
+          other.prepare('DELETE FROM images WHERE id = ?').run(id);
+        } catch (e) {
+          blocked = (e as { code?: string }).code === 'SQLITE_BUSY';
+        }
+      },
+    });
+    other.close();
+    expect(blocked).toBe(true);
+    expect(fs.existsSync(path.join(dest, 'images', env.store.getUserByUsername('alice')!.id, id))).toBe(true);
+  });
+
+  it('decodes one image at a time, however many uploads arrive together', async () => {
+    const { decodeStats } = await import('../src/server/images.js');
+    decodeStats.maxActive = 0;
+    const data = await img(800, 800).png().toBuffer();
+    const rs = await Promise.all(Array.from({ length: 6 }, (_, i) => upload(alice, `p${i}.png`, 'image/png', data)));
+    expect(rs.map((r) => r.statusCode)).toEqual([201, 201, 201, 201, 201, 201]);
+    expect(decodeStats.maxActive).toBe(1);
+  });
+
+  it('a file that cannot be unlinked does not turn a committed delete into an error', async () => {
+    const { src } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
+    const n = await put(alice, 'n', imageNode(src));
+    env.clock.t += 2 * DAY;
+    await alice.post(`/api/notes/${n.id}/trash`);
+    const dir = path.join(env.store.imagesDir, env.store.getUserByUsername('alice')!.id);
+    fs.chmodSync(dir, 0o555);
+    try {
+      const r = await alice.del(`/api/notes/${n.id}`);
+      expect(r.statusCode).toBe(200);
+      expect((await alice.get(src)).statusCode).toBe(404);
+    } finally {
+      fs.chmodSync(dir, 0o755);
+    }
+    // The stranded file is removed by the start-up reconciliation.
+    expect(env.store.reconcileImageFiles().orphanFiles).toBe(1);
+  });
+});
