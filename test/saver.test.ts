@@ -1,0 +1,157 @@
+// Acceptance criterion 7, client side: the browser's autosave logic against the real API.
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { makeEnv, userClient, doc, p, type Client, type Env } from './helpers.js';
+import { NoteSaver, type SaveStatus } from '../src/web/saver.js';
+import { ApiError, NetworkError } from '../src/web/api.js';
+import type { Draft, DraftStore } from '../src/web/drafts.js';
+
+let env: Env;
+let c: Client;
+beforeEach(async () => {
+  env = await makeEnv();
+  c = await userClient(env, 'alice');
+});
+afterEach(async () => env.close());
+
+function memDrafts(): DraftStore & { map: Map<string, Draft> } {
+  const map = new Map<string, Draft>();
+  return {
+    map,
+    get: (u, n) => map.get(`${u}:${n}`) ?? null,
+    set: (u, n, d) => void map.set(`${u}:${n}`, d),
+    remove: (u, n) => void map.delete(`${u}:${n}`),
+    list: (u) => [...map.keys()].filter((k) => k.startsWith(u + ':')).map((k) => k.split(':')[1]),
+    removeAllFor: (u) => [...map.keys()].filter((k) => k.startsWith(u + ':')).forEach((k) => map.delete(k)),
+    removeAllExcept: (u) => [...map.keys()].filter((k) => !k.startsWith(u + ':')).forEach((k) => map.delete(k)),
+  };
+}
+
+function makeSaver(noteId: string, version: number, opts: { fail?: () => boolean } = {}) {
+  const statuses: SaveStatus[] = [];
+  const conflicts: number[] = [];
+  const timers: { fn: () => void; ms: number }[] = [];
+  let puts = 0;
+  const drafts = memDrafts();
+  const saver = new NoteSaver('u', noteId, version, {
+    put: async (id, payload) => {
+      puts++;
+      if (opts.fail?.()) throw new NetworkError('down');
+      const r = await c.put(`/api/notes/${id}`, payload);
+      if (r.statusCode !== 200) {
+        const e = r.json().error;
+        const { code, message, ...extra } = e;
+        throw new ApiError(r.statusCode, code, message, extra);
+      }
+      return r.json();
+    },
+    drafts,
+    onStatus: (s) => statuses.push(s),
+    onConflict: (v) => conflicts.push(v),
+    setTimer: (fn, ms) => {
+      const t = { fn, ms };
+      timers.push(t);
+      return t;
+    },
+    clearTimer: (h) => {
+      const i = timers.indexOf(h as any);
+      if (i >= 0) timers.splice(i, 1);
+    },
+  });
+  const fire = async () => {
+    const t = timers.shift();
+    t?.fn();
+    await new Promise((r) => setTimeout(r, 20));
+    return t;
+  };
+  return { saver, statuses, conflicts, timers, drafts, fire, puts: () => puts };
+}
+
+describe('NoteSaver', () => {
+  it('debounces 1 s, sends title, body and base version, and clears the draft only when confirmed', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    const s = makeSaver(n.id, 1);
+    s.saver.change('t', doc(p('a')));
+    s.saver.change('t', doc(p('ab')));
+    expect(s.timers).toHaveLength(1);
+    expect(s.timers[0].ms).toBe(1000);
+    expect(s.drafts.get('u', n.id)?.version).toBe(1);
+    await s.fire();
+    expect(s.puts()).toBe(1);
+    expect(s.statuses.at(-1)).toBe('saved');
+    expect(s.drafts.get('u', n.id)).toBe(null);
+    expect((await c.get(`/api/notes/${n.id}`)).json().version).toBe(2);
+  });
+
+  it('keeps at most one save in flight and sends later changes as one further save', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    const s = makeSaver(n.id, 1);
+    s.saver.change('t', doc(p('1')), true);
+    s.saver.change('t', doc(p('2')), true);
+    s.saver.change('t', doc(p('3')), true);
+    expect(await s.saver.flush(3000)).toBe(true);
+    expect(s.puts()).toBe(2);
+    const now = (await c.get(`/api/notes/${n.id}`)).json();
+    expect(now.version).toBe(3);
+    expect(now.body).toEqual(doc(p('3')));
+  });
+
+  it('on 409, "keep mine" saves with the version from the 409 and ends consistent', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    await c.put(`/api/notes/${n.id}`, { title: 'other tab', body: doc(p('theirs')), version: 1 });
+    const s = makeSaver(n.id, 1);
+    s.saver.change('mine', doc(p('mine')), true);
+    await s.saver.flush(1000);
+    expect(s.conflicts).toEqual([2]);
+    expect(s.statuses.at(-1)).toBe('unsaved');
+    expect(s.drafts.get('u', n.id)).not.toBe(null); // still kept locally
+    s.saver.keepMine();
+    expect(await s.saver.flush(3000)).toBe(true);
+    const now = (await c.get(`/api/notes/${n.id}`)).json();
+    expect(now).toMatchObject({ title: 'mine', body: doc(p('mine')), version: 3 });
+    expect(s.saver.version).toBe(3);
+    expect(s.drafts.get('u', n.id)).toBe(null);
+  });
+
+  it('on 409, "load theirs" discards the local copy and the server copy is unchanged', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    await c.put(`/api/notes/${n.id}`, { title: 'theirs', body: doc(p('theirs')), version: 1 });
+    const s = makeSaver(n.id, 1);
+    s.saver.change('mine', doc(p('mine')), true);
+    await s.saver.flush(1000);
+    s.saver.discardLocal();
+    expect(s.drafts.get('u', n.id)).toBe(null);
+    expect(s.saver.hasUnconfirmed()).toBe(false);
+    const now = (await c.get(`/api/notes/${n.id}`)).json();
+    expect(now).toMatchObject({ title: 'theirs', version: 2 });
+  });
+
+  it('retries network errors after 2, 5, then every 15 seconds', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    let failures = 4;
+    const s = makeSaver(n.id, 1, { fail: () => failures-- > 0 });
+    s.saver.change('t', doc(p('x')), true);
+    await new Promise((r) => setTimeout(r, 20));
+    const delays: number[] = [];
+    while (s.timers.length) {
+      delays.push(s.timers[0].ms);
+      await s.fire();
+    }
+    expect(delays).toEqual([2000, 5000, 15000, 15000]);
+    expect(s.statuses.at(-1)).toBe('saved');
+  });
+
+  it('does not retry 400, 404 or 413, and reports "Not saved"', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    const s = makeSaver(n.id, 1);
+    s.saver.change('t', { type: 'doc', content: [{ type: 'evil' }] }, true);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(s.statuses.at(-1)).toBe('unsaved');
+    expect(s.timers).toHaveLength(0);
+    expect(s.puts()).toBe(1);
+    const gone = makeSaver('00000000-0000-4000-8000-000000000000', 1);
+    gone.saver.change('t', doc(p('x')), true);
+    await new Promise((r) => setTimeout(r, 30));
+    expect(gone.statuses.at(-1)).toBe('unsaved');
+    expect(gone.timers).toHaveLength(0);
+  });
+});
