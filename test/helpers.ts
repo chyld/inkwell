@@ -105,3 +105,17 @@ export function doc(...content: unknown[]) {
 export function p(text: string) {
   return { type: 'paragraph', content: [{ type: 'text', text }] };
 }
+
+export function multipart(filename: string, contentType: string, data: Buffer) {
+  const boundary = '----notestest' + Math.random().toString(16).slice(2);
+  const head = Buffer.from(
+    `--${boundary}\r\nContent-Disposition: form-data; name="file"; filename="${filename}"\r\nContent-Type: ${contentType}\r\n\r\n`,
+  );
+  const tail = Buffer.from(`\r\n--${boundary}--\r\n`);
+  return { payload: Buffer.concat([head, data, tail]), headers: { 'content-type': `multipart/form-data; boundary=${boundary}` } };
+}
+
+export async function upload(c: Client, filename: string, contentType: string, data: Buffer) {
+  const m = multipart(filename, contentType, data);
+  return c.req('POST', '/api/images', m.payload, m.headers);
+}

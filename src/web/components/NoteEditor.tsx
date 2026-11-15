@@ -137,8 +137,11 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
       }
     }
     return () => {
-      if (activeSaver.current === saverRef.current) activeSaver.current = null;
-      saverRef.current?.dispose();
+      const s = saverRef.current;
+      if (activeSaver.current === s) activeSaver.current = null;
+      // Changes made after the switch began are still sent; the draft stays until confirmed.
+      if (s && s.hasUnconfirmed() && !s.isConflicted()) void s.flush(3000).then(() => s.dispose());
+      else s?.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

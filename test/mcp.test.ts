@@ -21,9 +21,20 @@ async function setup(overrides: Record<string, string> = {}) {
 }
 afterEach(async () => env.close());
 
+/** Content types of every /mcp response the SDK client received. */
+const seenTypes: string[] = [];
+const recordingFetch = async (url: string | URL, init?: RequestInit) => {
+  const r = await fetch(url, init);
+  seenTypes.push(`${init?.method ?? 'GET'} ${r.status} ${r.headers.get('content-type') ?? '-'}`);
+  return r;
+};
+
 async function connect(tok = token, mode: 'legacy' | 'auto' = 'legacy') {
   const client = new McpClient({ name: 'test', version: '1.0.0' }, mode === 'auto' ? { versionNegotiation: { mode: 'auto' } } : {});
-  const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { authorization: `Bearer ${tok}` } } });
+  const transport = new StreamableHTTPClientTransport(new URL(`${base}/mcp`), {
+    requestInit: { headers: { authorization: `Bearer ${tok}` } },
+    fetch: recordingFetch as any,
+  });
   await client.connect(transport);
   return client;
 }
@@ -43,6 +54,7 @@ describe('MCP endpoint with the SDK client', () => {
 
   for (const mode of ['legacy', 'auto'] as const) {
     it(`handshake, tools/list and create_note work (${mode} negotiation)`, async () => {
+      seenTypes.length = 0;
       const client = await connect(token, mode);
       const caps = client.getServerCapabilities()!;
       expect(Object.keys(caps)).toEqual(['tools']);
@@ -66,6 +78,10 @@ describe('MCP endpoint with the SDK client', () => {
       expect(note.body.content[0].content[1]).toMatchObject({ text: 'world', marks: [{ type: 'bold' }] });
       expect((await alice.post('/api/search', { query: 'world' })).json().results.map((n: any) => n.id)).toEqual([id]);
       await client.close();
+      // JSON responses only: no SSE stream, and no MCP session id.
+      expect(seenTypes.length).toBeGreaterThan(2);
+      for (const t of seenTypes) expect(t).toMatch(/^(POST 200 application\/json|POST 202 -|GET 405 |DELETE 405 )/);
+      expect(seenTypes.filter((t) => t.startsWith('POST')).length).toBeGreaterThan(2);
     });
   }
 
@@ -122,6 +138,22 @@ describe('MCP endpoint with the SDK client', () => {
     const big = { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'create_note', arguments: { title: 'x', content: 'a'.repeat(1024 * 1024) } } };
     expect((await rawMcp(big)).status).toBe(413);
     expect((await alice.get('/api/notes')).json().notes).toHaveLength(0);
+  });
+
+  it('answers initialize and tools/call with a single JSON body and no session id', async () => {
+    const init = await rawMcp({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'raw', version: '1' } } });
+    expect(init.status).toBe(200);
+    expect(init.headers.get('content-type')).toMatch(/^application\/json/);
+    expect(init.headers.get('mcp-session-id')).toBe(null);
+    expect((await init.json()).result.capabilities).toEqual({ tools: { listChanged: false } });
+    const note = await rawMcp(
+      { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'create_note', arguments: { title: 'raw', content: 'x' } } },
+      { 'mcp-protocol-version': '2025-06-18' },
+    );
+    expect(note.headers.get('content-type')).toMatch(/^application\/json/);
+    expect((await note.json()).result.content[0].text).toMatch(/^Created note [0-9a-f-]{36} in the Inbox\.$/);
+    const notif = await rawMcp({ jsonrpc: '2.0', method: 'notifications/initialized' }, { 'mcp-protocol-version': '2025-06-18' });
+    expect(notif.status).toBe(202);
   });
 
   it('answers malformed JSON with a JSON-RPC parse error', async () => {

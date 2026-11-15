@@ -1,8 +1,9 @@
 // The MCP endpoint (SPEC 8). Stateless Streamable HTTP with JSON responses,
 // one tool (create_note), agent bearer tokens only.
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createMcpHandler, McpServer, type McpRequestContext } from '@modelcontextprotocol/server';
+import { createMcpHandler, isLegacyRequest, McpServer, WebStandardStreamableHTTPServerTransport, type McpRequestContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
+import type { AuthInfo } from '@modelcontextprotocol/server';
 import type { AppOptions } from './app.js';
 import { MiB, errorBody } from './app.js';
 import { AppError } from './errors.js';
@@ -100,10 +101,27 @@ function rpcError(id: unknown, code: number, message: string) {
 
 export async function registerMcp(app: FastifyInstance, opts: AppOptions) {
   const { store } = opts;
-  const handler = createMcpHandler(
-    (ctx: McpRequestContext) => buildServer(store, ctx.authInfo!.extra!.agent as AgentAuth),
-    { legacy: 'stateless', responseMode: 'json', maxRequestBodySize: MiB },
-  );
+  // 2026-07-28 revision: per-request instances, JSON responses only.
+  const modern = createMcpHandler((ctx: McpRequestContext) => buildServer(store, ctx.authInfo!.extra!.agent as AgentAuth), {
+    legacy: 'reject',
+    responseMode: 'json',
+    maxRequestBodySize: MiB,
+  });
+
+  // 2025 revision (initialize handshake): a fresh server and stateless transport per request,
+  // answering with a JSON body rather than an SSE stream.
+  async function legacy(request: Request, parsedBody: unknown, agent: AgentAuth, authInfo: AuthInfo): Promise<{ res: Response; text: string }> {
+    const server = buildServer(store, agent);
+    const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
+    await server.connect(transport);
+    try {
+      const res = await transport.handleRequest(request, { parsedBody, authInfo });
+      return { res, text: await res.text() };
+    } finally {
+      await transport.close();
+      await server.close();
+    }
+  }
 
   // The body arrives as a string so that a JSON parse error gets the JSON-RPC answer.
   app.addContentTypeParser('application/json', { parseAs: 'string', bodyLimit: MiB }, (_req, body, done) => done(null, body));
@@ -154,13 +172,20 @@ export async function registerMcp(app: FastifyInstance, opts: AppOptions) {
       headers.set(k, Array.isArray(v) ? v.join(', ') : v);
     }
     const request = new Request('http://app.internal/mcp', { method: 'POST', headers, body: req.body as string });
-    const res = await handler.fetch(request, { authInfo: { token: '', clientId: agent.agentId, scopes: [], extra: { agent } }, parsedBody: parsed });
+    const authInfo: AuthInfo = { token: '', clientId: agent.agentId, scopes: [], extra: { agent } };
+    let res: Response;
+    let text: string;
+    if (await isLegacyRequest(request, parsed, { maxRequestBodySize: MiB })) {
+      ({ res, text } = await legacy(request, parsed, agent, authInfo));
+    } else {
+      res = await modern.fetch(request, { authInfo, parsedBody: parsed });
+      text = await res.text();
+    }
     reply.status(res.status);
     res.headers.forEach((value, key) => {
       if (key === 'content-length' || key.startsWith('access-control-')) return;
       reply.header(key, value);
     });
-    const text = await res.text();
     return reply.send(text.length ? text : undefined);
   };
 

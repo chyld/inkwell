@@ -1,0 +1,109 @@
+// Images (SPEC 6.5): decoded server-side, stored as files next to the database.
+import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { pipeline } from 'node:stream/promises';
+import sharp, { type Metadata } from 'sharp';
+import type { FastifyInstance } from 'fastify';
+import multipart from '@fastify/multipart';
+import { AppError, badRequest } from './errors.js';
+import { IMAGE_CSP, type AppOptions } from './app.js';
+
+const MiB = 1024 * 1024;
+import { imageSrc } from '../shared/schema.js';
+
+export const MAX_IMAGE_BYTES = 10 * MiB;
+export const MAX_IMAGE_SIDE = 10_000;
+const MIME: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };
+
+sharp.cache(false);
+
+const notAnImage = () => badRequest('The file is not a PNG, JPEG, GIF or WebP image that can be read.', 'invalid_image');
+
+/** Decide the type by fully decoding the file. Throws AppError 400 if it is not acceptable. */
+export async function inspectImage(file: string): Promise<{ mime: string; width: number; height: number }> {
+  let meta: Metadata;
+  try {
+    meta = await sharp(file, { animated: true, failOn: 'error' }).metadata();
+  } catch {
+    throw notAnImage();
+  }
+  const mime = meta.format ? MIME[meta.format] : undefined;
+  if (!mime) throw notAnImage();
+  const width = meta.width ?? 0;
+  const height = meta.pageHeight ?? meta.height ?? 0;
+  if (width < 1 || height < 1) throw notAnImage();
+  if (width > MAX_IMAGE_SIDE || height > MAX_IMAGE_SIDE) {
+    throw badRequest(`The image is larger than ${MAX_IMAGE_SIDE.toLocaleString('en')} pixels on a side.`, 'invalid_image');
+  }
+  try {
+    // stats() reads every pixel of every frame: a full decode.
+    await sharp(file, { animated: true, failOn: 'error', sequentialRead: true }).stats();
+  } catch {
+    throw notAnImage();
+  }
+  return { mime, width, height };
+}
+
+export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions) {
+  const { store } = opts;
+  await api.register(multipart, { limits: { fileSize: MAX_IMAGE_BYTES, files: 1, fields: 4, parts: 5, headerPairs: 100 } });
+
+  api.post('/images', { bodyLimit: 11 * MiB }, async (req, reply) => {
+    const declared = Number(req.headers['content-length'] ?? 0);
+    if (declared > 11 * MiB) throw new AppError(413, 'too_large', 'An image can be at most 10 MB.');
+    if (!req.isMultipart()) throw badRequest('Send the image as multipart/form-data.');
+    const user = req.user!;
+    fs.mkdirSync(store.tmpDir, { recursive: true });
+    const tmp = path.join(store.tmpDir, `${crypto.randomUUID()}.upload`);
+    try {
+      const part = await req.file();
+      if (!part) throw badRequest('No file was sent.');
+      try {
+        await pipeline(part.file, fs.createWriteStream(tmp, { flags: 'wx' }));
+      } catch (e) {
+        if ((e as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE' || part.file.truncated) {
+          throw new AppError(413, 'too_large', 'An image can be at most 10 MB.');
+        }
+        throw e;
+      }
+      if (part.file.truncated) throw new AppError(413, 'too_large', 'An image can be at most 10 MB.');
+      const { mime } = await inspectImage(tmp);
+      const size = fs.statSync(tmp).size;
+      const id = crypto.randomUUID();
+      // One transaction checks the storage limit and inserts the row; then the file is renamed into place.
+      store.insertImageRow(user.id, id, mime, size);
+      try {
+        const dest = store.imagePath(user.id, id);
+        fs.mkdirSync(path.dirname(dest), { recursive: true });
+        fs.renameSync(tmp, dest);
+      } catch (e) {
+        store.deleteImageRow(id);
+        throw e;
+      }
+      return reply.status(201).send({ id, src: imageSrc(id) });
+    } finally {
+      fs.rmSync(tmp, { force: true });
+    }
+  });
+
+  api.get('/images/:id', async (req, reply) => {
+    const img = store.getImage(req.user!.id, (req.params as { id: string }).id);
+    const file = store.imagePath(img.user_id, img.id);
+    let stream: fs.ReadStream;
+    try {
+      await fs.promises.access(file);
+      stream = fs.createReadStream(file);
+    } catch {
+      throw new AppError(404, 'not_found', 'Not found.');
+    }
+    reply
+      .header('content-type', img.mime)
+      .header('content-length', String(img.size))
+      .header('x-content-type-options', 'nosniff')
+      .header('content-security-policy', IMAGE_CSP)
+      .header('cache-control', 'private, max-age=31536000, immutable')
+      .header('content-disposition', 'inline');
+    return reply.send(stream);
+  });
+}

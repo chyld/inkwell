@@ -691,6 +691,8 @@ mark {
   flex: 1;
 }
 .prose img {
+  display: block;
+  margin: 0.6em 0;
   max-width: 100%;
   height: auto;
   border-radius: 4px;

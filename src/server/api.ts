@@ -3,6 +3,7 @@ import { SESSION_COOKIE, errorBody, type AppOptions } from './app.js';
 import { AppError } from './errors.js';
 import { SignInLimiter } from './ratelimit.js';
 import { normalizeUsername } from './store.js';
+import { registerImageRoutes } from './images.js';
 
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const SESSION_MAX_AGE_S = 90 * 24 * 60 * 60;
@@ -135,6 +136,9 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
     store.deleteFolder(req.user!.id, (req.params as { id: string }).id);
     return { ok: true };
   });
+
+  // ---- images ----
+  await registerImageRoutes(api, opts);
 
   // ---- tags & search ----
   api.get('/tags', async (req) => ({ tags: store.listTags(req.user!.id) }));
