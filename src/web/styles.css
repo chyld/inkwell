@@ -75,23 +75,33 @@
 }
 
 :root {
-  /* colour scheme: Plum (light) */
-  --bg: #ffffff;
-  --bg-soft: #f9f6fa;
-  --bg-sidebar: #f4f0f6;
-  --bg-hover: #ebe4ee;
-  --bg-active: #ecdcf3;
-  --border: #e3dbe7;
-  --text: #231a27;
-  --text-soft: #6a5c70;
-  --accent: #8a3aa8;
-  --accent-text: #ffffff;
+  /* colour scheme: 'Teal rail and paper' (light); see DEVIATIONS 46 */
+  --bg: #ffffff; /* paper and cards */
+  --bg-soft: #f1f5f4; /* the app ground behind the list and the editor */
+  --bg-hover: #eaf0ef;
+  --bg-active: #fdece6; /* the current row: a coral tint */
+  --border: #d5e0de;
+  --text: #17302d;
+  --text-soft: #5a706d; /* brief #5f7673, darkened 5% to reach 4.5:1 on the ground */
+  --accent: #ef6f53; /* coral fills: New, checked boxes, badges */
+  --accent-text: #17302d; /* ink on a coral fill (white on it is 2.97:1) */
+  --accent-line: #dc664c; /* thin coral lines: focus ring, selected outlines (3:1 on paper and ground) */
+  --link: #974634; /* link text: deep coral, 4.5:1 on paper, ground and every highlight */
   --danger: #c4372f;
   --warn-bg: #fff4d6;
   --warn-text: #6b4e00;
-  --mark: #ffe58a;
-  --code-bg: #f1ebf3;
-  --selection: rgba(138, 58, 168, 0.25);
+  --mark: #ffe1d6;
+  --code-bg: #edf3f2;
+  --selection: rgba(239, 111, 83, 0.25);
+  --rail: #0f5f5a;
+  --rail-icon: #cfe9e5;
+  --rail-hover: #1b6d67;
+  --rail-current: #ffffff; /* the current rail item: paper background */
+  --rail-current-icon: #0f5f5a; /* with a rail-coloured icon */
+  --pill: #17302d; /* the editor toolbar */
+  --pill-ink: #e7f1ef;
+  --pill-line: #3a5551;
+  --pill-on: #2f4c48;
   /* text colours and highlights, palette 'Jewel' (a note stores the name; see DEVIATIONS) */
   --tc-ruby: #9c012b;
   --tc-garnet: #960157;
@@ -115,10 +125,6 @@
   --icon-size: 16px;
   --icon-stroke: 1.75;
   --icon-stroke-toolbar: 1.5; /* the editor toolbar's thinner line */
-  /* the editor toolbar, 'Quiet line' on a 'Sage' bar (the rest of the app is Plum) */
-  --toolbar-bg: #e3f0e0;
-  --toolbar-strong: #c8dfc3; /* dividers, hover and pressed backgrounds */
-  --toolbar-icon: #405e40;
   --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif;
   --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-family: var(--font-sans);
@@ -135,23 +141,33 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* colour scheme: Plum (dark) */
-    --bg: #1a151c;
-    --bg-soft: #211a24;
-    --bg-sidebar: #1e1820;
-    --bg-hover: #302634;
-    --bg-active: #46275a;
-    --border: #382d3c;
-    --text: #ece5ee;
-    --text-soft: #a898ad;
-    --accent: #cf8cea;
-    --accent-text: #260f30;
+    /* colour scheme: 'Teal rail and paper' (dark): deep teal-black ground, the paper a raised surface */
+    --bg: #172725;
+    --bg-soft: #0f1c1b;
+    --bg-hover: #20322f;
+    --bg-active: #47302a;
+    --border: #2c403d;
+    --text: #e3efec;
+    --text-soft: #9ab3ae;
+    --accent: #f4806a;
+    --accent-text: #17302d;
+    --accent-line: #f4806a;
+    --link: #ff9d85;
     --danger: #ff7a70;
     --warn-bg: #3b3115;
     --warn-text: #f3d98b;
-    --mark: #6b5a12;
-    --code-bg: #2a2130;
-    --selection: rgba(207, 140, 234, 0.3);
+    --mark: #5a3328;
+    --code-bg: #1f302d;
+    --selection: rgba(244, 128, 106, 0.3);
+    --rail: #0c4440;
+    --rail-icon: #cfe9e5;
+    --rail-hover: #155a55;
+    --rail-current: #172725; /* the paper */
+    --rail-current-icon: #8fd6cb; /* a light teal: the rail colour would not show on dark paper */
+    --pill: #233835;
+    --pill-ink: #e7f1ef;
+    --pill-line: #3e5753;
+    --pill-on: #35504b;
     --tc-ruby: #fe898f;
     --tc-garnet: #fa86b6;
     --tc-amber: #ef9d32;
@@ -169,9 +185,6 @@
     --hl-emerald: #00442c;
     --hl-peridot: #304001;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
-    --toolbar-bg: #252f23;
-    --toolbar-strong: #354531;
-    --toolbar-icon: #bad3b4;
   }
 }
 
@@ -233,7 +246,7 @@ button.wide {
   padding: 4px 8px;
 }
 .link-button {
-  color: var(--accent);
+  color: var(--link);
 }
 .icon-button {
   display: inline-flex;
@@ -269,7 +282,7 @@ svg.lucide {
   }
 }
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-line);
   outline-offset: 1px;
 }
 input[type='text'],
@@ -335,10 +348,10 @@ mark {
 
 /* layout */
 .app {
-  --sidebar-width: 240px;
+  --rail-width: 54px;
   --list-width: 320px;
   display: grid;
-  grid-template-columns: var(--sidebar-width) var(--list-width) 1fr;
+  grid-template-columns: var(--rail-width) var(--list-width) 1fr;
   height: 100%;
   overflow: hidden;
 }
@@ -347,20 +360,11 @@ mark {
 }
 
 /* collapsible panels (wide screens); a collapsed panel leaves a slim strip that brings it back */
-.app.sidebar-collapsed {
-  --sidebar-width: 36px;
-}
 .app.list-collapsed {
   --list-width: 36px;
 }
-.sidebar.collapsed,
 .note-list.collapsed {
   display: none;
-}
-.sidebar-top {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 8px 0;
 }
 .collapse-button {
   color: var(--text-soft);
@@ -380,11 +384,7 @@ mark {
   color: var(--text-soft);
   overflow: hidden;
 }
-#sidebar-show {
-  background: var(--bg-sidebar);
-}
-.panel-strip:hover:not(:disabled),
-#sidebar-show:hover {
+.panel-strip:hover:not(:disabled) {
   background: var(--bg-hover);
   color: var(--text);
 }
@@ -402,18 +402,127 @@ mark {
   text-transform: uppercase;
 }
 
-/* sidebar */
-.sidebar {
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
+/* the rail (REDESIGN-BRIEF 2.1): icons only, always shown */
+.rail {
+  position: relative;
+  z-index: 20;
   display: flex;
   flex-direction: column;
-  min-height: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 12px 0;
+  background: var(--rail);
+  color: var(--rail-icon);
 }
-.sidebar-scroll {
+.rail-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.rail-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  color: var(--rail-icon);
+}
+.rail-button svg.lucide {
+  width: 18px;
+  height: 18px;
+}
+.rail-button:hover:not(:disabled),
+.rail-button.open {
+  background: var(--rail-hover);
+}
+.rail-button.current,
+.rail-button.current:hover:not(:disabled) {
+  background: var(--rail-current);
+  color: var(--rail-current-icon);
+}
+.rail-button:focus-visible {
+  outline-color: var(--rail-icon); /* coral is too weak on the rail */
+}
+.rail-badge-anchor {
+  position: relative;
+  display: grid;
+}
+.rail-badge {
+  position: absolute;
+  top: -3px;
+  right: -5px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--accent-text);
+  font-size: 0.65rem;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  pointer-events: none;
+}
+/* the Folders and Tags panels: over the list, beside the rail; they do not push the layout */
+.rail-panel {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  border-right: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.rail-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 10px 6px 16px;
+}
+.rail-panel-header h2 {
   flex: 1;
+  margin: 0;
+  font-size: 1rem;
+}
+.rail-panel-scroll {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
-  padding: 10px 8px;
+  padding: 4px 8px 12px;
+}
+/* the account menu */
+.account-menu {
+  position: absolute;
+  left: calc(100% + 6px);
+  bottom: 10px;
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  font-size: 0.85rem;
+}
+.account-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.account-menu .storage {
+  color: var(--text-soft);
 }
 .view-button,
 .folder-name {
@@ -452,23 +561,10 @@ mark {
   margin-left: auto;
   padding-left: 6px;
 }
-.sidebar-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 14px 8px 4px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-soft);
-}
 .sidebar-empty {
   margin: 4px 10px;
   color: var(--text-soft);
   font-size: 0.85rem;
-}
-.sidebar-gap {
-  height: 12px;
 }
 .folder-tree {
   list-style: none;
@@ -578,15 +674,6 @@ mark {
   background: none;
   color: var(--text);
 }
-.sidebar-footer {
-  border-top: 1px solid var(--border);
-  padding: 10px 14px;
-  font-size: 0.82rem;
-  color: var(--text-soft);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
 .storage-bar {
   height: 5px;
   background: var(--bg-hover);
@@ -600,11 +687,6 @@ mark {
 }
 .storage-fill.full {
   background: var(--danger);
-}
-.account {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
 .username {
   font-weight: 600;
@@ -824,10 +906,10 @@ mark {
   align-items: center;
   gap: 2px 3px;
   padding: 3px 6px;
-  background: var(--toolbar-bg);
-  border-bottom: 1px solid var(--toolbar-strong);
+  background: var(--pill);
 }
-/* 'Quiet line': thin icons in a deeper sage; picker labels and pressed icons in the normal text colour. */
+/* The dark toolbar: icons and labels in the light ink, hover and pressed on the deeper pill colour. The ink is
+   set on the buttons only, so the light menus that open from the toolbar keep the normal text colour. */
 .toolbar svg.lucide {
   stroke-width: var(--icon-stroke-toolbar);
 }
@@ -835,25 +917,23 @@ mark {
   gap: 1px;
 }
 .toolbar .tb {
-  color: var(--text);
+  color: var(--pill-ink);
   min-width: 24px;
   padding: 3px;
 }
-.toolbar .tb > svg.lucide {
-  color: var(--toolbar-icon);
-}
 .toolbar .tb:hover:not(:disabled) {
-  background: var(--toolbar-strong);
+  background: var(--pill-on);
 }
 .toolbar .tb.active {
-  background: var(--toolbar-strong);
+  background: var(--pill-on);
   border-color: transparent;
 }
-.toolbar .tb.active > svg.lucide {
-  color: var(--text);
-}
 .toolbar .tb-sep {
-  background: var(--toolbar-strong);
+  background: var(--pill-line);
+}
+.toolbar .tb:focus-visible,
+.toolbar .size-input:focus-visible {
+  outline-color: var(--pill-ink); /* visible on the dark pill in both themes; the light menus keep the coral ring */
 }
 .toolbar .styles-button {
   width: 80px;
@@ -1001,7 +1081,7 @@ mark {
   font-size: 18px;
 }
 .prose a {
-  color: var(--accent);
+  color: var(--link);
 }
 .prose code {
   background: var(--code-bg);
@@ -1058,7 +1138,7 @@ mark {
   border-radius: 4px;
 }
 .prose img.ProseMirror-selectednode {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--accent-line);
 }
 /* The editor's image view: a frame as wide as the image (never wider than the column) holding the handles.
    A stored size is the img's width and height attributes; max-width and height: auto scale it down. */
@@ -1076,7 +1156,7 @@ mark {
   outline: none;
 }
 .prose .image-view.ProseMirror-selectednode > img {
-  outline: 3px solid var(--accent);
+  outline: 3px solid var(--accent-line);
 }
 .image-handle {
   position: absolute;
@@ -1086,8 +1166,8 @@ mark {
   margin: -7px;
   border: 2px solid var(--bg);
   border-radius: 3px;
-  background: var(--accent);
-  box-shadow: 0 0 0 1px var(--accent);
+  background: var(--accent-line);
+  box-shadow: 0 0 0 1px var(--accent-line);
   touch-action: none; /* the page does not scroll while a handle is dragged */
   user-select: none;
 }
@@ -1525,7 +1605,7 @@ mark[data-highlight] {
   background: var(--bg);
 }
 .font-card.selected {
-  border-color: var(--accent);
+  border-color: var(--accent-line);
   background: var(--bg-active);
 }
 .font-card-name {
@@ -1544,8 +1624,8 @@ mark[data-highlight] {
   font-size: 0.82rem;
 }
 .font-card-button.selected {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-line);
+  color: var(--link);
 }
 
 /* Figures that line up in columns use tabular figures: tables in notes, counts, dates in lists.
@@ -2100,7 +2180,6 @@ mark[data-highlight] {
     display: none !important;
     height: 100%;
   }
-  .app.screen-sidebar > .sidebar,
   .app.screen-list > .note-list,
   .app.screen-editor > .editor-pane {
     display: flex !important;
@@ -2120,9 +2199,51 @@ mark[data-highlight] {
   .fonts-scroll {
     padding: 0 12px 40px;
   }
-  .sidebar,
   .note-list {
     border-right: none;
+  }
+  /* the rail becomes a bar along the bottom; the screens sit above it */
+  .app > * {
+    height: calc(100% - var(--bar-height));
+  }
+  .app {
+    --bar-height: 56px;
+  }
+  .app > .rail {
+    display: flex !important;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--bar-height);
+    flex-direction: row;
+    padding: 0 6px;
+  }
+  .rail-group {
+    flex-direction: row;
+    gap: 2px;
+  }
+  .rail-button {
+    width: 40px;
+    height: 40px;
+  }
+  /* the Folders and Tags panels open as sheets from the bottom */
+  .rail-panel {
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: var(--bar-height);
+    width: auto;
+    max-height: 70vh;
+    border-right: none;
+    border-radius: 16px 16px 0 0;
+  }
+  .account-menu {
+    position: fixed;
+    left: auto;
+    right: 8px;
+    bottom: calc(var(--bar-height) + 8px);
   }
   .mobile-only {
     display: inline-block;

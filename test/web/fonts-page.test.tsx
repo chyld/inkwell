@@ -10,7 +10,7 @@ import { AVAILABLE, matchFonts } from '../../src/web/components/FontsPage';
 import { ROW_HEIGHT } from '../../src/web/fonts/grid';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { clearAllFonts, fontRulesText } from '../../src/web/fonts/runtime';
-import { button, click, mockFetch, render, requests, settle, waitFor } from './harness';
+import { button, click, mockFetch, render, requests, settle, waitFor, railButton, signOut } from './harness';
 import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
 
 let view: Awaited<ReturnType<typeof render>> | null = null;
@@ -273,14 +273,14 @@ describe('routing (criterion 21)', () => {
     server();
     await start('/');
     await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
-    const fontsEntry = [...view!.container.querySelectorAll('.view-button')].find((b) => b.textContent?.includes('Fonts'))!;
+    const fontsEntry = railButton(view!.container, 'Fonts');
     await click(fontsEntry);
     await waitFor(() => !!page(), 2000, 'page');
     expect(location.pathname).toBe('/fonts');
     expect(document.title).toBe('Fonts – Notes');
     expect(fontsEntry.getAttribute('aria-current')).toBe('page');
     expect(view!.container.querySelector('.note-list')).toBeNull();
-    const all = [...view!.container.querySelectorAll('.view-button')].find((b) => b.textContent?.includes('All notes'))!;
+    const all = railButton(view!.container, 'All notes');
     expect(all.getAttribute('aria-current')).toBeNull();
     await click(all);
     await waitFor(() => !page(), 2000, 'left');
@@ -334,7 +334,7 @@ describe('routing (criterion 21)', () => {
     await act(async () => {
       (view!.container.querySelector('.ProseMirror') as any).editor.commands.insertContent(' edited');
     });
-    await click([...view!.container.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Font')));
+    await click(view!.container.querySelector('.toolbar .font-button'));
     await waitFor(() => !!button(view!.container, 'Browse fonts…'), 2000, 'menu');
     await click(button(view!.container, 'Browse fonts…'));
     await waitFor(() => !!page(), 4000, 'page from the menu');
@@ -353,7 +353,7 @@ describe('sign-out (criterion 22)', () => {
     await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
     await click(view!.container.querySelector('.note-item'));
     await waitFor(() => registeredFamilies().includes('nf-lora'), 3000, 'note font');
-    await click([...view!.container.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Font')));
+    await click(view!.container.querySelector('.toolbar .font-button'));
     await waitFor(() => previewCalls.includes('titan-one'), 2000, 'menu preview requested');
     await act(async () => previewRelease.get('titan-one')!());
     await waitFor(() => registeredFamilies().includes('preview-titan-one'), 2000, 'preview registered');
@@ -361,7 +361,7 @@ describe('sign-out (criterion 22)', () => {
     await act(async () => {
       document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     });
-    await click(button(view!.container, 'Sign out'));
+    await signOut(view!.container);
     await waitFor(() => /Sign in/.test(view!.container.textContent ?? ''), 3000, 'signed out');
     expect(registeredFamilies()).toEqual([]);
     expect(fontRulesText()).toBe('');

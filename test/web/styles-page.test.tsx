@@ -9,7 +9,7 @@ import { App } from '../../src/web/App';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { clearAllFonts } from '../../src/web/fonts/runtime';
 import { currentStyles, resetStyles } from '../../src/web/stylesStore';
-import { button, click, mockFetch, render, requests, settle, waitFor } from './harness';
+import { button, click, mockFetch, render, requests, settle, waitFor, railButton } from './harness';
 import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
 
 type S = { id: string; name: string; font: string | null; size: number; bold: boolean; italic: boolean; underline: boolean; strike: boolean; textColor: string | null; highlight: string | null };
@@ -339,7 +339,7 @@ describe('/styles routing (criterion 15)', () => {
     await act(async () => {
       (view!.container.querySelector('.ProseMirror') as any).editor.commands.insertContent(' edited');
     });
-    const entry = [...view!.container.querySelectorAll('.view-button')].find((b) => b.textContent?.includes('Styles'))!;
+    const entry = railButton(view!.container, 'Styles');
     await click(entry);
     await waitFor(() => !!page(), 3000, 'page');
     expect(location.pathname).toBe('/styles');
@@ -347,7 +347,7 @@ describe('/styles routing (criterion 15)', () => {
     expect(view!.container.querySelector('.ProseMirror')).toBeNull(); // closed
     expect(JSON.stringify(noteBody)).toContain('edited'); // saved first
     expect(document.title).toBe('Styles – Notes');
-    await click([...view!.container.querySelectorAll('.view-button')].find((b) => b.textContent?.includes('All notes')));
+    await click(railButton(view!.container, 'All notes'));
     await waitFor(() => !page(), 2000, 'left');
     expect(location.pathname).toBe('/');
     expect(document.title).toBe('Notes');
@@ -372,7 +372,7 @@ describe('/styles routing (criterion 15)', () => {
     await setValue(dialog()!.querySelector('input:not([aria-label])')!, 'Body');
     await click(button(dialog()!, 'Save'));
     await waitFor(() => !dialog() && currentStyles()?.[0]?.name === 'Body', 2000, 'renamed in the shared list');
-    await click(view!.container.querySelector('#sidebar .view-button'));
+    await click(railButton(view!.container, 'All notes'));
     await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
     await click(view!.container.querySelector('.note-item'));
     await waitFor(() => label() === 'Body', 3000, 'the new name');
@@ -386,7 +386,7 @@ describe('/styles routing (criterion 15)', () => {
     await click(inDialog('Bold'));
     await click(button(dialog()!, 'Save'));
     await waitFor(() => !dialog() && currentStyles()?.[0]?.bold === true, 2000, 'edited in the shared list');
-    await click(view!.container.querySelector('#sidebar .view-button'));
+    await click(railButton(view!.container, 'All notes'));
     await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
     await click(view!.container.querySelector('.note-item'));
     await waitFor(() => !!view!.container.querySelector('.ProseMirror'), 3000, 'editor');
@@ -404,7 +404,7 @@ describe('/styles routing (criterion 15)', () => {
     await act(async () => {
       (view!.container.querySelector('.ProseMirror') as any).editor.commands.insertContent(' managed');
     });
-    await click(view!.container.querySelector('button[aria-label="Styles"]'));
+    await click(view!.container.querySelector('.toolbar .styles-button'));
     await waitFor(() => !!button(view!.container, 'Manage styles…'), 2000, 'menu');
     await click(button(view!.container, 'Manage styles…'));
     await waitFor(() => !!page(), 3000, 'page');

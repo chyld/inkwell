@@ -4,7 +4,8 @@ import { api, ApiError, setUnauthorizedHandler, type FolderNode, type Me, type N
 import { localDrafts } from './drafts';
 import { DialogProvider, useDialogs } from './components/Dialogs';
 import { SignIn } from './components/SignIn';
-import { Sidebar, findFolder, sameView, type View } from './components/Sidebar';
+import { findFolder, sameView, type View } from './components/Sidebar';
+import { Rail } from './components/Rail';
 import { NoteList } from './components/NoteList';
 import { NoteEditorPane, NoteNotFound, activeSaver } from './components/NoteEditor';
 import { FontsPage } from './components/FontsPage';
@@ -89,7 +90,7 @@ export function App() {
   );
 }
 
-type Screen = 'sidebar' | 'list' | 'editor' | 'fonts' | 'styles';
+type Screen = 'list' | 'editor' | 'fonts' | 'styles';
 type Page = 'notes' | 'fonts' | 'styles';
 
 function viewQuery(v: View): string {
@@ -122,10 +123,10 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   /** The /fonts page takes the place of the note list and the editor (FONTS-SPEC 7). */
   const [page, setPage] = useState<Page>(initial.kind === 'fonts' || initial.kind === 'styles' ? initial.kind : 'notes');
   useEffect(() => initHistory(), []);
-  // Collapsed panels (wide screens only; on a narrow screen each panel is a screen of its own).
+  // The collapsed note list (wide screens only). The rail is always shown; the old sidebar setting is ignored.
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const focusAfterToggle = useRef<string | null>(null);
-  function togglePanel(which: keyof Layout) {
+  function togglePanel(which: 'list') {
     const next = { ...layout, [which]: !layout[which] };
     setLayout(next);
     saveLayout(next);
@@ -450,19 +451,8 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
                 : 'Fonts';
 
   return (
-    <div className={`app screen-${screen}${layout.sidebar ? ' sidebar-collapsed' : ''}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page !== 'notes' ? ` ${page}-open` : ''}`}>
-      {layout.sidebar && <PanelStrip id="sidebar-show" controls="sidebar" label="Show folders and tags" text="Folders" onClick={() => togglePanel('sidebar')} />}
-      <Sidebar
-        me={me}
-        folders={folders}
-        tags={tags}
-        view={page !== 'notes' ? { kind: page } : view}
-        onView={changeView}
-        onFoldersChanged={refreshFolders}
-        onSignOut={signOut}
-        collapsed={layout.sidebar}
-        onCollapse={() => togglePanel('sidebar')}
-      />
+    <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page !== 'notes' ? ` ${page}-open` : ''}`}>
+      <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} />
       {page === 'fonts' && <FontsPage onBack={leavePage} />}
       {page === 'styles' && <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />}
       {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
@@ -483,7 +473,6 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
         isTrash={view.kind === 'trash'}
         onNewNote={newNote}
         onEmptyTrash={emptyTrash}
-        onBack={() => setScreen('sidebar')}
       />}
       {page !== 'notes' ? null : selected ? (
         <NoteEditorPane

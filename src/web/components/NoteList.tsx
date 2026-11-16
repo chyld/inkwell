@@ -1,5 +1,5 @@
 import type { NoteItem } from '../api';
-import { ChevronLeft, PanelLeftClose, Plus } from 'lucide-react';
+import { PanelLeftClose, Plus } from 'lucide-react';
 import { highlightPieces, isMac, relativeTime } from '../util';
 
 interface Props {
@@ -17,7 +17,6 @@ interface Props {
   isTrash: boolean;
   onNewNote: () => void;
   onEmptyTrash: () => void;
-  onBack: () => void;
   collapsed: boolean;
   onCollapse: () => void;
 }
@@ -27,9 +26,6 @@ export function NoteList(p: Props) {
   return (
     <section id="note-list" className={'note-list' + (p.collapsed ? ' collapsed' : '')} aria-label="Notes">
       <header className="list-header">
-        <button className="icon-button mobile-only" onClick={p.onBack} aria-label="Back to folders" title="Back to folders">
-          <ChevronLeft />
-        </button>
         <button
           id="list-hide"
           className="icon-button collapse-button desktop-only"

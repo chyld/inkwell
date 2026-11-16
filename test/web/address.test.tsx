@@ -7,7 +7,7 @@ import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
 import { encodeNoteId } from '../../src/shared/noteAddress';
-import { button, click, editorOf, mockFetch, render, requests, settle, waitFor } from './harness';
+import { button, click, editorOf, mockFetch, render, requests, settle, waitFor, railButton, signOut } from './harness';
 
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -287,7 +287,7 @@ describe('note addresses', () => {
     visit(path(T));
     await start();
     await waitFor(() => titleInput()?.value === 'Trashed', 3000, 'trashed again');
-    await click([...view!.container.querySelectorAll('.view-button')].find((b) => b.textContent?.includes('Trash')));
+    await click(railButton(view!.container, 'Trash'));
     await waitFor(() => !!button(view!.container, 'Empty Trash'), 3000, 'Empty Trash button');
     await click(button(view!.container, 'Empty Trash'));
     await waitFor(() => !!document.querySelector('.modal'), 2000, 'confirm');
@@ -300,7 +300,7 @@ describe('note addresses', () => {
     visit(path(A));
     await start();
     await waitFor(() => titleInput()?.value === 'Alpha', 3000, 'Alpha');
-    await click(button(view!.container, 'Sign out'));
+    await signOut(view!.container);
     await waitFor(() => location.pathname === '/', 3000, '/ after sign-out');
   });
 });

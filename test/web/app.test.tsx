@@ -3,7 +3,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
-import { button, click, mockFetch, render, settle, waitFor } from './harness';
+import { button, click, mockFetch, render, settle, waitFor, railButton } from './harness';
 
 const NOTE = '55555555-5555-4555-8555-555555555555';
 const item = { id: NOTE, title: 'Trashed one', snippet: 'x', folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: '2026-01-02T00:00:00Z', origin: { type: 'user' } };
@@ -33,8 +33,8 @@ async function openTrashedNote(trashListing: () => { status: number; json?: unkn
     return { status: 500, json: { error: { code: 'x', message: 'unexpected' } } };
   });
   view = await render(<App />);
-  await waitFor(() => !!button(view!.container, /Trash/), 3000, 'sidebar');
-  await click([...view.container.querySelectorAll('.view-button')].find((b) => b.textContent?.includes('Trash')));
+  await waitFor(() => !!railButton(view!.container, 'Trash'), 3000, 'rail');
+  await click(railButton(view.container, 'Trash'));
   await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'trash list');
   await click(view.container.querySelector('.note-item'));
   await waitFor(() => !!view!.container.querySelector('#note-title'), 3000, 'editor');

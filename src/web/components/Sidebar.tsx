@@ -1,8 +1,7 @@
+// Views, folder helpers and the folder tree. The sidebar itself was replaced by the rail (Rail.tsx).
 import { useEffect, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Ellipsis, File, Folder, Inbox, Notebook, PanelLeftClose, Paintbrush, Plus, Trash2, Type } from 'lucide-react';
-import { api, ApiError, type FolderNode, type Me, type TagCount } from '../api';
-import { formatBytes } from '../util';
+import { ChevronDown, ChevronRight, Ellipsis, Folder } from 'lucide-react';
+import { api, type FolderNode } from '../api';
 import { useDialogs } from './Dialogs';
 
 export type View =
@@ -51,124 +50,8 @@ export function isInSubtree(root: FolderNode, id: string): boolean {
   return root.children.some((c) => isInSubtree(c, id));
 }
 
-interface Props {
-  me: Me;
-  folders: FolderNode[];
-  tags: TagCount[];
-  view: View;
-  onView: (v: View) => void;
-  onFoldersChanged: () => void;
-  onSignOut: () => void;
-  collapsed: boolean;
-  onCollapse: () => void;
-}
-
-export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onSignOut, collapsed, onCollapse }: Props) {
-  const dialogs = useDialogs();
-  const inbox = folders.find((f) => f.isInbox);
-  const tree = folders.filter((f) => !f.isInbox);
-
-  async function run(action: () => Promise<unknown>) {
-    try {
-      await action();
-    } catch (e) {
-      dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
-    }
-    onFoldersChanged();
-  }
-
-  async function newFolder(parentId: string | null) {
-    const name = await dialogs.prompt({ title: parentId ? 'New subfolder' : 'New folder', label: 'Name', confirmLabel: 'Create' });
-    if (name === null) return;
-    await run(async () => {
-      const f = await api<FolderNode>('POST', '/folders', { name, parentId });
-      onView({ kind: 'folder', id: f.id });
-    });
-  }
-
-  const pct = Math.min(100, (me.storageUsed / me.storageLimit) * 100);
-
-  return (
-    <nav id="sidebar" className={'sidebar' + (collapsed ? ' collapsed' : '')} aria-label="Folders and views">
-      <div className="sidebar-top desktop-only">
-        <button
-          id="sidebar-hide"
-          className="icon-button collapse-button"
-          aria-expanded={true}
-          aria-controls="sidebar"
-          aria-label="Hide folders and tags"
-          title="Hide folders and tags"
-          onClick={onCollapse}
-        >
-          <PanelLeftClose />
-        </button>
-      </div>
-      <div className="sidebar-scroll">
-        <ViewButton label="All notes" icon={<Notebook />} active={view.kind === 'all'} onClick={() => onView({ kind: 'all' })} />
-        {inbox && <ViewButton label="Inbox" icon={<Inbox />} count={inbox.noteCount} active={view.kind === 'inbox'} onClick={() => onView({ kind: 'inbox' })} />}
-        <div className="sidebar-heading">
-          <span>Folders</span>
-          <button className="icon-button" title="New folder" aria-label="New folder" onClick={() => newFolder(null)}>
-            <Plus />
-          </button>
-        </div>
-        <FolderTree folders={tree} all={folders} depth={0} view={view} onView={onView} run={run} newFolder={newFolder} />
-        <ViewButton label="Unfiled" icon={<File />} active={view.kind === 'unfiled'} onClick={() => onView({ kind: 'unfiled' })} />
-        <div className="sidebar-heading">
-          <span>Tags</span>
-        </div>
-        {tags.length === 0 && <p className="sidebar-empty">No tags yet</p>}
-        <div className="tag-cloud">
-          {tags.map((t) => (
-            <button
-              key={t.name}
-              className={'tag-chip' + (view.kind === 'tag' && view.name === t.name ? ' active' : '')}
-              onClick={() => onView({ kind: 'tag', name: t.name })}
-            >
-              #{t.name} <span className="count">{t.count}</span>
-            </button>
-          ))}
-        </div>
-        <div className="sidebar-gap" />
-        <ViewButton label="Trash" icon={<Trash2 />} active={view.kind === 'trash'} onClick={() => onView({ kind: 'trash' })} />
-        <ViewButton label="Fonts" icon={<Type />} active={view.kind === 'fonts'} onClick={() => onView({ kind: 'fonts' })} />
-        <ViewButton label="Styles" icon={<Paintbrush />} active={view.kind === 'styles'} onClick={() => onView({ kind: 'styles' })} />
-      </div>
-      <div className="sidebar-footer">
-        <div className="storage" title={`${formatBytes(me.storageUsed)} of ${formatBytes(me.storageLimit)} used`}>
-          <div className="storage-bar">
-            <div className={'storage-fill' + (pct > 90 ? ' full' : '')} style={{ width: `${pct}%` }} />
-          </div>
-          <span>
-            {formatBytes(me.storageUsed)} of {formatBytes(me.storageLimit)} used
-          </span>
-        </div>
-        <div className="account">
-          <span className="username" title="Signed in">
-            {me.username}
-          </span>
-          <button className="link-button" onClick={onSignOut}>
-            Sign out
-          </button>
-        </div>
-      </div>
-    </nav>
-  );
-}
-
-function ViewButton({ label, icon, count, active, onClick }: { label: string; icon: ReactNode; count?: number; active: boolean; onClick: () => void }) {
-  return (
-    <button className={'view-button' + (active ? ' active' : '')} onClick={onClick} aria-current={active ? 'page' : undefined}>
-      <span className="icon" aria-hidden>
-        {icon}
-      </span>
-      <span className="label">{label}</span>
-      {count !== undefined && count > 0 && <span className="count">{count}</span>}
-    </button>
-  );
-}
-
-function FolderTree({
+/** The folder tree with counts, expand/collapse and each folder's actions (shown in the rail's Folders panel). */
+export function FolderTree({
   folders,
   all,
   depth,

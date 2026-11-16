@@ -139,7 +139,7 @@ async function open(body: unknown, opts: { version?: number } = {}) {
   return view;
 }
 const facesRequests = (id?: string) => requests.filter((r) => r.path.startsWith('/api/fonts/faces/') && (!id || r.path.endsWith(`/${id}`))).length;
-const fontButton = () => [...view!.container.querySelectorAll('button')].find((b) => b.getAttribute('aria-label')?.startsWith('Font')) as HTMLButtonElement;
+const fontButton = () => view!.container.querySelector('.toolbar .font-button') as HTMLButtonElement;
 const select = async (from: number, to: number) =>
   act(async () => {
     editorOf(view!.container).chain().focus().setTextSelection({ from, to }).run();

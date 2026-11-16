@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
-// Collapsible left-hand panels: each has its own control, a collapsed panel leaves a strip that
-// brings it back, the controls say what they do and whether the panel is open, and the choice
-// is remembered per browser across reloads (tolerating a broken localStorage).
+// The left of the screen: the rail is always shown (it replaced the collapsible folders panel); the note list
+// has its own collapse control, a collapsed list leaves a strip that brings it back, the controls say what they
+// do and whether the list is open, and the choice is remembered per browser (tolerating a broken localStorage).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
@@ -31,81 +31,68 @@ afterEach(async () => {
 
 async function open() {
   view = await render(<App />);
-  await waitFor(() => !!view!.container.querySelector('#sidebar'), 3000, 'main screen');
+  await waitFor(() => !!view!.container.querySelector('#rail'), 3000, 'main screen');
   return view.container;
 }
 const app = (c: HTMLElement) => c.querySelector('.app')!;
-const sidebar = (c: HTMLElement) => c.querySelector('#sidebar')!;
 const list = (c: HTMLElement) => c.querySelector('#note-list')!;
 
-describe('collapsible panels', () => {
-  it('starts with both panels open and labelled controls that say so', async () => {
+// The rail replaced the collapsible folders panel (REDESIGN-BRIEF 2.1): it is always shown and has no
+// collapse control. The note list keeps its collapse control and remembered state.
+describe('the rail is always shown; the note list collapses', () => {
+  it('starts with the rail, the list open, and the list control saying so; no folders-panel control any more', async () => {
     const c = await open();
-    for (const [label, id] of [
-      ['Hide folders and tags', 'sidebar'],
-      ['Hide note list', 'note-list'],
-    ]) {
-      const b = button(c, label)!;
-      expect(b, label).toBeTruthy();
-      expect(b.getAttribute('aria-expanded')).toBe('true');
-      expect(b.getAttribute('aria-controls')).toBe(id);
-      expect(c.querySelector(`#${id}`)!.classList.contains('collapsed')).toBe(false);
-    }
+    expect(c.querySelector('#rail')).toBeTruthy();
+    expect(button(c, 'Hide folders and tags')).toBeUndefined();
+    expect(button(c, 'Show folders and tags')).toBeUndefined();
+    const b = button(c, 'Hide note list')!;
+    expect(b.getAttribute('aria-expanded')).toBe('true');
+    expect(b.getAttribute('aria-controls')).toBe('note-list');
+    expect(list(c).classList.contains('collapsed')).toBe(false);
     expect(c.querySelector('.panel-strip')).toBeNull();
     expect(app(c).className).not.toMatch(/collapsed/);
   });
 
-  it('collapsing the folders panel leaves a strip that brings it back, and the focus follows', async () => {
+  it('a folders panel collapsed under the old layout is ignored: the rail still shows', async () => {
+    localStorage.setItem(LAYOUT_KEY, '{"sidebar":true,"list":false}');
     const c = await open();
-    await click(button(c, 'Hide folders and tags'));
-    expect(sidebar(c).classList.contains('collapsed')).toBe(true);
-    expect(app(c).classList.contains('sidebar-collapsed')).toBe(true);
-    expect(list(c).classList.contains('collapsed')).toBe(false); // the other panel is independent
-    const strip = button(c, 'Show folders and tags')!;
-    expect(strip.getAttribute('aria-expanded')).toBe('false');
-    expect(strip.getAttribute('aria-controls')).toBe('sidebar');
-    expect(document.activeElement).toBe(strip);
-    expect(JSON.parse(localStorage.getItem(LAYOUT_KEY)!)).toEqual({ sidebar: true, list: false });
-
-    await click(strip);
-    expect(sidebar(c).classList.contains('collapsed')).toBe(false);
-    expect(app(c).classList.contains('sidebar-collapsed')).toBe(false);
-    expect(button(c, 'Show folders and tags')).toBeUndefined();
-    expect(document.activeElement).toBe(button(c, 'Hide folders and tags'));
-    expect(JSON.parse(localStorage.getItem(LAYOUT_KEY)!)).toEqual({ sidebar: false, list: false });
+    expect(c.querySelector('#rail')).toBeTruthy();
+    expect(app(c).className).not.toMatch(/sidebar-collapsed/);
+    expect(button(c, 'All notes')).toBeTruthy();
   });
 
-  it('collapsing the note list works on its own too', async () => {
+  it('collapsing the note list leaves a strip that brings it back, and the focus follows', async () => {
     const c = await open();
     await click(button(c, 'Hide note list'));
     expect(list(c).classList.contains('collapsed')).toBe(true);
     expect(app(c).classList.contains('list-collapsed')).toBe(true);
-    expect(sidebar(c).classList.contains('collapsed')).toBe(false);
     const strip = button(c, 'Show note list')!;
     expect(strip.getAttribute('aria-expanded')).toBe('false');
     expect(strip.getAttribute('aria-controls')).toBe('note-list');
     expect(strip.textContent).toContain('All notes'); // the strip says what is hidden
     expect(document.activeElement).toBe(strip);
+    expect(JSON.parse(localStorage.getItem(LAYOUT_KEY)!).list).toBe(true);
+    await click(strip);
+    expect(list(c).classList.contains('collapsed')).toBe(false);
+    expect(button(c, 'Show note list')).toBeUndefined();
+    expect(document.activeElement).toBe(button(c, 'Hide note list'));
+    expect(JSON.parse(localStorage.getItem(LAYOUT_KEY)!).list).toBe(false);
   });
 
-  it('remembers the collapsed panels across a reload', async () => {
+  it('remembers the collapsed list across a reload', async () => {
     let c = await open();
-    await click(button(c, 'Hide folders and tags'));
     await click(button(c, 'Hide note list'));
     await view!.unmount();
 
     c = await open();
-    expect(sidebar(c).classList.contains('collapsed')).toBe(true);
     expect(list(c).classList.contains('collapsed')).toBe(true);
-    expect(app(c).classList.contains('sidebar-collapsed') && app(c).classList.contains('list-collapsed')).toBe(true);
-    expect(button(c, 'Show folders and tags')).toBeTruthy();
+    expect(app(c).classList.contains('list-collapsed')).toBe(true);
     expect(button(c, 'Show note list')).toBeTruthy();
-    // Collapsed panels stay in the page, so the narrow-screen layout (one panel per screen) still has them.
-    expect(c.querySelector('#sidebar .view-button')).toBeTruthy();
+    // The collapsed list stays in the page, so the narrow-screen layout (one screen at a time) still has it.
     expect(c.querySelector('#note-list .list-header')).toBeTruthy();
   });
 
-  it('works, with everything open, when localStorage is unavailable', async () => {
+  it('works when localStorage is unavailable', async () => {
     vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
       throw new Error('SecurityError');
     });
@@ -113,11 +100,11 @@ describe('collapsible panels', () => {
       throw new Error('QuotaExceededError');
     });
     const c = await open();
-    expect(sidebar(c).classList.contains('collapsed')).toBe(false);
-    await click(button(c, 'Hide folders and tags'));
-    expect(sidebar(c).classList.contains('collapsed')).toBe(true);
-    await click(button(c, 'Show folders and tags'));
-    expect(sidebar(c).classList.contains('collapsed')).toBe(false);
+    expect(list(c).classList.contains('collapsed')).toBe(false);
+    await click(button(c, 'Hide note list'));
+    expect(list(c).classList.contains('collapsed')).toBe(true);
+    await click(button(c, 'Show note list'));
+    expect(list(c).classList.contains('collapsed')).toBe(false);
   });
 
   it('ignores a stored value it does not understand', () => {

@@ -68,3 +68,14 @@ export function editorOf(container: ParentNode): any {
 }
 
 export const settle = () => act(async () => new Promise((r) => setTimeout(r, 30)));
+
+/** A button on the rail, by its accessible name (REDESIGN-BRIEF 2.1: the rail replaced the sidebar). */
+export function railButton(container: ParentNode, label: string): HTMLButtonElement {
+  return container.querySelector(`#rail .rail-button[aria-label="${label}"]`) as HTMLButtonElement;
+}
+
+/** Sign out: it lives in the rail's account menu. */
+export async function signOut(container: ParentNode) {
+  await click(railButton(container, 'Account'));
+  await click(button(document, 'Sign out'));
+}

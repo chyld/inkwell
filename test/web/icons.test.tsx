@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
-import { button, click, editorOf, mockFetch, render, waitFor } from './harness';
+import { button, click, editorOf, mockFetch, railButton, render, waitFor } from './harness';
 
 const NOTE = '66666666-6666-4666-8666-666666666666';
 const item = { id: NOTE, title: 'Iconic', snippet: 'x', folderId: 'f1', tags: ['t'], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } };
@@ -95,10 +95,27 @@ describe('icons', () => {
     expect(button(view.container, 'Bold')!.getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('the collapsed-panel strips and the folder picker dialog too', async () => {
+  it('the rail, its panels and account menu, the collapsed-list strip and the folder picker dialog too', async () => {
     view = await render(<App />);
     await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'list');
-    await click(button(view.container, 'Hide folders and tags'));
+    // The rail: icon-only buttons, each named and with a tooltip (checkButtons), and its panels.
+    for (const [label, icon] of [
+      ['All notes', 'lucide-notebook'],
+      ['Inbox', 'lucide-inbox'],
+      ['Folders', 'lucide-folder'],
+      ['Tags', 'lucide-tag'],
+      ['Fonts', 'lucide-type'],
+      ['Styles', 'lucide-paintbrush'],
+      ['Trash', 'lucide-trash-2'],
+      ['Account', 'lucide-circle-user'],
+    ]) {
+      expect(railButton(view.container, label)?.querySelector(`svg.${icon}`), label).toBeTruthy();
+    }
+    for (const panel of ['Folders', 'Tags', 'Account']) {
+      await click(railButton(view.container, panel));
+      checkButtons(document);
+      await click(railButton(view.container, panel));
+    }
     await click(button(view.container, 'Hide note list'));
     await click(button(view.container, 'Show note list'));
     await click(view.container.querySelector('.note-item'));

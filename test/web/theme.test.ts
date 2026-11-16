@@ -1,5 +1,5 @@
-// Colour scheme 'Plum': every colour comes from the :root tokens (light and dark), the tokens
-// are the agreed values, and the pairs the UI uses meet WCAG AA contrast in both themes.
+// Colour scheme 'Teal rail and paper' (REDESIGN-BRIEF 1, DEVIATIONS 46): every colour comes from the :root
+// tokens (light and dark), the tokens are the agreed values, and the pairs the UI uses meet WCAG AA in both themes.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { HIGHLIGHT_COLORS, TEXT_COLORS } from '../../src/shared/schema';
@@ -14,9 +14,21 @@ const tokens = (block: string) => Object.fromEntries([...block.matchAll(/--([\w-
 const light = tokens(lightBlock);
 const dark = { ...light, ...tokens(darkBlock) };
 
-const PLUM = {
-  light: { bg: '#ffffff', 'bg-soft': '#f9f6fa', 'bg-sidebar': '#f4f0f6', 'bg-hover': '#ebe4ee', 'bg-active': '#ecdcf3', border: '#e3dbe7', text: '#231a27', 'text-soft': '#6a5c70', accent: '#8a3aa8', 'accent-text': '#ffffff', 'code-bg': '#f1ebf3' },
-  dark: { bg: '#1a151c', 'bg-soft': '#211a24', 'bg-sidebar': '#1e1820', 'bg-hover': '#302634', 'bg-active': '#46275a', border: '#382d3c', text: '#ece5ee', 'text-soft': '#a898ad', accent: '#cf8cea', 'accent-text': '#260f30', 'code-bg': '#2a2130' },
+// Light values from the brief, with the nudges recorded in DEVIATIONS 46 (soft text darkened 5%; the coral
+// split into a fill, a thin-line and a link shade); the dark values are the ones chosen for it.
+const TEAL = {
+  light: {
+    bg: '#ffffff', 'bg-soft': '#f1f5f4', 'bg-hover': '#eaf0ef', 'bg-active': '#fdece6', border: '#d5e0de', text: '#17302d', 'text-soft': '#5a706d',
+    accent: '#ef6f53', 'accent-text': '#17302d', 'accent-line': '#dc664c', link: '#974634', 'code-bg': '#edf3f2', mark: '#ffe1d6',
+    rail: '#0f5f5a', 'rail-icon': '#cfe9e5', 'rail-hover': '#1b6d67', 'rail-current': '#ffffff', 'rail-current-icon': '#0f5f5a',
+    pill: '#17302d', 'pill-ink': '#e7f1ef', 'pill-line': '#3a5551', 'pill-on': '#2f4c48',
+  },
+  dark: {
+    bg: '#172725', 'bg-soft': '#0f1c1b', 'bg-hover': '#20322f', 'bg-active': '#47302a', border: '#2c403d', text: '#e3efec', 'text-soft': '#9ab3ae',
+    accent: '#f4806a', 'accent-text': '#17302d', 'accent-line': '#f4806a', link: '#ff9d85', 'code-bg': '#1f302d', mark: '#5a3328',
+    rail: '#0c4440', 'rail-icon': '#cfe9e5', 'rail-hover': '#155a55', 'rail-current': '#172725', 'rail-current-icon': '#8fd6cb',
+    pill: '#233835', 'pill-ink': '#e7f1ef', 'pill-line': '#3e5753', 'pill-on': '#35504b',
+  },
 };
 
 const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
@@ -29,18 +41,29 @@ const contrast = (a: string, b: string) => {
   return (x + 0.05) / (y + 0.05);
 };
 
-describe('Plum colour scheme', () => {
+describe("'Teal rail and paper' colour scheme", () => {
   it('sets the agreed token values in both themes', () => {
-    for (const [k, v] of Object.entries(PLUM.light)) expect(light[k], `light --${k}`).toBe(v);
-    for (const [k, v] of Object.entries(PLUM.dark)) expect(dark[k], `dark --${k}`).toBe(v);
+    for (const [k, v] of Object.entries(TEAL.light)) expect(light[k], `light --${k}`).toBe(v);
+    for (const [k, v] of Object.entries(TEAL.dark)) expect(dark[k], `dark --${k}`).toBe(v);
+  });
+
+  it('keeps the light values of the brief, except the soft text nudged darker to pass', () => {
+    const brief = { 'bg-soft': '#f1f5f4', bg: '#ffffff', text: '#17302d', border: '#d5e0de', rail: '#0f5f5a', 'rail-icon': '#cfe9e5', accent: '#ef6f53', pill: '#17302d', 'pill-ink': '#e7f1ef', 'pill-line': '#3a5551', 'pill-on': '#2f4c48' };
+    for (const [k, v] of Object.entries(brief)) expect(light[k], `light --${k}`).toBe(v);
+    expect(contrast('#5f7673', light['bg-soft'])).toBeLessThan(4.5); // the brief's soft text fails on the ground…
+    expect(contrast(light['text-soft'], light['bg-soft'])).toBeGreaterThanOrEqual(4.5); // …the nudged one passes
   });
 
   it('meets WCAG AA for text, soft text, accent text, links and selected states', () => {
     const pairs: [string, string, number][] = [
-      ['text', 'bg', 4.5], ['text', 'bg-soft', 4.5], ['text', 'bg-sidebar', 4.5], ['text', 'bg-hover', 4.5], ['text', 'bg-active', 4.5], ['text', 'code-bg', 4.5],
-      ['text-soft', 'bg', 4.5], ['text-soft', 'bg-soft', 4.5], ['text-soft', 'bg-sidebar', 4.5], ['text-soft', 'bg-hover', 4.5], ['text-soft', 'bg-active', 4.5],
-      ['accent-text', 'accent', 4.5], ['accent', 'bg', 4.5], ['accent', 'bg-soft', 4.5], ['accent', 'bg-sidebar', 4.5], ['accent', 'bg-active', 3],
-      ['danger', 'bg', 4.5], ['danger', 'bg-soft', 4.5], ['danger', 'bg-sidebar', 4.5], ['warn-text', 'warn-bg', 4.5], ['text', 'mark', 4.5], ['bg', 'text', 4.5],
+      ['text', 'bg', 4.5], ['text', 'bg-soft', 4.5], ['text', 'bg-hover', 4.5], ['text', 'bg-active', 4.5], ['text', 'code-bg', 4.5],
+      ['text-soft', 'bg', 4.5], ['text-soft', 'bg-soft', 4.5], ['text-soft', 'bg-hover', 4.5], ['text-soft', 'bg-active', 4.5],
+      ['accent-text', 'accent', 4.5], // ink on a coral fill
+      ['link', 'bg', 4.5], ['link', 'bg-soft', 4.5], ['link', 'bg-active', 4.5], // link text
+      ['accent-line', 'bg', 3], ['accent-line', 'bg-soft', 3], ['accent-line', 'bg-hover', 3], // focus ring, selected outline
+      ['danger', 'bg', 4.5], ['danger', 'bg-soft', 4.5], ['warn-text', 'warn-bg', 4.5], ['text', 'mark', 4.5], ['bg', 'text', 4.5],
+      ['rail-icon', 'rail', 4.5], ['rail-icon', 'rail-hover', 4.5], ['rail-current-icon', 'rail-current', 4.5], // the rail; its focus ring is --rail-icon
+      ['accent-text', 'accent', 4.5], // the badge and the New button: ink on a coral fill
     ];
     for (const [theme, t] of Object.entries({ light, dark })) {
       for (const [fg, bg, min] of pairs) expect(contrast(t[fg], t[bg]), `${theme}: --${fg} on --${bg}`).toBeGreaterThanOrEqual(min);
@@ -55,9 +78,21 @@ describe('Plum colour scheme', () => {
     expect(css).toMatch(/::selection \{\s*background: var\(--selection\);\s*color: var\(--text\);/);
   });
 
-  it('the favicon uses the plum accent', () => {
-    expect(favicon).toContain(PLUM.light.accent);
-    expect(favicon).not.toMatch(/#3b6fd8/i);
+  it('the favicon uses the coral accent; nothing purple or sage remains', () => {
+    expect(favicon).toContain(TEAL.light.accent);
+    expect(favicon).not.toMatch(/#3b6fd8|#8a3aa8/i);
+    // The Plum and Sage values are gone from the stylesheet.
+    for (const old of ['#8a3aa8', '#cf8cea', '#f9f6fa', '#ecdcf3', '#46275a', '#e3f0e0', '#c8dfc3', '#405e40', '#252f23', '#bad3b4', '#231a27']) expect(css.toLowerCase(), old).not.toContain(old);
+    expect(css).not.toMatch(/--(bg-sidebar|toolbar-bg|toolbar-strong|toolbar-icon)\b/);
+  });
+
+  it('accent roles: links in the link shade, focus rings and selected outlines in the line shade, the rail ring in the rail ink', () => {
+    expect(css).toMatch(/\.prose a \{\s*color: var\(--link\);/);
+    expect(css).toMatch(/\.link-button \{\s*color: var\(--link\);/);
+    expect(css).toMatch(/:focus-visible \{\s*outline: 2px solid var\(--accent-line\);/);
+    expect(css).toMatch(/\.rail-button:focus-visible \{\s*outline-color: var\(--rail-icon\);/);
+    expect(css).toMatch(/accent-color: var\(--accent\)/);
+    expect(css).not.toMatch(/background: linear-gradient|radial-gradient/); // flat colour only
   });
 });
 
@@ -84,18 +119,14 @@ describe("text colours and highlights, palette 'Jewel'", () => {
       }
       for (const h of HIGHLIGHT_COLORS) {
         expect(contrast(t.text, t[`hl-${h}`]), `${theme}: --text on ${h}`).toBeGreaterThanOrEqual(4.5);
-        expect(contrast(t.accent, t[`hl-${h}`]), `${theme}: link on ${h}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t.link, t[`hl-${h}`]), `${theme}: link on ${h}`).toBeGreaterThanOrEqual(4.5);
       }
     }
   });
 });
 
 
-describe("the editor toolbar: 'Quiet line' on a 'Sage' bar (DEVIATIONS 45)", () => {
-  const SAGE = {
-    light: { 'toolbar-bg': '#e3f0e0', 'toolbar-strong': '#c8dfc3', 'toolbar-icon': '#405e40' },
-    dark: { 'toolbar-bg': '#252f23', 'toolbar-strong': '#354531', 'toolbar-icon': '#bad3b4' },
-  };
+describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
   /** Every declaration given to exactly this selector, in source order. */
   const decls = (sel: string) => {
     const out: Record<string, string> = {};
@@ -109,37 +140,26 @@ describe("the editor toolbar: 'Quiet line' on a 'Sage' bar (DEVIATIONS 45)", () 
     return out;
   };
 
-  it('sets the agreed token values in both themes', () => {
-    for (const [k, v] of Object.entries(SAGE.light)) expect(light[k], `light --${k}`).toBe(v);
-    for (const [k, v] of Object.entries(SAGE.dark)) expect(dark[k], `dark --${k}`).toBe(v);
-  });
-
-  it('meets contrast: icons 4.5:1 on the bar and on the pressed background, labels and pressed icons 4.5:1, the focus ring 3:1', () => {
+  it('meets contrast: icons and labels 4.5:1 on the pill and on the pressed colour; its focus ring 3:1', () => {
     const pairs: [string, string, number][] = [
-      ['toolbar-icon', 'toolbar-bg', 4.5], // icons on the bar
-      ['toolbar-icon', 'toolbar-strong', 4.5], // icons on hover
-      ['text', 'toolbar-strong', 4.5], // a pressed icon is in the text colour
-      ['text', 'toolbar-bg', 4.5], // picker labels (Styles, the font name)
-      ['text', 'bg', 4.5], // the size number on the page background
-      ['accent', 'toolbar-bg', 3], // the focus ring on sage
-      ['accent', 'toolbar-strong', 3],
+      ['pill-ink', 'pill', 4.5], // icons and labels on the pill
+      ['pill-ink', 'pill-on', 4.5], // hover and pressed
+      ['text', 'bg', 4.5], // the size number on the paper-coloured box
     ];
     for (const [theme, t] of Object.entries({ light, dark })) {
       for (const [fg, bg, min] of pairs) expect(contrast(t[fg], t[bg]), `${theme}: --${fg} on --${bg}`).toBeGreaterThanOrEqual(min);
     }
   });
 
-  it('the bar, its dividers, hover and pressed states use the sage tokens; icons sage, labels the text colour', () => {
-    expect(decls('.toolbar').background).toBe('var(--toolbar-bg)');
-    expect(decls('.toolbar')['border-bottom']).toBe('1px solid var(--toolbar-strong)');
-    expect(decls('.toolbar .tb-sep').background).toBe('var(--toolbar-strong)');
-    expect(decls('.toolbar .tb:hover:not(:disabled)').background).toBe('var(--toolbar-strong)');
-    expect(decls('.toolbar .tb.active').background).toBe('var(--toolbar-strong)');
-    expect(decls('.toolbar .tb').color).toBe('var(--text)');
-    expect(decls('.toolbar .tb > svg.lucide').color).toBe('var(--toolbar-icon)');
-    expect(decls('.toolbar .tb.active > svg.lucide').color).toBe('var(--text)');
+  it('the pill, its dividers, hover and pressed states use the pill tokens; the light menus keep the paper and the coral row', () => {
+    expect(decls('.toolbar').background).toBe('var(--pill)');
+    expect(decls('.toolbar .tb-sep').background).toBe('var(--pill-line)');
+    expect(decls('.toolbar .tb:hover:not(:disabled)').background).toBe('var(--pill-on)');
+    expect(decls('.toolbar .tb.active').background).toBe('var(--pill-on)');
+    expect(decls('.toolbar .tb').color).toBe('var(--pill-ink)');
+    expect(decls('.toolbar .tb:focus-visible')['outline-color']).toBe('var(--pill-ink)');
+    expect(decls('.toolbar').color).toBeUndefined(); // the ink is on the buttons, not inherited by the menus
     expect(decls('.size-group .size-input').background).toBe('var(--bg)');
-    // Menus opened from the toolbar stay on the page background with the Plum current row.
     expect(decls('.font-popover').background).toBe('var(--bg)');
     expect(decls(".font-item[aria-checked='true']").background).toBe('var(--bg-active)');
   });
