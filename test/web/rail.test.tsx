@@ -57,7 +57,7 @@ describe('the rail', () => {
     const c = await open();
     const groups = [...c.querySelectorAll('#rail .rail-group')].map((g) => [...g.querySelectorAll('.rail-button')].map((b) => b.getAttribute('aria-label')));
     expect(groups).toEqual([
-      ['All notes', 'Inbox', 'Folders', 'Tags'],
+      ['New note', 'All notes', 'Inbox', 'Folders', 'Tags'],
       ['Fonts', 'Styles', 'Trash', 'Account'],
     ]);
     for (const b of c.querySelectorAll('#rail .rail-button')) {

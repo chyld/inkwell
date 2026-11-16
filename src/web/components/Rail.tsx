@@ -21,9 +21,11 @@ interface Props {
   onView: (v: View) => void;
   onFoldersChanged: () => void;
   onSignOut: () => void;
+  /** New note (DEVIATIONS 48): as the list's New button, from every screen. */
+  onNewNote: () => void;
 }
 
-export function Rail({ me, folders, tags, view, onView, onFoldersChanged, onSignOut }: Props) {
+export function Rail({ me, folders, tags, view, onView, onFoldersChanged, onSignOut, onNewNote }: Props) {
   const dialogs = useDialogs();
   const [panel, setPanel] = useState<Panel | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -121,6 +123,9 @@ export function Rail({ me, folders, tags, view, onView, onFoldersChanged, onSign
   return (
     <nav id="rail" className="rail" aria-label="Navigation">
       <div className="rail-group">
+        <button type="button" className="rail-button rail-new" aria-label="New note" title="New note" onClick={() => (close(false), onNewNote())}>
+          <Plus />
+        </button>
         {item('All notes', <Notebook />, view.kind === 'all', () => (close(false), onView({ kind: 'all' })))}
         {inbox && (
           <span className="rail-badge-anchor">

@@ -436,6 +436,14 @@ mark {
 .rail-button.open {
   background: var(--rail-hover);
 }
+.rail-button.rail-new,
+.rail-button.rail-new:hover:not(:disabled) {
+  background: var(--accent); /* New note: a coral square with the accent's dark ink */
+  color: var(--accent-text);
+}
+.rail-button.rail-new:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
 .rail-button.current,
 .rail-button.current:hover:not(:disabled) {
   background: var(--rail-current);

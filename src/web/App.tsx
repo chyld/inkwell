@@ -297,12 +297,22 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     setScreen('list');
   }
 
-  async function newNote() {
-    if (view.kind === 'trash') return;
+  /**
+   * A new note in the current folder context (Unfiled otherwise), opened at its address. From the rail
+   * (`anywhere`) it also works in Trash: the view becomes All notes and the note is made there, outside Trash.
+   */
+  async function newNote(anywhere = false) {
+    if (view.kind === 'trash' && !anywhere) return;
+    const ctx: View = view.kind === 'trash' ? { kind: 'all' } : view;
     const epoch = currentAuthEpoch();
     await settleCurrent();
     if (epoch !== currentAuthEpoch()) return; // signed out (or refused) while waiting
-    const folderId = view.kind === 'folder' ? view.id : view.kind === 'inbox' ? me.inboxId : null;
+    if (ctx !== view) {
+      setView(ctx);
+      setItems([]);
+      setCursor(null);
+    }
+    const folderId = ctx.kind === 'folder' ? ctx.id : ctx.kind === 'inbox' ? me.inboxId : null;
     try {
       const n = await api<NoteItem & { version: number }>('POST', '/notes', { folderId });
       setQuery('');
@@ -452,7 +462,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
 
   return (
     <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page !== 'notes' ? ` ${page}-open` : ''}`}>
-      <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} />
+      <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} onNewNote={() => void newNote(true)} />
       {page === 'fonts' && <FontsPage onBack={leavePage} />}
       {page === 'styles' && <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />}
       {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
@@ -471,7 +481,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
         onQuery={setQuery}
         searching={searching}
         isTrash={view.kind === 'trash'}
-        onNewNote={newNote}
+        onNewNote={() => void newNote()}
         onEmptyTrash={emptyTrash}
       />}
       {page !== 'notes' ? null : selected ? (

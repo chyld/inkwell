@@ -65,7 +65,7 @@ describe('the list header', () => {
     const c = await open();
     const top = c.querySelector('.list-header .list-top')!;
     expect([...top.children].map((e) => e.querySelector('input')?.getAttribute('aria-label') ?? e.getAttribute('aria-label'))).toEqual(['Search notes', 'New note']);
-    const nw = button(c, 'New note')!;
+    const nw = c.querySelector('.list-top button[aria-label="New note"]') as HTMLButtonElement; // the rail has one too
     expect(nw.textContent!.trim()).toBe('New');
     expect(nw.classList.contains('primary')).toBe(true);
     expect(nw.title).toMatch(/^New note \((Ctrl\+Alt\+N|⌘⌥N)\)$/);
@@ -133,7 +133,7 @@ describe('Trash', () => {
     await waitFor(() => cards(c).length === 1 && cards(c)[0].textContent!.includes('Note 4'), 3000, 'trash');
     expect(c.querySelector('.list-title h2')!.textContent).toBe('Trash');
     expect(c.querySelector('.search-box')).toBeNull();
-    expect(button(c, 'New note')).toBeUndefined();
+    expect(c.querySelector('.list-top button[aria-label="New note"]')).toBeNull(); // the rail's stays (DEVIATIONS 48)
     expect(c.querySelector('.list-top')!.contains(button(c, 'Empty Trash')!)).toBe(true);
     pages.trash = { notes: [], nextCursor: null };
     await click(railButton(c, 'All notes'));
