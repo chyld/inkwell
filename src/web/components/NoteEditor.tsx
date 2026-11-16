@@ -101,6 +101,13 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   const [draft, setDraft] = useState<Draft | null>(null);
   const [folderId, setFolderId] = useState(note.folderId);
   const [tags, setTags] = useState(note.tags);
+  // Shown in the header; follows confirmed saves, and "x min ago" is refreshed once a minute.
+  const [updatedAt, setUpdatedAt] = useState(note.updatedAt);
+  const [, setClock] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setClock((c) => c + 1), 60_000);
+    return () => clearInterval(t);
+  }, []);
   const saverRef = useRef<NoteSaver | null>(null);
   // The saver outlives renders; it must call the current callbacks, not the first render's.
   const propsRef = useRef(props);
@@ -119,7 +126,9 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         },
         onConflict: () => setConflict(true),
         onSaved: (info) => {
-          propsRef.current.onMeta(note.id, { title: info.title, updatedAt: info.updatedAt ?? new Date().toISOString(), snippet: editorRef.current?.getText().slice(0, 200) ?? '' });
+          const at = info.updatedAt ?? new Date().toISOString();
+          setUpdatedAt(at);
+          propsRef.current.onMeta(note.id, { title: info.title, updatedAt: at, snippet: editorRef.current?.getText().slice(0, 200) ?? '' });
           propsRef.current.onStorageChanged();
         },
       });
@@ -317,31 +326,57 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   const location = folderId ? folderPath(props.folders, folderId) || findFolder(props.folders, folderId)?.name || 'Folder' : 'Unfiled';
   const statusText = status === 'saved' ? 'Saved' : status === 'saving' ? 'Saving…' : 'Not saved';
 
+  const created = new Date(note.createdAt);
+  const updated = new Date(updatedAt);
+
   return (
     <section className="editor-pane" aria-label="Editor">
+      {/* Everything about the note sits above the toolbar; below it there is only the body. */}
       <header className="editor-header">
-        <button className="icon-button mobile-only" onClick={props.onBack} aria-label="Back to list">
-          ‹
-        </button>
-        <div className="editor-location">
+        <div className="editor-meta">
+          <button className="icon-button mobile-only" onClick={props.onBack} aria-label="Back to list">
+            ‹
+          </button>
+          <div className="editor-location">
+            {!trashed && (
+              <button className="link-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
+                📁 {location} ▾
+              </button>
+            )}
+            {trashed && <span className="editor-trashed">In Trash · was in {location}</span>}
+            {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
+          </div>
+          <span className="editor-dates" title={`Created ${created.toLocaleString()} · Updated ${updated.toLocaleString()}`}>
+            Created <time dateTime={note.createdAt}>{created.toLocaleDateString()}</time> · Updated <time dateTime={updatedAt}>{relativeTime(updatedAt)}</time>
+          </span>
           {!trashed && (
-            <button className="link-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
-              📁 {location} ▾
+            <span className={`save-status ${status}`} role="status" aria-live="polite" title={statusMsg ?? undefined}>
+              {statusText}
+            </span>
+          )}
+          {!trashed && (
+            <button className="icon-button" onClick={trash} title="Move to Trash" aria-label="Move to Trash">
+              🗑️
             </button>
           )}
-          {trashed && <span>In Trash · was in {location}</span>}
-          {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
         </div>
-        {!trashed && (
-          <span className={`save-status ${status}`} role="status" aria-live="polite" title={statusMsg ?? undefined}>
-            {statusText}
-          </span>
-        )}
-        {!trashed && (
-          <button className="icon-button" onClick={trash} title="Move to Trash" aria-label="Move to Trash">
-            🗑️
-          </button>
-        )}
+        <input
+          id="note-title"
+          className="title-input"
+          placeholder="Untitled"
+          value={title}
+          maxLength={200}
+          readOnly={locked}
+          onChange={(e) => onTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              editor?.commands.focus('start');
+            }
+          }}
+          aria-label="Title"
+        />
+        <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />
       </header>
       {statusMsg && status === 'unsaved' && !conflict && (
         <div className="banner warn">
@@ -394,27 +429,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
       )}
       {!locked && editor && <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} />}
       <div className="editor-scroll">
-        <input
-          id="note-title"
-          className="title-input"
-          placeholder="Untitled"
-          value={title}
-          maxLength={200}
-          readOnly={locked}
-          onChange={(e) => onTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              editor?.commands.focus('start');
-            }
-          }}
-          aria-label="Title"
-        />
-        <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />
         <EditorContent editor={editor} className="editor-content" />
-        <p className="editor-dates">
-          Created {new Date(note.createdAt).toLocaleString()} · Updated {relativeTime(note.updatedAt)}
-        </p>
       </div>
       {upload.input}
     </section>

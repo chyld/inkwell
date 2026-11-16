@@ -225,3 +225,77 @@ describe('round 3', () => {
   });
 });
 
+
+describe('editor layout: note details above the toolbar, only the body below', () => {
+  const focusable = (root: Element) =>
+    [...root.querySelectorAll<HTMLElement>('button, input, [contenteditable="true"]')].filter((e) => !e.closest('datalist')).map((e) => e.getAttribute('aria-label') ?? e.textContent);
+
+  it('puts folder, title, tags, dates and save status in the header, then the toolbar, then the body', async () => {
+    const v = await open(props(), serverNote({ tags: ['work'] }));
+    const pane = v.container.querySelector('.editor-pane')!;
+    const header = pane.querySelector('.editor-header')!;
+    expect(header).toBeTruthy();
+    expect(header.querySelector('[aria-label="Move to…"]')).toBeTruthy();
+    expect(header.querySelector('#note-title')).toBeTruthy();
+    expect(header.querySelector('.tag-editor')?.textContent).toContain('#work');
+    expect(header.querySelector('input[aria-label="Add tag"]')).toBeTruthy();
+    expect(header.querySelector('.editor-dates')?.textContent).toMatch(/^Created .+ · Updated .+/);
+    expect(header.querySelector('.save-status')?.textContent).toBe('Saved');
+
+    // Order in the page (and so the keyboard order): header, toolbar, body.
+    const kids = [...pane.children].map((e) => e.className.split(' ')[0]);
+    expect(kids.indexOf('editor-header')).toBeLessThan(kids.indexOf('toolbar'));
+    expect(kids.indexOf('toolbar')).toBeLessThan(kids.indexOf('editor-scroll'));
+    const order = focusable(pane);
+    const at = (label: string) => order.indexOf(label);
+    expect(at('Move to…')).toBeGreaterThanOrEqual(0);
+    expect(at('Move to…')).toBeLessThan(at('Title'));
+    expect(at('Title')).toBeLessThan(at('Add tag'));
+    expect(at('Add tag')).toBeLessThan(at('Bold'));
+    expect(at('Bold')).toBeLessThan(at('Note body'));
+
+    // Below the toolbar: the body and nothing else.
+    const scroll = pane.querySelector('.editor-scroll')!;
+    expect(scroll.children.length).toBe(1);
+    expect(scroll.firstElementChild!.classList.contains('editor-content')).toBe(true);
+    expect(scroll.querySelectorAll('input, .tag-editor, .editor-dates, .save-status').length).toBe(0);
+  });
+
+  it('Enter in the title moves the focus to the body', async () => {
+    const v = await open();
+    const titleInput = v.container.querySelector('#note-title') as HTMLInputElement;
+    titleInput.focus();
+    await act(async () => {
+      titleInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    });
+    await settle();
+    expect(document.activeElement).toBe(v.container.querySelector('.ProseMirror'));
+  });
+
+  it('the Updated time follows a confirmed save', async () => {
+    const v = await open();
+    const updated = () => v.container.querySelector('.editor-dates time:last-of-type')?.getAttribute('datetime');
+    expect(updated()).toBe('2026-01-01T00:00:00Z');
+    await act(async () => {
+      editorOf(v.container).commands.insertContent(' edited');
+    });
+    await waitFor(() => updated() === '2026-01-02T00:00:00Z', 4000, 'updated time after save');
+  });
+
+  it('a note from an agent shows its mark in the header', async () => {
+    const v = await open(props(), serverNote({ origin: { type: 'agent', name: 'Claude' } }));
+    expect(v.container.querySelector('.editor-header .agent-badge')?.textContent).toBe('by Claude');
+  });
+
+  it('a trashed note keeps its banner, has no toolbar, and still shows only the body below the header', async () => {
+    const v = await open(props(), serverNote({ trashedAt: '2026-01-03T00:00:00Z' }));
+    const pane = v.container.querySelector('.editor-pane')!;
+    expect(pane.querySelector('.editor-header')?.textContent).toContain('In Trash');
+    expect(pane.querySelector('.banner')?.textContent).toContain('This note is in Trash and cannot be edited.');
+    expect(pane.querySelector('.toolbar')).toBeNull();
+    expect((pane.querySelector('.editor-header #note-title') as HTMLInputElement).readOnly).toBe(true);
+    const scroll = pane.querySelector('.editor-scroll')!;
+    expect(scroll.children.length).toBe(1);
+    expect(scroll.querySelector('.editor-content')).toBeTruthy();
+  });
+});
