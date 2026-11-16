@@ -105,6 +105,47 @@ CREATE INDEX note_images_image ON note_images(image_id);
 CREATE VIRTUAL TABLE notes_fts USING fts5(title, body, tags, tokenize = 'unicode61 remove_diacritics 2');
 `),
   },
+  {
+    version: 2,
+    name: 'fonts',
+    // FONTS-SPEC 5.2 and 6: the shared font store (a cache) and each user's collection.
+    up: (db) =>
+      db.exec(`
+CREATE TABLE font_files (
+  hash TEXT PRIMARY KEY,
+  size INTEGER NOT NULL
+);
+CREATE TABLE font_previews (
+  font_id TEXT PRIMARY KEY,
+  file TEXT NOT NULL REFERENCES font_files(hash),
+  fetched_at INTEGER NOT NULL,
+  last_used INTEGER NOT NULL
+);
+CREATE TABLE font_face_units (
+  font_id TEXT PRIMARY KEY,
+  fetched_at INTEGER NOT NULL,
+  last_used INTEGER NOT NULL
+);
+CREATE TABLE font_faces (
+  font_id TEXT NOT NULL REFERENCES font_face_units(font_id) ON DELETE CASCADE,
+  seq INTEGER NOT NULL,
+  weight TEXT NOT NULL,
+  style TEXT NOT NULL,
+  unicode_range TEXT NOT NULL,
+  file TEXT NOT NULL REFERENCES font_files(hash),
+  PRIMARY KEY (font_id, seq)
+) WITHOUT ROWID;
+CREATE INDEX font_faces_file ON font_faces(file);
+CREATE INDEX font_previews_file ON font_previews(file);
+CREATE TABLE font_collection (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  font_id TEXT NOT NULL,
+  seq INTEGER NOT NULL,
+  PRIMARY KEY (user_id, font_id)
+) WITHOUT ROWID;
+CREATE INDEX font_collection_font ON font_collection(font_id);
+`),
+  },
 ];
 
 export function openDatabase(file: string): DB {

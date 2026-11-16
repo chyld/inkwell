@@ -36,11 +36,12 @@ export async function start(opts: StartOptions = {}) {
     }
     throw e;
   }
-  const store = new Store(db, { dataDir: config.dataDir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour });
+  const store = new Store(db, { dataDir: config.dataDir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, fontCacheBytes: config.fontCacheBytes });
   const purged = store.purgeExpiredSessions();
   const rec = store.reconcileImageFiles();
   const cleaned = store.cleanupImages();
-  log('info', `startup: ${purged} expired sessions removed; ${rec.tmp} temp files, ${rec.orphanFiles} files without a row, ${rec.orphanRows} rows without a file, ${cleaned} unused images removed`);
+  const fontRec = store.fonts.reconcile();
+  log('info', `startup: ${purged} expired sessions removed; ${rec.tmp} temp files, ${rec.orphanFiles} files without a row, ${rec.orphanRows} rows without a file, ${cleaned} unused images removed; fonts: ${fontRec.droppedUnits} units with a missing file dropped, ${fontRec.deletedFiles} unreferenced files deleted`);
   const timer = setInterval(() => {
     try {
       const n = store.cleanupImages();

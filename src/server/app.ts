@@ -8,6 +8,8 @@ import type { Config } from './config.js';
 import type { Store, UserRow } from './store.js';
 import { AppError } from './errors.js';
 import { registerApi } from './api.js';
+import { FontService, type Timers } from './fonts/service.js';
+import type { Fetcher } from './fonts/upstream.js';
 import { registerMcp } from './mcp.js';
 
 declare module 'fastify' {
@@ -22,6 +24,16 @@ export interface AppOptions {
   /** Where log lines go (default stdout). */
   logStream?: Writable;
   logLevel?: string;
+  /** Font fetching (FONTS-SPEC 5.1); tests replace the upstream fetcher and the timers. */
+  fonts?: { fetcher?: Fetcher; timers?: Timers };
+  fontService?: FontService;
+}
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    /** The font fetcher (FONTS-SPEC 5.1), reachable for tests that observe its queue. */
+    fontService: FontService;
+  }
 }
 
 export const SESSION_COOKIE = 'notes_session';
@@ -102,7 +114,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return { ok: true };
   });
 
-  await app.register(async (api) => registerApi(api, opts), { prefix: '/api' });
+  const fontService = opts.fontService ?? new FontService(store.fonts, { now: store.now, fetcher: opts.fonts?.fetcher, timers: opts.fonts?.timers });
+  app.decorate('fontService', fontService);
+  await app.register(async (api) => registerApi(api, { ...opts, fontService }), { prefix: '/api' });
   await app.register(async (scope) => registerMcp(scope, opts));
 
   // Built front end (if present).

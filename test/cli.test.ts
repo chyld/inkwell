@@ -6,6 +6,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Client, HOST, makeEnv, PASSWORD, userClient, type Env } from './helpers.js';
+import { MIGRATIONS } from '../src/server/db.js';
 
 const ROOT = path.resolve(import.meta.dirname, '..');
 let env: Env;
@@ -201,12 +202,12 @@ describe('migrations', () => {
     });
     expect(result.code, result.out).not.toBe(0);
     expect(result.out).toMatch(/database migration failed, not starting: migration 999/);
-    expect(env.store.db.pragma('user_version', { simple: true })).toBe(1);
+    expect(env.store.db.pragma('user_version', { simple: true })).toBe(MIGRATIONS.length); // still the current version
     expect(env.store.db.prepare("SELECT count(*) c FROM sqlite_master WHERE name = 'half_done'").get()).toEqual({ c: 0 });
     expect(env.store.db.prepare('SELECT * FROM notes').all()).toEqual(before);
     const snap = new Database(path.join(env.dir, 'pre-upgrade.db'), { readonly: true });
     expect(snap.prepare('SELECT id FROM notes').all()).toEqual([{ id: n }]);
-    expect(snap.pragma('user_version', { simple: true })).toBe(1);
+    expect(snap.pragma('user_version', { simple: true })).toBe(MIGRATIONS.length);
     snap.close();
     expect(fs.readdirSync(env.dir).filter((f) => f.endsWith('.tmp'))).toEqual([]);
   });

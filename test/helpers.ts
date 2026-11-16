@@ -3,10 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { PassThrough } from 'node:stream';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
-import { buildApp } from '../src/server/app.js';
+import { buildApp, type AppOptions } from '../src/server/app.js';
 import { loadConfig, type Config } from '../src/server/config.js';
 import { openDatabase, migrate } from '../src/server/db.js';
-import { Store } from '../src/server/store.js';
+import { Store, type StoreOptions } from '../src/server/store.js';
 
 export const HOST = 'notes.test';
 export const ORIGIN = `https://${HOST}`;
@@ -22,18 +22,22 @@ export interface Env {
   close: () => Promise<void>;
 }
 
-export async function makeEnv(overrides: Record<string, string> = {}): Promise<Env> {
+/** Extra app options (e.g. a stand-in font fetcher) and store options (e.g. a small font cap). */
+export type EnvExtra = Partial<Pick<AppOptions, 'fonts' | 'fontService'>> & { storeOptions?: Partial<StoreOptions> };
+
+export async function makeEnv(overrides: Record<string, string> = {}, extra: EnvExtra = {}): Promise<Env> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-test-'));
   const config = loadConfig({ NOTES_HOST: HOST, NOTES_DATA_DIR: dir, NOTES_WEB_DIR: path.join(dir, 'no-web'), ...overrides });
   const db = openDatabase(config.dbPath);
   migrate(db, dir);
   const clock = { t: Date.UTC(2026, 0, 1) };
-  const store = new Store(db, { dataDir: dir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, now: () => clock.t });
+  const store = new Store(db, { dataDir: dir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, now: () => clock.t, fontCacheBytes: config.fontCacheBytes, ...extra.storeOptions });
   store.reconcileImageFiles();
+  store.fonts.reconcile();
   const stream = new PassThrough();
   let logText = '';
   stream.on('data', (c) => (logText += c.toString()));
-  const app = await buildApp({ config, store, logStream: stream });
+  const app = await buildApp({ config, store, logStream: stream, fonts: extra.fonts, fontService: extra.fontService });
   await app.ready();
   return {
     dir,

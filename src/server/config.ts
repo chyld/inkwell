@@ -12,6 +12,8 @@ export interface Config {
   /** Addresses/subnets whose X-Forwarded-For is trusted (the Compose network). */
   trustProxy: string | string[] | false;
   webDir: string;
+  /** NOTES_FONT_CACHE_MB: cap on the bytes of distinct files in the font store (FONTS-SPEC 5.2). */
+  fontCacheBytes: number;
 }
 
 const HOST_RE = /^(?=.{1,253}$)[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*$/;
@@ -54,5 +56,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     port: intSetting(env, 'PORT', 3000, 1),
     trustProxy: proxy ? proxy.split(',').map((s) => s.trim()) : false,
     webDir: env.NOTES_WEB_DIR || path.resolve(import.meta.dirname, '../web'),
+    fontCacheBytes: intSetting(env, 'NOTES_FONT_CACHE_MB', 500, 50) * 1024 * 1024,
   };
 }

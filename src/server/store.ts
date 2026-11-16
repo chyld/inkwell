@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { DB } from './db.js';
+import { FontStore } from './fonts/store.js';
 import { AppError, badRequest, notFound, quotaExceeded } from './errors.js';
 import { hashPassword, verifyPassword, dummyVerify } from './passwords.js';
 import {
@@ -32,6 +33,8 @@ export interface StoreOptions {
   userQuotaBytes: number;
   agentRatePerHour: number;
   now?: () => number;
+  /** Cap on the font store (default 500 MB). */
+  fontCacheBytes?: number;
 }
 
 export interface UserRow {
@@ -150,6 +153,8 @@ export class Store {
   readonly now: () => number;
   readonly imagesDir: string;
   readonly tmpDir: string;
+  /** The shared font store and the per-user font collections (FONTS-SPEC 5.2, 6). */
+  readonly fonts: FontStore;
 
   constructor(
     readonly db: DB,
@@ -158,6 +163,7 @@ export class Store {
     this.now = opts.now ?? Date.now;
     this.imagesDir = path.join(opts.dataDir, 'images');
     this.tmpDir = path.join(opts.dataDir, 'tmp');
+    this.fonts = new FontStore(db, { dataDir: opts.dataDir, now: this.now, capBytes: opts.fontCacheBytes ?? 500 * 1024 * 1024 });
   }
 
   /** Run fn in one BEGIN IMMEDIATE transaction. */

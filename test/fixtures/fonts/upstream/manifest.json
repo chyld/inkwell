@@ -1,0 +1,224 @@
+{
+ "recorded": "2026-11-15",
+ "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
+ "stylesheets": [
+  {
+   "name": "preview-titan-one",
+   "url": "https://fonts.googleapis.com/css2?family=Titan+One:wght@400&text=Titan+One",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "faces-almendra",
+   "url": "https://fonts.googleapis.com/css2?family=Almendra:ital,wght@0,400;0,700;1,400;1,700",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "faces-lora",
+   "url": "https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,700;1,400;1,700",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "faces-abhaya-libre",
+   "url": "https://fonts.googleapis.com/css2?family=Abhaya+Libre:wght@400;700",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "faces-sunflower",
+   "url": "https://fonts.googleapis.com/css2?family=Sunflower:wght@300;700",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "faces-unifrakturcook",
+   "url": "https://fonts.googleapis.com/css2?family=UnifrakturCook:wght@700",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "faces-titan-one",
+   "url": "https://fonts.googleapis.com/css2?family=Titan+One:wght@400",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "fact-truetype-for-old-agent",
+   "url": "https://fonts.googleapis.com/css2?family=Almendra:ital,wght@0,400;0,700;1,400;1,700",
+   "userAgent": "curl/8",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "fact-missing-single-face",
+   "url": "https://fonts.googleapis.com/css2?family=Titan+One:wght@700",
+   "userAgent": "modern",
+   "status": 400,
+   "contentType": "text/html; charset=utf-8"
+  },
+  {
+   "name": "fact-duplicated-tuple",
+   "url": "https://fonts.googleapis.com/css2?family=Titan+One:wght@400;400",
+   "userAgent": "modern",
+   "status": 400,
+   "contentType": "text/html; charset=utf-8"
+  },
+  {
+   "name": "fact-missing-weight-in-multi",
+   "url": "https://fonts.googleapis.com/css2?family=Titan+One:wght@400;700",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "fact-ital-axis-lacking",
+   "url": "https://fonts.googleapis.com/css2?family=Titan+One:ital,wght@0,400",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  }
+ ],
+ "files": {
+  "https://fonts.gstatic.com/l/font?kit=mFTzWbsGxbbS_J5cQcjylior8AUu8rk-sko&skey=fec1aaa79fef5720&v=v17": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "114bb09dec4be8bff533cb87a8b4d70d152a08b671aa7005a47f2ab529605a52.woff2",
+   "size": 1168
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4ciBXKAlMnTn0CskxY4-LKYh563.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "624ca8d016a9bd2babc6a7e657a91dcbdfc6994b149ed8f9dede80c5703fba1d.woff2",
+   "size": 2100
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4ciBXKAlMnTn0CskxY4-LyYhw.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "ba92bb3d3cc637dcc796782c423a32f1697b2bbbd919fcd5c0841885a8dc6abc.woff2",
+   "size": 11284
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4chBXKAlMnTn0CskxY48Ae9kq-Wbghq.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "822d4f5db30d0948329a29e4b5c7c407ed66a1f1897247b4b822fd9303ee4dc6.woff2",
+   "size": 2052
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4chBXKAlMnTn0CskxY48Ae9kqGWbg.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "b6f893b778ed1fdc888a7da3f4355efe86d390235ecc4cecfedf83d628b5f3aa.woff2",
+   "size": 11660
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4ckBXKAlMnTn0CskxYzyL6Agw.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "5c639fa37644c558b4fc69aafb82ba6d66538f1247ade0d615534f21c8e05a62.woff2",
+   "size": 6728
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4ckBXKAlMnTn0CskxY9yL4.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "e4b0f23d4dbc8843a0b69a3c62d18e70602f80a77df47854fc27115ff9b675c7.woff2",
+   "size": 12212
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4cjBXKAlMnTn0Cskx6G7auxoqOOag.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "49a0c445ff473474ac736c61ae63406ebebe9296943708bb98452e199837098e.woff2",
+   "size": 2092
+  },
+  "https://fonts.gstatic.com/s/almendra/v28/H4cjBXKAlMnTn0Cskx6G7au_oqM.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "2a7027702a8f6f31d61f3353f6e3aa3a4a3f7ce418e597cc4e6c3c0d6118dd23.woff2",
+   "size": 11544
+  },
+  "https://fonts.gstatic.com/s/lora/v37/0QIhMX1D_JOuMw_LL_tLp_A.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "45f989df83f3a9f40007d2ecdea98bff248c8767a1a0bbe60e94fb37b605ecee.woff2",
+   "size": 21128
+  },
+  "https://fonts.gstatic.com/s/lora/v37/0QIhMX1D_JOuMw_LIftL.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "d824d807d4d832d12c87932d0b8ec1314dcfd502157a56dee6bb04cf8a3768ae.woff2",
+   "size": 40772
+  },
+  "https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwT7I-NP.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "2a2d9c22c9863086a23f5013fede1428585321812b25f2662542c39d02967c5e.woff2",
+   "size": 20088
+  },
+  "https://fonts.gstatic.com/s/lora/v37/0QIvMX1D_JOuMwr7Iw.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "ddb8c66035104e233fc024669183aad3738b6daa16deee2ebb1241bd0f98ace1.woff2",
+   "size": 37788
+  },
+  "https://fonts.gstatic.com/s/abhayalibre/v18/e3tmeuGtX-Co5MNzeAOqinEQcknXkvc.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "c711ea2dc712dfb2e9e87afcb0c45707835c9b2e7b9baa219cdca35e953053d4.woff2",
+   "size": 11196
+  },
+  "https://fonts.gstatic.com/s/abhayalibre/v18/e3tmeuGtX-Co5MNzeAOqinEQfEnX.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "4c36e530004dc8118872aedf92281acfdfa3ac8aa6a277324237603201367b6f.woff2",
+   "size": 21232
+  },
+  "https://fonts.gstatic.com/s/abhayalibre/v18/e3t5euGtX-Co5MNzeAOqinEYx2zCo9ZJ2oY.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "a6a3549506bf0363ab5f5c76adf8b50414097c3e1b8766ac1804e92cadfae426.woff2",
+   "size": 11240
+  },
+  "https://fonts.gstatic.com/s/abhayalibre/v18/e3t5euGtX-Co5MNzeAOqinEYx2zCrdZJ.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "280d8155a402144e64924c1054936c0b67c5358d8a13b5ed65c6a12348d00c25.woff2",
+   "size": 21564
+  },
+  "https://fonts.gstatic.com/s/sunflower/v19/RWmPoKeF8fUjqIj7Vc-06MfSroEH.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "c9a4f5243102e542e4ef1726c456bc0007f97ce8b31893638307249e70f1e0b0.woff2",
+   "size": 9076
+  },
+  "https://fonts.gstatic.com/s/sunflower/v19/RWmPoKeF8fUjqIj7Vc-0-MDSroEH.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "d280cd6c63e10a78b220cb9d2bcbaa11e7509ddfcfaf1ed3dfb82a254cfa4ad9.woff2",
+   "size": 8796
+  },
+  "https://fonts.gstatic.com/s/unifrakturcook/v25/IurA6Yli8YOdcoky-0PTTdkm56n05Xwy1oM.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "3304757748716ececd1b87999cb92d61ff5332aefbe8331d5155bbb68218e588.woff2",
+   "size": 17280
+  },
+  "https://fonts.gstatic.com/s/titanone/v17/mFTzWbsGxbbS_J5cQcjCmjgm6Es.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "6980ee0dacf5865d3666004bb30174c4e028a1bfccbb752d98c11b7fa8a0ad1d.woff2",
+   "size": 6056
+  },
+  "https://fonts.gstatic.com/s/titanone/v17/mFTzWbsGxbbS_J5cQcjClDgm.woff2": {
+   "status": 200,
+   "contentType": "font/woff2",
+   "file": "2f15f138af309ad659b62246999cccc2da21759ec8619d7e6ea759e8eb5a7a53.woff2",
+   "size": 10752
+  }
+ }
+}
