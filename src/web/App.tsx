@@ -7,6 +7,7 @@ import { SignIn } from './components/SignIn';
 import { Sidebar, findFolder, sameView, type View } from './components/Sidebar';
 import { NoteList } from './components/NoteList';
 import { NoteEditorPane, NoteNotFound, activeSaver } from './components/NoteEditor';
+import { FontsPage } from './components/FontsPage';
 import { currentRoute, initHistory, notePath, setAddress } from './route';
 import { clearAllFonts } from './fonts/runtime';
 import { waitForUploads } from './components/images';
@@ -87,7 +88,7 @@ export function App() {
   );
 }
 
-type Screen = 'sidebar' | 'list' | 'editor';
+type Screen = 'sidebar' | 'list' | 'editor' | 'fonts';
 
 function viewQuery(v: View): string {
   switch (v.kind) {
@@ -115,7 +116,9 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const [selected, setSelected] = useState<string | null>(initial.kind === 'note' ? initial.id : null);
   const [notFound, setNotFound] = useState(initial.kind === 'notFound');
   const [fresh, setFresh] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>(initial.kind === 'list' ? 'list' : 'editor');
+  const [screen, setScreen] = useState<Screen>(initial.kind === 'list' ? 'list' : initial.kind === 'fonts' ? 'fonts' : 'editor');
+  /** The /fonts page takes the place of the note list and the editor (FONTS-SPEC 7). */
+  const [page, setPage] = useState<'notes' | 'fonts'>(initial.kind === 'fonts' ? 'fonts' : 'notes');
   useEffect(() => initHistory(), []);
   // Collapsed panels (wide screens only; on a narrow screen each panel is a screen of its own).
   const [layout, setLayout] = useState<Layout>(loadLayout);
@@ -211,6 +214,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     await settleCurrent();
     setFresh(null);
     setNotFound(false);
+    setPage('notes');
     setSelected(id);
     setScreen('editor');
     if (!fromHistory) setAddress(notePath(id), 'push');
@@ -221,6 +225,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     if (selected) await settleCurrent();
     setSelected(null);
     setNotFound(false);
+    setPage('notes');
     setScreen('list');
     if (address !== 'none') setAddress('/', address);
   }
@@ -229,6 +234,8 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const onPopRef = useRef<() => void>(() => {});
   onPopRef.current = () => {
     const r = currentRoute();
+    if (r.kind === 'fonts') return void openFonts(true);
+    setPage('notes');
     if (r.kind === 'note') void select(r.id, true);
     else if (r.kind === 'notFound') {
       void (async () => {
@@ -245,10 +252,21 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     return () => window.removeEventListener('popstate', on);
   }, []);
 
-  /** "Browse fonts…": the note is saved first, as on any navigation, then /fonts. */
-  async function openFonts() {
-    await settleCurrent();
-    setAddress('/fonts', 'push');
+  /** The fonts page ("Browse fonts…" or the sidebar): the open note is saved and closed first, as on any navigation. */
+  async function openFonts(fromHistory = false) {
+    if (selected) await settleCurrent();
+    setSelected(null);
+    setNotFound(false);
+    setPage('fonts');
+    setScreen('fonts');
+    if (!fromHistory) setAddress('/fonts', 'push');
+  }
+
+  /** The phone's Back control on the fonts page: to the notes. */
+  function leaveFonts() {
+    setPage('notes');
+    setScreen('list');
+    setAddress('/', 'push');
   }
 
   /** From the not-found state: all notes, no note open, and the bad address replaced (so Back does not return to it). */
@@ -258,6 +276,12 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   }
 
   async function changeView(v: View) {
+    if (v.kind === 'fonts') return openFonts();
+    // Choosing anything else in the sidebar leaves the fonts page.
+    if (page === 'fonts') {
+      setPage('notes');
+      setAddress('/', 'push');
+    }
     if (!sameView(v, view)) {
       setView(v);
       setItems([]);
@@ -278,6 +302,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
       setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
       setFresh(n.id);
       setNotFound(false);
+      setPage('notes');
       setSelected(n.id);
       setScreen('editor');
       setAddress(notePath(n.id), 'push');
@@ -414,24 +439,27 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
             ? 'Trash'
             : view.kind === 'tag'
               ? `#${view.name}`
-              : (findFolder(folders, view.id)?.name ?? 'Folder');
+              : view.kind === 'folder'
+                ? (findFolder(folders, view.id)?.name ?? 'Folder')
+                : 'Fonts';
 
   return (
-    <div className={`app screen-${screen}${layout.sidebar ? ' sidebar-collapsed' : ''}${layout.list ? ' list-collapsed' : ''}`}>
+    <div className={`app screen-${screen}${layout.sidebar ? ' sidebar-collapsed' : ''}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page === 'fonts' ? ' fonts-open' : ''}`}>
       {layout.sidebar && <PanelStrip id="sidebar-show" controls="sidebar" label="Show folders and tags" text="Folders" onClick={() => togglePanel('sidebar')} />}
       <Sidebar
         me={me}
         folders={folders}
         tags={tags}
-        view={view}
+        view={page === 'fonts' ? { kind: 'fonts' } : view}
         onView={changeView}
         onFoldersChanged={refreshFolders}
         onSignOut={signOut}
         collapsed={layout.sidebar}
         onCollapse={() => togglePanel('sidebar')}
       />
-      {layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
-      <NoteList
+      {page === 'fonts' && <FontsPage onBack={leaveFonts} />}
+      {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
+      {page === 'notes' && <NoteList
         collapsed={layout.list}
         onCollapse={() => togglePanel('list')}
         heading={heading}
@@ -449,8 +477,8 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
         onNewNote={newNote}
         onEmptyTrash={emptyTrash}
         onBack={() => setScreen('sidebar')}
-      />
-      {selected ? (
+      />}
+      {page === 'fonts' ? null : selected ? (
         <NoteEditorPane
           key={selected}
           noteId={selected}
