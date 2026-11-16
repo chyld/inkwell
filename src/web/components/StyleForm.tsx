@@ -170,10 +170,10 @@ function StyleFormBody({ initial, id, title, onSaved, onClose, onBrowseFonts }: 
             </p>
           )}
           <div className="modal-actions">
-            <button type="button" onClick={onClose}>
+            <button type="button" className="btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="primary" disabled={saving}>
+            <button type="submit" className="btn primary" disabled={saving}>
               Save
             </button>
           </div>

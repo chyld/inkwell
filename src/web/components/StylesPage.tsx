@@ -75,7 +75,7 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
   }
 
   const newButton = (
-    <button className="primary" aria-disabled={full || undefined} onClick={newStyle}>
+    <button className="btn primary" aria-disabled={full || undefined} onClick={newStyle}>
       <Plus /> New style
     </button>
   );
@@ -118,10 +118,10 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
                   ))}
                 </ul>
                 <div className="style-card-actions">
-                  <button aria-label={`Edit ${s.name}`} onClick={() => setForm({ initial: s, id: s.id, title: 'Edit style' })}>
+                  <button className="btn" aria-label={`Edit ${s.name}`} onClick={() => setForm({ initial: s, id: s.id, title: 'Edit style' })}>
                     <Pencil /> Edit
                   </button>
-                  <button aria-label={`Delete ${s.name}`} onClick={() => void remove(s)}>
+                  <button className="btn" aria-label={`Delete ${s.name}`} onClick={() => void remove(s)}>
                     <Trash2 /> Delete
                   </button>
                 </div>

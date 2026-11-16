@@ -41,12 +41,12 @@ export function NoteList(p: Props) {
             </div>
           )}
           {!p.isTrash && (
-            <button className="primary new-button" onClick={p.onNewNote} aria-label="New note" title={`New note (${shortcut})`}>
+            <button className="btn primary new-button" onClick={p.onNewNote} aria-label="New note" title={`New note (${shortcut})`}>
               <Plus /> New
             </button>
           )}
           {p.isTrash && p.items.length > 0 && !p.searching && (
-            <button className="danger empty-trash" onClick={p.onEmptyTrash}>
+            <button className="btn danger empty-trash" onClick={p.onEmptyTrash}>
               Empty Trash
             </button>
           )}
@@ -102,7 +102,7 @@ export function NoteList(p: Props) {
         </ul>
         {p.loading && <p className="list-message">Loading…</p>}
         {p.hasMore && !p.loading && (
-          <button className="load-more" onClick={p.onLoadMore}>
+          <button className="btn load-more" onClick={p.onLoadMore}>
             Load more
           </button>
         )}

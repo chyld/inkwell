@@ -18,7 +18,7 @@ export function NoteNotFound({ onBack, onAllNotes }: { onBack: () => void; onAll
       <div className="not-found" role="alert">
         <h2>This note was not found</h2>
         <p>It may have been deleted, or the address may be wrong.</p>
-        <button className="primary" onClick={onAllNotes}>
+        <button className="btn primary" onClick={onAllNotes}>
           Go to all notes
         </button>
       </div>

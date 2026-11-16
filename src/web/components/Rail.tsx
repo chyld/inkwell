@@ -225,7 +225,7 @@ export function Rail({ me, folders, tags, view, onView, onFoldersChanged, onSign
             </div>
             <span>{storage}</span>
           </div>
-          <button type="button" className="sign-out" data-autofocus onClick={onSignOut}>
+          <button type="button" className="btn sign-out" data-autofocus onClick={onSignOut}>
             Sign out
           </button>
         </div>

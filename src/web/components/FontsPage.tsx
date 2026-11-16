@@ -192,7 +192,7 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
                       {f.family}
                     </span>
                     <button
-                      className={selected ? 'font-card-button selected' : 'font-card-button'}
+                      className={selected ? 'btn font-card-button selected' : 'btn font-card-button'}
                       aria-label={`${selected ? 'Remove' : 'Add'} ${f.family}`}
                       title={`${selected ? 'Remove' : 'Add'} ${f.family}`}
                       disabled={busy.has(f.id)}

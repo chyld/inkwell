@@ -39,7 +39,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
             {error}
           </p>
         )}
-        <button className="primary wide" disabled={busy}>
+        <button className="btn primary wide" disabled={busy}>
           {busy ? 'Signing in…' : 'Sign in'}
         </button>
       </form>

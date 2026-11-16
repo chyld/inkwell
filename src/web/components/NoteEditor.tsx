@@ -536,7 +536,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           <span>{statusMsg}</span>
           {missingImages.length > 0 && !locked && (
             <span className="banner-actions">
-              <button className="primary" onClick={removeMissingImages}>
+              <button className="btn primary" onClick={removeMissingImages}>
                 Remove missing images
               </button>
             </span>
@@ -549,10 +549,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
             This device has changes to this note that were not saved ({relativeTime(new Date(draft.savedAt).toISOString())}).
           </span>
           <span className="banner-actions">
-            <button className="primary" onClick={restoreDraft}>
+            <button className="btn primary" onClick={restoreDraft}>
               Restore
             </button>
-            <button onClick={discardDraft}>Discard</button>
+            <button className="btn" onClick={discardDraft}>Discard</button>
           </span>
         </div>
       )}
@@ -560,10 +560,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         <div className="banner warn" role="alert">
           <span>This note was changed somewhere else since you opened it.</span>
           <span className="banner-actions">
-            <button className="primary" onClick={keepMine}>
+            <button className="btn primary" onClick={keepMine}>
               Keep mine
             </button>
-            <button onClick={loadTheirs}>Load theirs</button>
+            <button className="btn" onClick={loadTheirs}>Load theirs</button>
           </span>
         </div>
       )}
@@ -571,10 +571,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         <div className="banner">
           <span>This note is in Trash and cannot be edited.</span>
           <span className="banner-actions">
-            <button className="primary" onClick={restore}>
+            <button className="btn primary" onClick={restore}>
               Restore
             </button>
-            <button className="danger" onClick={deleteForever}>
+            <button className="btn danger" onClick={deleteForever}>
               Delete permanently
             </button>
           </span>

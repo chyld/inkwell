@@ -100,9 +100,9 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
           <>
             <p>{pending.message}</p>
             <div className="modal-actions">
-              <button onClick={cancel}>Cancel</button>
+              <button className="btn" onClick={cancel}>Cancel</button>
               <button
-                className={pending.danger ? 'danger' : 'primary'}
+                className={pending.danger ? 'btn danger' : 'btn primary'}
                 autoFocus
                 onClick={() => {
                   pending.resolve(true);
@@ -127,10 +127,10 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
               <input ref={inputRef} value={value} onChange={(e) => setValue(e.target.value)} />
             </label>
             <div className="modal-actions">
-              <button type="button" onClick={cancel}>
+              <button type="button" className="btn" onClick={cancel}>
                 Cancel
               </button>
-              <button type="submit" className="primary">
+              <button type="submit" className="btn primary">
                 {pending.confirmLabel}
               </button>
             </div>
@@ -143,7 +143,7 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
               {pending.options.map((o) => (
                 <button
                   key={o.value}
-                  className={o.primary ? 'primary' : ''}
+                  className={o.primary ? 'btn primary' : 'btn'}
                   onClick={() => {
                     pending.resolve(o.value);
                     close();
@@ -182,7 +182,7 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
               />
             </div>
             <div className="modal-actions">
-              <button onClick={cancel}>Cancel</button>
+              <button className="btn" onClick={cancel}>Cancel</button>
             </div>
           </>
         )}
