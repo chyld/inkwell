@@ -647,6 +647,22 @@ mark {
   color: var(--text-soft);
   position: relative;
 }
+.not-found {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  text-align: center;
+}
+.not-found h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text);
+}
+.not-found p {
+  margin: 0 0 6px;
+}
 .editor-pane.empty .back {
   position: absolute;
   top: 10px;

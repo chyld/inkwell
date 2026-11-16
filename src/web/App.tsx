@@ -6,7 +6,8 @@ import { DialogProvider, useDialogs } from './components/Dialogs';
 import { SignIn } from './components/SignIn';
 import { Sidebar, findFolder, sameView, type View } from './components/Sidebar';
 import { NoteList } from './components/NoteList';
-import { NoteEditorPane, activeSaver } from './components/NoteEditor';
+import { NoteEditorPane, NoteNotFound, activeSaver } from './components/NoteEditor';
+import { currentRoute, initHistory, notePath, setAddress } from './route';
 import { waitForUploads } from './components/images';
 import { signOutFlow } from './signout';
 import { emptyTrashFlow } from './trash';
@@ -108,9 +109,13 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const [loading, setLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
+  // The address names the open note (/n/<id>); a fresh visit or a reload opens it (also after sign-in).
+  const [initial] = useState(currentRoute);
+  const [selected, setSelected] = useState<string | null>(initial.kind === 'note' ? initial.id : null);
+  const [notFound, setNotFound] = useState(initial.kind === 'notFound');
   const [fresh, setFresh] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>('list');
+  const [screen, setScreen] = useState<Screen>(initial.kind === 'list' ? 'list' : 'editor');
+  useEffect(() => initHistory(), []);
   // Collapsed panels (wide screens only; on a narrow screen each panel is a screen of its own).
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const focusAfterToggle = useRef<string | null>(null);
@@ -195,15 +200,54 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     else if (!uploadsDone) dialogs.notice('An image is still uploading; it will not be added to the note you are leaving.');
   }
 
-  async function select(id: string) {
-    if (id === selected) {
+  /** Open a note: from the list, or from Back/Forward (which must not add history entries). */
+  async function select(id: string, fromHistory = false) {
+    if (id === selected && !notFound) {
       setScreen('editor');
+      if (!fromHistory) setAddress(notePath(id), 'push');
       return;
     }
     await settleCurrent();
     setFresh(null);
+    setNotFound(false);
     setSelected(id);
     setScreen('editor');
+    if (!fromHistory) setAddress(notePath(id), 'push');
+  }
+
+  /** Close the open note (the same flush as switching notes); the address returns to "/". */
+  async function closeNote(address: 'push' | 'replace' | 'none') {
+    if (selected) await settleCurrent();
+    setSelected(null);
+    setNotFound(false);
+    setScreen('list');
+    if (address !== 'none') setAddress('/', address);
+  }
+
+  // Back and Forward go through the same paths as a click.
+  const onPopRef = useRef<() => void>(() => {});
+  onPopRef.current = () => {
+    const r = currentRoute();
+    if (r.kind === 'note') void select(r.id, true);
+    else if (r.kind === 'notFound') {
+      void (async () => {
+        if (selected) await settleCurrent();
+        setSelected(null);
+        setNotFound(true);
+        setScreen('editor');
+      })();
+    } else void closeNote('none');
+  };
+  useEffect(() => {
+    const on = () => onPopRef.current();
+    window.addEventListener('popstate', on);
+    return () => window.removeEventListener('popstate', on);
+  }, []);
+
+  /** From the not-found state: all notes, no note open, and the bad address replaced (so Back does not return to it). */
+  function allNotes() {
+    void changeView({ kind: 'all' });
+    void closeNote('replace');
   }
 
   async function changeView(v: View) {
@@ -226,8 +270,10 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
       setQuery('');
       setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
       setFresh(n.id);
+      setNotFound(false);
       setSelected(n.id);
       setScreen('editor');
+      setAddress(notePath(n.id), 'push');
       refreshFolders();
       refreshMe();
     } catch (e) {
@@ -284,6 +330,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     });
     if (done) {
       newAuthEpoch();
+      setAddress('/', 'replace'); // the next person to sign in here starts with no note open
       onSignedOut();
     }
   }
@@ -310,6 +357,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     setItems((prev) => prev.filter((n) => n.id !== id));
     setSelected(null);
     setScreen('list');
+    setAddress('/', 'replace'); // moved to Trash, restored or deleted: no note is open
     refreshFolders();
     refreshTags();
     refreshMe();
@@ -340,6 +388,8 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     }
     if (!emptied) return; // cancelled: nothing changed, the open note stays open
     setSelected(null);
+    setNotFound(false);
+    setAddress('/', 'replace');
     loadList(false, null);
     refreshTags();
     refreshMe();
@@ -383,7 +433,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
         hasMore={!!cursor && !searching}
         onLoadMore={() => loadList(true, cursor)}
         selectedId={selected}
-        onSelect={select}
+        onSelect={(id) => void select(id)}
         query={query}
         onQuery={setQuery}
         searching={searching}
@@ -406,8 +456,11 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
           onDeleted={removed}
           onTagsChanged={refreshTags}
           onStorageChanged={refreshMe}
-          onBack={() => setScreen('list')}
+          onBack={() => void closeNote('push')}
+          onAllNotes={allNotes}
         />
+      ) : notFound ? (
+        <NoteNotFound onBack={() => void closeNote('push')} onAllNotes={allNotes} />
       ) : (
         <section className="editor-pane empty">
           <p>Select a note, or create a new one.</p>

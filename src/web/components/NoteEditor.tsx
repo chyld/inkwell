@@ -42,6 +42,7 @@ import { NoteSaver, type SaveStatus } from '../saver';
 import { noteExtensions, isAllowedHref, normalizeTag, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
 import { ColorPicker } from './ColorPicker';
 import { relativeTime } from '../util';
+import { APP_TITLE, NOT_FOUND_TITLE, noteTitle } from '../route';
 import { useDialogs } from './Dialogs';
 import { findFolder, folderPath } from './Sidebar';
 import { useImageUpload } from './images';
@@ -62,25 +63,58 @@ interface Props {
   onTagsChanged: () => void;
   onStorageChanged: () => void;
   onBack: () => void;
+  /** "Go to all notes" from the not-found state. */
+  onAllNotes?: () => void;
+}
+
+/** Shown for an address that names no note of this user: a malformed id, a deleted note or someone else's (same message for all). */
+export function NoteNotFound({ onBack, onAllNotes }: { onBack: () => void; onAllNotes: () => void }) {
+  useEffect(() => {
+    document.title = NOT_FOUND_TITLE;
+    return () => {
+      document.title = APP_TITLE;
+    };
+  }, []);
+  return (
+    <section className="editor-pane empty" aria-label="Editor">
+      <button className="icon-button mobile-only back" onClick={onBack} aria-label="Back to list" title="Back to list">
+        <ChevronLeft />
+      </button>
+      <div className="not-found" role="alert">
+        <h2>This note was not found</h2>
+        <p>It may have been deleted, or the address may be wrong.</p>
+        <button className="primary" onClick={onAllNotes}>
+          Go to all notes
+        </button>
+      </div>
+    </section>
+  );
 }
 
 export function NoteEditorPane(props: Props) {
   const [note, setNote] = useState<Note | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [missing, setMissing] = useState(false);
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
     let alive = true;
     setNote(null);
     setError(null);
+    setMissing(false);
     api<Note>('GET', `/notes/${props.noteId}`)
       .then((n) => alive && setNote(n))
-      .catch((e) => alive && setError(e instanceof ApiError ? e.message : 'Could not reach the server.'));
+      .catch((e) => {
+        if (!alive) return;
+        if (e instanceof ApiError && e.status === 404) setMissing(true);
+        else setError(e instanceof ApiError ? e.message : 'Could not reach the server.');
+      });
     return () => {
       alive = false;
     };
   }, [props.noteId, reload]);
 
+  if (missing) return <NoteNotFound onBack={props.onBack} onAllNotes={props.onAllNotes ?? props.onBack} />;
   if (error)
     return (
       <section className="editor-pane empty">
@@ -144,6 +178,23 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     const t = setInterval(() => setClock((c) => c + 1), 60_000);
     return () => clearInterval(t);
   }, []);
+  // The page title (and so a bookmark's name) follows the note's title.
+  const titleShown = useRef(false);
+  useEffect(() => {
+    if (!titleShown.current) {
+      titleShown.current = true;
+      document.title = noteTitle(title);
+      return;
+    }
+    const t = setTimeout(() => (document.title = noteTitle(title)), 300);
+    return () => clearTimeout(t);
+  }, [title]);
+  useEffect(
+    () => () => {
+      document.title = APP_TITLE;
+    },
+    [],
+  );
   const saverRef = useRef<NoteSaver | null>(null);
   // The saver outlives renders; it must call the current callbacks, not the first render's.
   const propsRef = useRef(props);
@@ -164,7 +215,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         onSaved: (info) => {
           const at = info.updatedAt ?? new Date().toISOString();
           setUpdatedAt(at);
-          propsRef.current.onMeta(note.id, { title: info.title, updatedAt: at, snippet: editorRef.current?.getText().slice(0, 200) ?? '' });
+          // A save can complete after the note was closed (flush on unmount): the editor is gone then.
+          const ed = editorRef.current;
+          const snippet = ed && !ed.isDestroyed ? ed.getText().slice(0, 200) : undefined;
+          propsRef.current.onMeta(note.id, { title: info.title, updatedAt: at, ...(snippet === undefined ? {} : { snippet }) });
           propsRef.current.onStorageChanged();
         },
       });

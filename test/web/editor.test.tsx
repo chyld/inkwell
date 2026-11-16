@@ -320,3 +320,26 @@ describe('compact editor header', () => {
     expect(v.container.querySelectorAll('.editor-header > .editor-row').length).toBe(1);
   });
 });
+
+describe('closing a note while a save is pending', () => {
+  it('the save still completes and reports to the list, without touching the destroyed editor', async () => {
+    const p = props();
+    // A real network: the save answers after the closed editor has been destroyed.
+    const slowPut = (m: string) =>
+      m === 'PUT' ? new Promise((r) => setTimeout(() => r({ status: 200, json: { version: 5, updatedAt: '2026-01-02T00:00:00Z' } }), 150)) : undefined;
+    const v = await open(p, serverNote(), slowPut);
+    const ed = editorOf(v.container);
+    await act(async () => {
+      ed.commands.insertContent(' closing');
+    });
+    await v.unmount(); // closed before the 1 s autosave: the editor flushes on unmount
+    await waitFor(() => ed.isDestroyed, 2000, 'editor destroyed');
+    view = null;
+    await waitFor(() => (p.onMeta as any).mock.calls.length > 0, 4000, 'onMeta after the flush');
+    expect(requests.some((r) => r.method === 'PUT' && JSON.stringify(r.body).includes('closing'))).toBe(true);
+    const patch = (p.onMeta as any).mock.calls[0][1];
+    expect(patch.title).toBe('Server title');
+    expect(patch).not.toHaveProperty('snippet');
+  });
+});
+
