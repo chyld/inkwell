@@ -8,3 +8,8 @@ dist/
 /test-data/
 /coverage/
 docker-compose.override.yml
+
+# Working material kept on disk, not in version control
+/reviews*/
+/drafts/redesign-shots/
+/Caddyfile.local

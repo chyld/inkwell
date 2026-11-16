@@ -1,0 +1,142 @@
+<title>Notes App Redesigns</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap">
+<style>
+/* Layout: ten numbered whole-app mock-ups. Each is a fixed 1100x560 screen in a frame that scrolls sideways on narrow displays. Each mock-up carries its own fixed palette; the page around them follows the viewer's theme. */
+:root { --page: #f4f3f6; --card: #ffffff; --ink0: #1d1a22; --soft0: #655f6e; --line0: #dfdce5; --sans: 'Inter', system-ui, sans-serif; --serif: 'Fraunces', Georgia, serif }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page: #131216; --card: #1b1a20; --ink0: #ebe8f0; --soft0: #a09aab; --line0: #33303b; color-scheme: dark } }
+:root[data-theme="dark"] { --page: #131216; --card: #1b1a20; --ink0: #ebe8f0; --soft0: #a09aab; --line0: #33303b; color-scheme: dark }
+body { background: var(--page); color: var(--ink0); font-family: var(--sans); font-size: 15px; line-height: 1.5 }
+.wrap { max-width: 1160px; margin: 0 auto; padding-block: 28px 60px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 34px }
+h1.t { font-size: 26px; font-weight: 700; margin: 0 0 6px; text-wrap: balance }
+.lede { color: var(--soft0); max-width: 72ch; margin: 0 }
+.opt { display: grid; gap: 10px; min-width: 0 }
+.head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px }
+.head .n { font-family: ui-monospace, monospace; font-size: 13px; color: var(--soft0) }
+.head h2 { font-size: 18px; font-weight: 600; margin: 0 }
+.head p { margin: 0; color: var(--soft0); font-size: 14px; flex-basis: 100%; max-width: 86ch }
+.frame { border: 1px solid var(--line0); border-radius: 12px; overflow-x: auto; background: var(--card) }
+
+/* ---- shared mock atoms ---- */
+.mk { width: 1100px; height: 560px; display: flex; font-size: 12px; line-height: 1.4; color: var(--ink); background: var(--bg); overflow: hidden; position: relative }
+.mk * { box-sizing: border-box; min-width: 0 }
+.mk svg { width: 14px; height: 14px; stroke-width: 1.75; flex: none }
+.col { display: flex; flex-direction: column } .row { display: flex; align-items: center } .grow { flex: 1 } .sp { flex: 1 }
+.ti { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; white-space: nowrap }
+.ti b { margin-left: auto; font-weight: 500; opacity: .6; font-size: 11px } .ti.in { padding-left: 30px }
+.lb { font-size: 10px; letter-spacing: .09em; text-transform: uppercase; opacity: .6; padding: 12px 10px 4px }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; padding: 2px 8px } .tags span { border-radius: 99px; padding: 1px 8px; font-size: 11px; border: 1px solid var(--line) }
+.btn { display: inline-flex; align-items: center; gap: 6px; background: var(--a); color: var(--a-ink); border-radius: 8px; padding: 6px 12px; font-weight: 600; white-space: nowrap }
+.srch { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; color: var(--soft); background: var(--bg) }
+.nr { padding: 10px 14px; display: grid; gap: 2px } .nr .nt { font-weight: 600; font-size: 13px; display: flex; gap: 8px } .nr .nt span { margin-left: auto; font-weight: 400; font-size: 11px; color: var(--soft); white-space: nowrap }
+.nr .ns { color: var(--soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.tb { display: flex; align-items: center; gap: 2px; white-space: nowrap } .tb .k { height: 26px; min-width: 26px; padding: 0 5px; display: inline-flex; align-items: center; justify-content: center; gap: 3px; border-radius: 6px }
+.tb .k.on { background: var(--on, var(--line)) } .tb .v { width: 1px; height: 16px; background: var(--line); margin: 0 6px } .tb .nm { border: 1px solid var(--line); border-radius: 6px; padding: 1px 7px; font-variant-numeric: tabular-nums }
+.tb svg.cr { width: 10px; height: 10px; opacity: .6 }
+.doc { font-size: 14px; line-height: 1.65 } .doc h1 { font-size: 26px; line-height: 1.2; margin: 0 0 10px; font-weight: 700 } .doc h2 { font-size: 16px; margin: 16px 0 4px } .doc p { margin: 0 0 8px }
+.doc mark { background: var(--hl, #ffe9a8); color: inherit; padding: 0 3px; border-radius: 3px } .doc ul { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 4px }
+.doc li { display: flex; align-items: center; gap: 8px } .doc li::before { content: ""; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid var(--soft); flex: none } .doc li.d::before { background: var(--a); border-color: var(--a) } .doc li.d { color: var(--soft); text-decoration: line-through }
+.meta { color: var(--soft); font-size: 11px; display: flex; align-items: center; gap: 10px; white-space: nowrap } .pill { border-radius: 99px; padding: 1px 9px; font-size: 11px; background: var(--chip, var(--line)); white-space: nowrap }
+.rail { width: 54px; align-items: center; gap: 6px; padding: 12px 0 } .rail .ri { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center } .rail svg { width: 17px; height: 17px }
+
+/* 1 Teal rail, paper sheet */
+.m1 { --bg: #f1f5f4; --ink: #17302d; --soft: #5f7673; --line: #d5e0de; --a: #ef6f53; --a-ink: #fff; --hl: #ffe1d6 }
+.m1 .rail { background: #0f5f5a; color: #cfe9e5 } .m1 .rail .on { background: #fff; color: #0f5f5a }
+.m1 .list { width: 290px; padding: 14px 10px; gap: 8px } .m1 .nr { background: #fff; border-radius: 12px } .m1 .nr.on { outline: 2px solid var(--a) }
+.m1 .ed { padding: 14px 18px 0 6px; gap: 10px } .m1 .sheet { background: #fff; border-radius: 14px 14px 0 0; padding: 26px 60px; flex: 1 } .m1 .tb { background: #17302d; color: #e7f1ef; border-radius: 99px; padding: 4px 10px; align-self: center; --line: #3a5551; --on: #2f4c48 }
+/* 2 Cobalt top bar */
+.m2 { --bg: #ffffff; --ink: #111a33; --soft: #5d6787; --line: #e2e6f2; --a: #ffcf33; --a-ink: #111a33; --hl: #fff1b8; flex-direction: column }
+.m2 .top { background: #2447d6; color: #fff; padding: 10px 16px; gap: 14px } .m2 .top .srch { background: #1b38b0; border-color: #1b38b0; color: #c9d4ff; width: 260px } .m2 .tab { padding: 5px 10px; border-radius: 8px; opacity: .85 } .m2 .tab.on { background: #fff; color: #2447d6; opacity: 1; font-weight: 600 }
+.m2 .list { width: 300px; border-right: 1px solid var(--line) } .m2 .nr { border-bottom: 1px solid var(--line) } .m2 .nr.on { background: #eef2ff; box-shadow: inset 3px 0 0 #2447d6 }
+.m2 .ed { padding: 0 } .m2 .tb { padding: 6px 16px; border-bottom: 1px solid var(--line) } .m2 .doc { padding: 22px 70px }
+/* 3 Focus with dock */
+.m3 { --bg: #fbf7f1; --ink: #2a211c; --soft: #7d6e63; --line: #eadfd2; --a: #e5484d; --a-ink: #fff; --hl: #ffd9d4 }
+.m3 .rail { color: var(--soft); border-right: 1px solid var(--line) } .m3 .rail .on { background: var(--a); color: #fff }
+.m3 .ed { align-items: center; padding: 18px 0 0 } .m3 .doc { width: 620px; flex: 1 } .m3 .crumbs { width: 620px; margin-bottom: 18px }
+.m3 .dock { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: #fff; border: 1px solid var(--line); border-radius: 14px; padding: 6px 10px; box-shadow: 0 6px 20px rgba(60, 40, 20, .12) } .m3 .tb .k.on { background: var(--a); color: #fff }
+/* 4 Bento colour blocks */
+.m4 { --bg: #1c1c1f; --ink: #1c1c1f; --soft: #5b5b63; --line: rgba(0, 0, 0, .12); --a: #1c1c1f; --a-ink: #fff; --hl: #ffe27a; gap: 8px; padding: 8px }
+.m4 .blk { border-radius: 16px; padding: 14px } .m4 .nav { width: 200px; background: #b8f0c8 } .m4 .nav .ti.on { background: #1c1c1f; color: #fff }
+.m4 .list { width: 280px; background: #ffe27a; gap: 6px } .m4 .nr { background: rgba(255, 255, 255, .55); border-radius: 10px } .m4 .nr.on { background: #fff }
+.m4 .ed { background: #fff; padding: 0; overflow: hidden } .m4 .tb { background: #e9e4ff; padding: 8px 14px } .m4 .doc { padding: 22px 46px }
+/* 5 Ink sidebar, lime accent */
+.m5 { --bg: #ffffff; --ink: #14161a; --soft: #6a6f7a; --line: #e7e8ec; --a: #c6f432; --a-ink: #14161a; --hl: #eaffa6 }
+.m5 .nav { width: 210px; background: #14161a; color: #d8dbe2; padding: 14px 10px; --line: #2c3038 } .m5 .nav .ti.on { background: #c6f432; color: #14161a; font-weight: 600 } .m5 .brand { font-weight: 800; font-size: 15px; padding: 2px 10px 12px; color: #fff }
+.m5 .list { width: 280px; border-right: 1px solid var(--line) } .m5 .nr { border-bottom: 1px solid var(--line); padding: 12px 16px } .m5 .nr .nt { font-size: 14px } .m5 .nr.on { background: #f6f7f9 }
+.m5 .hd { padding: 10px 20px; border-bottom: 1px solid var(--line); gap: 8px } .m5 .doc { padding: 24px 64px }
+/* 6 Colour card wall */
+.m6 { --bg: #f6f4ef; --ink: #20201d; --soft: #6c6a62; --line: #e3dfd4; --a: #20201d; --a-ink: #fff; --hl: #ffd6e8; flex-direction: column }
+.m6 .top { padding: 12px 18px; gap: 12px } .m6 .top .srch { width: 280px; background: #fff } .m6 .fl { padding: 4px 11px; border-radius: 99px; border: 1px solid var(--line); background: #fff } .m6 .fl.on { background: #20201d; color: #fff; border-color: #20201d }
+.m6 .wall { width: 470px; padding: 4px 18px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-content: start } .m6 .cd { border-radius: 14px; padding: 12px; height: 108px; display: flex; flex-direction: column; gap: 4px } .m6 .cd b { font-size: 13px } .m6 .cd span { opacity: .75; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical } .m6 .cd i { font-style: normal; font-size: 10px; margin-top: auto; opacity: .7 } .m6 .cd.on { outline: 3px solid #20201d }
+.m6 .ed { background: #fff; border-radius: 18px 0 0 0; padding: 0 } .m6 .tb { padding: 8px 18px; border-bottom: 1px solid var(--line) } .m6 .doc { padding: 20px 44px }
+/* 7 Violet minimal */
+.m7 { --bg: #ffffff; --ink: #18181b; --soft: #71717a; --line: #ececf0; --a: #6d3bf5; --a-ink: #fff; --hl: #e6dcff }
+.m7 .nav { width: 250px; padding: 14px 12px; border-right: 1px solid var(--line); gap: 2px } .m7 .cmd { border: 1px solid var(--line); border-radius: 10px; padding: 7px 10px; color: var(--soft); margin-bottom: 8px; justify-content: space-between } .m7 kbd { font: inherit; font-size: 10px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px }
+.m7 .tl { padding: 6px 10px; border-radius: 8px; display: flex; gap: 8px; white-space: nowrap } .m7 .tl span { margin-left: auto; color: var(--soft); font-size: 11px } .m7 .tl.on { background: var(--a); color: #fff } .m7 .tl.on span { color: #ddd0ff }
+.m7 .ed { align-items: center; padding-top: 14px } .m7 .bar { width: 640px; justify-content: space-between; margin-bottom: 22px } .m7 .doc { width: 640px } .m7 .tb .k.on { background: var(--hl); color: var(--a) }
+/* 8 Tabs, orange and navy */
+.m8 { --bg: #ffffff; --ink: #14213d; --soft: #5c6784; --line: #e3e7f0; --a: #fb7a24; --a-ink: #fff; --hl: #ffe3cc; flex-direction: column }
+.m8 .tabs { background: #14213d; padding: 8px 10px 0; gap: 4px; color: #b9c2d9 } .m8 .tb1 { padding: 7px 12px; border-radius: 9px 9px 0 0; display: flex; gap: 8px; align-items: center; white-space: nowrap } .m8 .tb1.on { background: #fff; color: #14213d; font-weight: 600; box-shadow: inset 0 3px 0 var(--a) }
+.m8 .nav { width: 210px; background: #f4f6fb; padding: 12px 8px } .m8 .nav .ti.on { background: #fff; box-shadow: 0 0 0 1px var(--line); font-weight: 600 }
+.m8 .tb { padding: 6px 16px; border-bottom: 1px solid var(--line) } .m8 .tb .k.on { background: var(--a); color: #fff } .m8 .doc { padding: 22px 70px }
+/* 9 Details panel on the right */
+.m9 { --bg: #ffffff; --ink: #0f2233; --soft: #5a6f82; --line: #dfe8f0; --a: #ff4f8b; --a-ink: #fff; --hl: #ffd6e5 }
+.m9 .rail { background: #dff1ff; color: #2a5f8a } .m9 .rail .on { background: #1479c9; color: #fff }
+.m9 .list { width: 270px; border-right: 1px solid var(--line) } .m9 .nr { border-bottom: 1px solid var(--line) } .m9 .nr.on { background: #f0f8ff }
+.m9 .tb { padding: 8px 18px } .m9 .doc { padding: 10px 40px }
+.m9 .insp { width: 220px; background: #f5fafe; border-left: 1px solid var(--line); padding: 14px; gap: 10px } .m9 .insp h4 { margin: 0; font-size: 10px; letter-spacing: .09em; text-transform: uppercase; color: var(--soft); font-weight: 600 } .m9 .insp .v2 { display: flex; flex-wrap: wrap; gap: 4px } .m9 .pill { --chip: #dff1ff }
+/* 10 Green magazine */
+.m10 { --bg: #f7f3e8; --ink: #1d2b22; --soft: #63705f; --line: #dfd8c4; --a: #f26b1d; --a-ink: #fff; --hl: #ffdcc2 }
+.m10 .nav { width: 190px; background: #1f4d36; color: #dcebdd; padding: 16px 10px; --line: #356a4e } .m10 .brand { font-family: var(--serif); font-size: 20px; color: #fff; padding: 0 10px 12px } .m10 .nav .ti.on { background: #f7f3e8; color: #1f4d36; font-weight: 600 }
+.m10 .list { width: 300px; padding: 16px 4px } .m10 .lt { font-family: var(--serif); font-size: 22px; padding: 0 14px 8px } .m10 .nr .nt { font-family: var(--serif); font-size: 15px } .m10 .nr { border-top: 1px solid var(--line) } .m10 .nr.on { background: #fff; border-radius: 10px; border-color: transparent }
+.m10 .ed { background: #fff; margin: 12px 12px 0 0; border-radius: 14px 14px 0 0; padding: 0 } .m10 .tb { padding: 8px 18px; border-bottom: 1px solid var(--line) } .m10 .doc { padding: 22px 60px } .m10 .doc h1 { font-family: var(--serif); font-size: 30px } .m10 .doc h2 { font-family: var(--serif) }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1 class="t">Ten redesigns of the whole app</h1>
+    <p class="lede">Each shows the same screen: navigation, the list of notes, and a note open for editing. They differ in layout, in where the toolbar and the note's details live, and in colour. All use flat colour with no gradients. Each mock-up shows its light form; whichever you pick would get a matching dark form. Pick by number, or mix parts.</p>
+  </header>
+  <div id="out" class="wrap" style="padding:0"></div>
+</div>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+const ic = (n, c = '') => `<i data-lucide="${n}" class="${c}"></i>`;
+const cr = ic('chevron-down', 'cr');
+const N = [['Deploy checklist', 'Before you start, read the rollback plan and make sure…', '2 min'], ['Hello from your agent', 'This note was created through the MCP endpoint by…', '1 h'], ['Editor showcase', 'This note uses every kind of content the editor…', '12 h'], ['Meeting notes, Friday', 'Budget approved. Ship the fix, call the vendor…', 'Fri'], ['Ideas for fonts', 'Try Lora for quotes and Titan One for shouting…', 'Thu'], ['Reading list', 'Three books on type, one on gardens…', 'Nov 9'], ['Trip packing', 'Passport, charger, the good shoes…', 'Nov 2']];
+const rows = (n, on = 0) => N.slice(0, n).map((r, i) => `<div class="nr ${i === on ? 'on' : ''}"><div class="nt">${r[0]}<span>${r[2]}</span></div><div class="ns">${r[1]}</div></div>`).join('');
+const nav = () => `<div class="ti on">${ic('notebook')}All notes<b>18</b></div><div class="ti">${ic('inbox')}Inbox<b>1</b></div><div class="lb">Folders</div><div class="ti">${ic('folder')}Projects<b>2</b></div><div class="ti in">${ic('folder')}Showcase</div><div class="ti">${ic('folder')}Journal<b>6</b></div><div class="lb">Tags</div><div class="tags"><span>#agent</span><span>#demo</span><span>#ideas</span></div><div class="sp"></div><div class="ti">${ic('type')}Fonts</div><div class="ti">${ic('paintbrush')}Styles</div><div class="ti">${ic('trash-2')}Trash</div>`;
+const rail = () => `<div class="ri on">${ic('notebook')}</div><div class="ri">${ic('inbox')}</div><div class="ri">${ic('folder')}</div><div class="ri">${ic('hash')}</div><div class="sp"></div><div class="ri">${ic('type')}</div><div class="ri">${ic('paintbrush')}</div><div class="ri">${ic('trash-2')}</div>`;
+const k = (n, on) => `<span class="k ${on ? 'on' : ''}">${ic(n)}</span>`, kd = n => `<span class="k">${ic(n)}${cr}</span>`, v = '<span class="v"></span>';
+const tbFull = () => `<div class="tb"><span class="k">Styles ${cr}</span>${v}<span class="k">Inter ${cr}</span>${v}${k('minus')}<span class="nm">16</span>${k('plus')}${v}${kd('baseline')}${kd('highlighter')}${v}${k('bold', 1)}${k('italic')}${k('underline')}${k('strikethrough')}${k('code')}${k('link')}${v}${kd('heading')}${kd('list')}${kd('text-quote')}${kd('plus')}${v}${k('undo-2')}${k('redo-2')}</div>`;
+const tbLite = () => `<div class="tb"><span class="k">${ic('a-large-small')} Text ${cr}</span>${v}${k('bold', 1)}${k('italic')}${k('underline')}${v}${kd('baseline')}${kd('highlighter')}${v}${k('link')}${kd('list')}${kd('plus')}${v}${k('ellipsis')}</div>`;
+const doc = () => `<div class="doc"><h1>Deploy checklist</h1><p>Before you start, read the <u>rollback plan</u> and make sure you have a recent copy of the data. <mark>This takes about ten minutes.</mark></p><ul><li class="d">Point DuckDNS at the server</li><li class="d">Create the first user</li><li>Connect the agent</li></ul><h2>After the deploy</h2><p>Open the app, sign in, and check that the Inbox shows the test note. If the certificate is not issued, look at the Caddy log first.</p></div>`;
+const meta = () => `<div class="meta">${ic('folder')} Projects <span class="pill">#agent</span><span class="pill">#demo</span></div>`;
+const saved = '<span class="meta">Saved · just now</span>';
+
+const D = [
+ ['Teal rail and paper', 'A slim icon rail replaces the sidebar. Notes are cards; the open note is a sheet of paper; the toolbar is one dark pill floating above it. Teal with a coral accent.',
+  `<div class="mk m1"><div class="col rail">${rail()}</div><div class="col list"><div class="row" style="gap:8px"><div class="srch grow">${ic('search')} Search</div><div class="btn">${ic('plus')} New</div></div>${rows(5)}</div><div class="col grow ed"><div class="row" style="justify-content:space-between">${meta()}${saved}</div>${tbFull()}<div class="sheet">${doc()}</div></div></div>`],
+ ['Cobalt top bar', 'No sidebar at all. Navigation becomes tabs in a solid blue bar across the top, with search beside them. Two panes below: list and note. Blue with a yellow accent.',
+  `<div class="mk m2"><div class="row top"><b style="font-size:15px">Notes</b><span class="tab on">All notes</span><span class="tab">Inbox</span><span class="tab">Folders ${cr}</span><span class="tab">Tags ${cr}</span><span class="tab">Fonts</span><span class="tab">Styles</span><span class="sp"></span><div class="srch">${ic('search')} Search notes</div><div class="btn">${ic('plus')} New note</div></div><div class="row grow" style="align-items:stretch"><div class="col list">${rows(7)}</div><div class="col grow ed">${tbFull()}<div class="doc"><div class="row" style="justify-content:space-between;margin-bottom:10px">${meta()}${saved}</div>${doc().slice(17, -6)}</div></div></div></div>`],
+ ['Focus with a dock', 'The note takes the whole screen and the list slides in from the icon rail only when you want it. Formatting lives in a small dock at the bottom, with rarely used tools behind "Text" and "more". Warm paper with a red accent. The calmest option.',
+  `<div class="mk m3"><div class="col rail">${rail()}</div><div class="col grow ed"><div class="row crumbs" style="justify-content:space-between"><div class="meta">${ic('panel-left')} All notes / Projects</div>${saved}</div>${doc()}<div class="dock">${tbLite()}</div></div></div>`],
+ ['Bento colour blocks', 'Three rounded blocks on a dark ground, each a different flat colour: mint for navigation, yellow for the list, white for the note, with a lilac toolbar. The boldest use of colour.',
+  `<div class="mk m4"><div class="col blk nav">${nav()}</div><div class="col blk list"><div class="row" style="justify-content:space-between;padding:0 2px 4px"><b style="font-size:15px">All notes</b><div class="btn">${ic('plus')} New</div></div>${rows(5)}</div><div class="col grow blk ed">${tbFull()}<div class="doc"><div class="row" style="justify-content:space-between;margin-bottom:10px">${meta()}${saved}</div>${doc().slice(17, -6)}</div></div></div>`],
+ ['Ink and lime', 'A near-black sidebar with a lime highlight, a roomy list, and a clean white note. The folder, tags and save state sit in one slim header; the toolbar is reduced to the essentials.',
+  `<div class="mk m5"><div class="col nav"><div class="brand">notes</div>${nav()}</div><div class="col list"><div class="row" style="padding:12px 16px;gap:8px"><div class="srch grow">${ic('search')} Search</div><div class="btn">${ic('plus')}</div></div>${rows(6)}</div><div class="col grow"><div class="row hd">${tbLite()}<span class="sp"></span>${meta()}${saved}</div>${doc()}</div></div>`],
+ ['Colour card wall', 'Notes are a wall of coloured cards, one colour per folder, with filter chips above. Picking a card opens the note beside the wall. Cream ground with many flat colours.',
+  `<div class="mk m6"><div class="row top"><b style="font-size:16px">Notes</b><div class="srch">${ic('search')} Search notes</div><span class="fl on">All</span><span class="fl">Inbox</span><span class="fl">Projects</span><span class="fl">Journal</span><span class="fl">#ideas</span><span class="sp"></span><span class="meta">Fonts · Styles · Trash</span><div class="btn">${ic('plus')} New note</div></div><div class="row grow" style="align-items:stretch"><div class="wall">${[['#ffd66b', 0], ['#b9e6ff', 1], ['#c9f2c7', 2], ['#ffc2d6', 3], ['#d9ccff', 4], ['#ffd1a8', 5]].map(([c, i], j) => `<div class="cd ${j === 0 ? 'on' : ''}" style="background:${c}"><b>${N[i][0]}</b><span>${N[i][1]}</span><i>${N[i][2]}</i></div>`).join('')}</div><div class="col grow ed">${tbFull()}<div class="doc"><div class="row" style="justify-content:space-between;margin-bottom:10px">${meta()}${saved}</div>${doc().slice(17, -6)}</div></div></div></div>`],
+ ['Violet minimal', 'Black, white and one electric violet. The left column is just a command box and note titles, with no previews. The toolbar is a short row above the title; everything else is reached from the command box.',
+  `<div class="mk m7"><div class="col nav"><div class="row cmd"><span>${ic('search')} Search or jump to…</span><kbd>Ctrl K</kbd></div>${N.map((r, i) => `<div class="tl ${i === 0 ? 'on' : ''}">${r[0]}<span>${r[2]}</span></div>`).join('')}<div class="sp"></div><div class="meta" style="padding:0 10px">Folders · Tags · Fonts · Styles · Trash</div></div><div class="col grow ed"><div class="row bar">${tbLite()}${saved}</div>${doc()}</div></div>`],
+ ['Tabs, orange and navy', 'Open notes become tabs across a navy bar, so you can keep several notes at hand. The folder tree stays on the left and the list is replaced by the tabs. Navy with an orange accent.',
+  `<div class="mk m8"><div class="row tabs"><div class="tb1 on">${ic('file-text')} Deploy checklist ${ic('x', 'cr')}</div><div class="tb1">${ic('file-text')} Editor showcase</div><div class="tb1">${ic('file-text')} Meeting notes, Friday</div><div class="tb1">${ic('plus')}</div><span class="sp"></span><div class="srch" style="background:#1f2f52;border-color:#1f2f52;color:#b9c2d9;margin-bottom:6px">${ic('search')} Search</div></div><div class="row grow" style="align-items:stretch"><div class="col nav">${nav()}</div><div class="col grow">${tbFull()}<div class="doc"><div class="row" style="justify-content:space-between;margin-bottom:10px">${meta()}${saved}</div>${doc().slice(17, -6)}</div></div></div></div>`],
+ ['Details panel', 'The folder, tags, dates and styles move into a panel on the right, so the note itself has nothing above it but a short toolbar. Icon rail on the left. Sky blue with a pink accent.',
+  `<div class="mk m9"><div class="col rail">${rail()}</div><div class="col list"><div class="row" style="padding:12px 14px;gap:8px"><div class="srch grow">${ic('search')} Search</div><div class="btn">${ic('plus')}</div></div>${rows(6)}</div><div class="col grow">${tbLite()}${doc()}</div><div class="col insp"><h4>Folder</h4><div class="row" style="gap:6px">${ic('folder')} Projects</div><h4>Tags</h4><div class="v2"><span class="pill">#agent</span><span class="pill">#demo</span><span class="pill">+ Add</span></div><h4>Style</h4><div class="v2"><span class="pill">Title</span><span class="pill">Warning</span><span class="pill">Quote</span></div><h4>Font and size</h4><div>Inter · 16</div><h4>History</h4><div class="meta" style="display:block">Created Nov 15<br>Updated just now · Saved</div></div></div>`],
+ ['Green magazine', 'A forest-green sidebar, a cream list with serif titles, and the note as a white page. Reads like a journal. Green and cream with an orange accent.',
+  `<div class="mk m10"><div class="col nav"><div class="brand">Notes</div>${nav()}</div><div class="col list"><div class="row lt" style="justify-content:space-between">All notes<div class="btn" style="font-family:var(--sans);font-size:12px">${ic('plus')} New</div></div>${rows(6)}</div><div class="col grow ed">${tbFull()}<div class="doc"><div class="row" style="justify-content:space-between;margin-bottom:12px">${meta()}${saved}</div>${doc().slice(17, -6)}</div></div></div>`],
+];
+document.getElementById('out').innerHTML = D.map(([name, note, html], i) => `<section class="opt"><div class="head"><span class="n">${String(i + 1).padStart(2, '0')}</span><h2>${name}</h2><p>${note}</p></div><div class="frame">${html}</div></section>`).join('');
+if (window.lucide) lucide.createIcons();
+</script>
