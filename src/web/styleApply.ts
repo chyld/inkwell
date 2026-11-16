@@ -116,6 +116,41 @@ export function matchStyle<T extends StyleSettings>(editor: Editor, index: Map<s
   return first ? { kind: 'one', style: first } : { kind: 'none' };
 }
 
+/**
+ * canUseStyles and matchStyle together, in one walk over a selection (they were separate walks). With no styles,
+ * the walk stops at the first piece that can take marks; with styles, as soon as two pieces disagree.
+ */
+export function styleState<T extends StyleSettings>(editor: Editor, index: Map<string, T>): { enabled: boolean; match: StyleMatch<T> } {
+  const { state } = editor;
+  const { selection } = state;
+  if (selection.empty) {
+    const enabled = canUseStyles(editor); // the cursor's marks: no walk
+    return { enabled, match: enabled ? matchStyle(editor, index) : { kind: 'none' } };
+  }
+  let seen = false;
+  let first: T | null | undefined;
+  let mixed = false;
+  const done = () => mixed || (seen && index.size === 0);
+  const ranges = [...selection.ranges].sort((a, b) => a.$from.pos - b.$from.pos);
+  for (const r of ranges) {
+    const from = r.$from.pos;
+    const to = r.$to.pos;
+    state.doc.nodesBetween(from, to, (node, pos, parent) => {
+      if (done()) return false;
+      if (!node.isText || !parent || inCode(node, parent)) return;
+      if (Math.max(pos, from) >= Math.min(pos + node.nodeSize, to)) return;
+      seen = true;
+      if (index.size === 0) return;
+      const style = index.get(settingsKey(node.marks, parent)) ?? null;
+      if (first === undefined) first = style;
+      else if (style !== first) mixed = true;
+    });
+    if (done()) break;
+  }
+  if (!seen || index.size === 0) return { enabled: seen, match: { kind: 'none' } };
+  return { enabled: true, match: mixed ? { kind: 'mixed' } : first ? { kind: 'one', style: first } : { kind: 'none' } };
+}
+
 /** 5.3: the Styles button is disabled in inline code or a code block, and for a selection with no text that can take marks. */
 export function canUseStyles(editor: Editor): boolean {
   const { selection } = editor.state;

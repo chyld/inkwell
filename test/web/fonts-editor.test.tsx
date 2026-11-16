@@ -285,16 +285,17 @@ describe('registering the fonts a document brings (criterion 16)', () => {
       editorOf(view!.container).view.pasteHTML('<p><span data-font="buda">pasted</span></p>');
     });
     await waitFor(() => facesRequests('buda') === 1, 2000, 'faces on paste');
-    // Undo and redo recompute the set (the session is told on every change that alters the document).
+    // Undo and redo recompute the set (the session is told after every change that alters the document, within
+    // FONT_SCAN_MS: the scan is debounced rather than run per keystroke, CLEANUP-PLAN pass 1 item 3).
     const spy = vi.spyOn(NoteFontSession.prototype, 'update');
     await act(async () => {
       editorOf(view!.container).commands.undo();
     });
-    expect(spy.mock.calls.some((c) => !new Set(c[0] as Iterable<string>).has('buda'))).toBe(true);
+    await waitFor(() => spy.mock.calls.some((c) => !new Set(c[0] as Iterable<string>).has('buda')), 2000, 'told after undo');
     await act(async () => {
       editorOf(view!.container).commands.redo();
     });
-    expect(spy.mock.calls.some((c) => new Set(c[0] as Iterable<string>).has('buda'))).toBe(true);
+    await waitFor(() => spy.mock.calls.some((c) => new Set(c[0] as Iterable<string>).has('buda')), 2000, 'told after redo');
     spy.mockRestore();
     expect(facesRequests('buda')).toBe(1); // not asked again
   });
@@ -374,7 +375,7 @@ describe('registering the fonts a document brings (criterion 16)', () => {
     await act(async () => {
       editorOf(view!.container).commands.insertContent({ type: 'paragraph', content: ids.map((id) => text(`${id} `, [fontMark(id)])) });
     });
-    await settle();
+    await waitFor(() => active === 6, 2000, 'six in flight once the debounced font scan has run');
     expect(active).toBe(6);
     while (releases.length) {
       await act(async () => releases.shift()!());

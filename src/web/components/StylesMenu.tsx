@@ -2,9 +2,9 @@
 // The button shows the name of the style whose eight settings the text at the cursor or in the selection has
 // (DEVIATIONS 43); text keeps no record of a style, so this is found by matching.
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import type { Editor } from '@tiptap/react';
+import { useEditorState, type Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
-import { applyStyle, canUseStyles, matchStyle, styleFromText, styleIndex } from '../styleApply';
+import { applyStyle, styleFromText, styleIndex, styleState } from '../styleApply';
 import { refreshStyles, useStyles } from '../stylesStore';
 import { NOTE_FONTS_REFUSED } from './FontPicker';
 import { placementStyle, useMenuPlacement } from './menuPlacement';
@@ -30,14 +30,16 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
   const popRef = useRef<HTMLDivElement>(null);
   const itemsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const popId = useId();
-  const enabled = canUseStyles(editor);
   const list = styles ?? [];
   const count = list.length + 2; // the styles, "Save selection as style…", "Manage styles…"
-  // Computed on every render, which the editor triggers on each transaction: the same pass as the other toolbar states.
+  // Read through a selector: the button re-renders only when whether styles can be used, or which one matches,
+  // changes (not on every keystroke); one walk over the selection gives both.
   const index = useMemo(() => styleIndex(list), [list]);
-  const match = enabled ? matchStyle(editor, index) : ({ kind: 'none' } as const);
-  const currentIdx = match.kind === 'one' ? list.indexOf(match.style) : -1;
-  const label = match.kind === 'one' ? match.style.name : match.kind === 'mixed' ? 'Mixed' : 'Styles';
+  const { enabled, match } = useEditorState({ editor, selector: ({ editor }) => styleState(editor, index) });
+  // By id in the current list: the selector keeps an equal earlier result, whose style object may be from an
+  // earlier fetch of the same list.
+  const currentIdx = match.kind === 'one' ? list.findIndex((s) => s.id === match.style.id) : -1;
+  const label = currentIdx >= 0 ? list[currentIdx].name : match.kind === 'mixed' ? 'Mixed' : 'Styles';
   const name = match.kind === 'none' ? 'Styles' : `Style: ${label}`;
 
   // The styles: when the editor mounts (so the name shows before the menu is opened) and fresh each time it opens.

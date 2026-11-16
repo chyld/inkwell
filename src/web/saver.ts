@@ -28,6 +28,14 @@ export class NoteSaver {
     for (const s of [...NoteSaver.live]) s.dispose();
   }
 
+  /**
+   * Write every live saver's pending draft now. Called when the page is hidden or unloaded, so a tab closed
+   * mid-typing still leaves its latest changes on this device (drafts are otherwise written with the save).
+   */
+  static writeAllDrafts() {
+    for (const s of NoteSaver.live) if (s.draftStale) s.writeDraft();
+  }
+
   /** True if any live saver has changes the server has not confirmed. */
   static anyUnconfirmed(): boolean {
     for (const s of NoteSaver.live) if (s.hasUnconfirmed()) return true;
@@ -35,7 +43,10 @@ export class NoteSaver {
   }
 
   private base: number;
+  /** The latest change. `body` may be a function: the editor passes one so the document is serialised only when it is needed. */
   private latest: { title: string; body: unknown } | null = null;
+  /** True when the stored draft is older than the latest change. */
+  private draftStale = false;
   private latestSeq = 0;
   private confirmedSeq = 0;
   private inFlight: Promise<void> | null = null;
@@ -77,12 +88,17 @@ export class NoteSaver {
     return this.blocked === 'conflict';
   }
 
-  /** Record an edit. `immediate` skips the 1 s debounce (used when restoring a draft). */
+  /**
+   * Record an edit; `body` may be a function returning it. `immediate` skips the 1 s debounce (used when
+   * restoring a draft). The draft is written at once for the first change since the last confirmed save (so one
+   * exists from the first keystroke), and otherwise when the save is sent, or at once if the page is hidden.
+   */
   change(title: string, body: unknown, immediate = false) {
     if (this.disposed) return;
     this.latest = { title, body };
     this.latestSeq++;
-    this.writeDraft();
+    if (immediate || this.latestSeq === this.confirmedSeq + 1) this.writeDraft();
+    else this.draftStale = true;
     if (this.blocked === 'conflict' || this.blocked === 'gone') {
       this.deps.onStatus('unsaved');
       return;
@@ -99,9 +115,17 @@ export class NoteSaver {
     }, DEBOUNCE_MS);
   }
 
+  /** The latest change with its body as a value (calling the editor's function once, if it passed one). */
+  private resolved(): { title: string; body: unknown } | null {
+    if (this.latest && typeof this.latest.body === 'function') this.latest = { title: this.latest.title, body: (this.latest.body as () => unknown)() };
+    return this.latest;
+  }
+
   private writeDraft() {
-    if (!this.latest || !this.hasUnconfirmed()) return;
-    this.deps.drafts.set(this.userId, this.noteId, { title: this.latest.title, body: this.latest.body, version: this.base, savedAt: Date.now(), owner: this.owner });
+    this.draftStale = false;
+    const latest = this.resolved();
+    if (!latest || !this.hasUnconfirmed()) return;
+    this.deps.drafts.set(this.userId, this.noteId, { title: latest.title, body: latest.body, version: this.base, savedAt: Date.now(), owner: this.owner });
   }
 
   /** Remove the stored draft only if this editor wrote it. */
@@ -124,8 +148,9 @@ export class NoteSaver {
       this.clearTimer(this.retry);
       this.retry = null;
     }
+    if (this.draftStale) this.writeDraft(); // the draft is current before the save is attempted
     const seq = this.latestSeq;
-    const snapshot = this.latest;
+    const snapshot = this.resolved()!;
     this.deps.onStatus('saving');
     this.inFlight = this.deps
       .put(this.noteId, { title: snapshot.title, body: snapshot.body, version: this.base })
@@ -229,6 +254,7 @@ export class NoteSaver {
 
   /** Send any pending change now and wait up to `timeoutMs` for it. Resolves true if everything is confirmed. */
   flush(timeoutMs = 3000): Promise<boolean> {
+    if (this.draftStale) this.writeDraft();
     if (this.debounce) {
       this.clearTimer(this.debounce);
       this.debounce = null;
@@ -265,4 +291,12 @@ export class NoteSaver {
     this.debounce = this.retry = null;
     this.notify();
   }
+}
+
+// A tab hidden or closed mid-typing writes its pending drafts first (pagehide also covers bfcache and mobile).
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+  window.addEventListener('pagehide', () => NoteSaver.writeAllDrafts());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') NoteSaver.writeAllDrafts();
+  });
 }

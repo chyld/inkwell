@@ -23,15 +23,15 @@ import {
   Undo2,
   X,
 } from 'lucide-react';
-import { EditorContent, useEditor, type Editor } from '@tiptap/react';
+import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/react';
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model';
 import { api, ApiError, NetworkError, type FolderNode, type Me, type Note, type NoteItem, type TagCount } from '../api';
 import { localDrafts, type Draft } from '../drafts';
 import { NoteSaver, type SaveStatus } from '../saver';
 import { noteExtensions, isAllowedHref, normalizeTag, fontsInDoc, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
 import { ColorPicker } from './ColorPicker';
-import { FontPicker } from './FontPicker';
-import { FontSizeControl } from './FontSizeControl';
+import { FontPicker, fontStateOf } from './FontPicker';
+import { FontSizeControl, sizeStateOf } from './FontSizeControl';
 import { StylesMenu } from './StylesMenu';
 import { BlockMenus } from './BlockMenus';
 import { ImageResizeKeys, ResizableImage } from '../ImageView';
@@ -243,7 +243,9 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         onStatus: (st, msg, err) => {
           setStatus(st);
           setStatusMsg(msg ?? null);
-          setMissingImages(err?.code === 'image_missing' && Array.isArray(err.extra.images) ? (err.extra.images as string[]) : []);
+          const next = err?.code === 'image_missing' && Array.isArray(err.extra.images) ? (err.extra.images as string[]) : [];
+          // Only a real change re-renders: the saver reports a status on every edit.
+          setMissingImages((prev) => (prev.length === next.length && prev.every((x, i) => x === next[i]) ? prev : next));
         },
         onConflict: () => setConflict(true),
         onSaved: (info) => {
@@ -295,7 +297,8 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     extensions: EDITOR_EXTENSIONS,
     content: note.body,
     editable: !trashed,
-    shouldRerenderOnTransaction: true,
+    // Transactions do not re-render this whole pane (the toolbar subscribes to what it shows: Toolbar below).
+    shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: { class: 'prose', 'aria-label': 'Note body' },
       transformPasted: (slice) => (editorRef.current ? limitPastedFonts(fixPastedTables(slice, editorRef.current), editorRef.current) : slice),
@@ -309,13 +312,15 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     },
     onUpdate: ({ editor }) => {
       if (lockedRef.current) return;
-      saverRef.current?.change(titleRef.current, editor.getJSON());
+      // The document is serialised by the saver only when it writes a draft or sends (not per keystroke).
+      saverRef.current?.change(titleRef.current, () => editor.getJSON());
     },
   });
   editorRef.current = editor;
 
-  // The fonts in the document: when the note opens and on every change (typing, paste, undo, redo);
-  // the draft and conflict paths below also call it, as they replace the document.
+  // The fonts in the document: when the note opens, and after changes (typing, paste, undo, redo), at most every
+  // FONT_SCAN_MS rather than per keystroke; the draft and conflict paths below call it directly, as they replace
+  // the document.
   const syncFonts = () => {
     const ed = editorRef.current;
     if (ed && !ed.isDestroyed) props.fontSession.update(fontsInDoc(ed.state.doc));
@@ -323,10 +328,18 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   useEffect(() => {
     if (!editor) return;
     syncFonts();
-    const onTr = ({ transaction }: { transaction: { docChanged: boolean } }) => transaction.docChanged && syncFonts();
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onTr = ({ transaction }: { transaction: { docChanged: boolean } }) => {
+      if (!transaction.docChanged || timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        syncFonts();
+      }, FONT_SCAN_MS);
+    };
     editor.on('transaction', onTr);
     return () => {
       editor.off('transaction', onTr);
+      if (timer) clearTimeout(timer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor]);
@@ -344,7 +357,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     if (locked) return;
     setTitle(v);
     titleRef.current = v;
-    if (editor) saverRef.current?.change(v, editor.getJSON());
+    if (editor) saverRef.current?.change(v, () => editor.getJSON());
   }
 
   function restoreDraft() {
@@ -604,6 +617,31 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   );
 }
 
+/** How long after a change the document is scanned for fonts (debounced; it was per keystroke). */
+export const FONT_SCAN_MS = 250;
+
+/**
+ * Everything the toolbar and its controls show, as one value: the toolbar re-renders when it changes. The Styles
+ * menu subscribes to its own match (StylesMenu), which can change where none of these do.
+ */
+export function toolbarKey(e: Editor): string {
+  const { $from } = e.state.selection;
+  const ancestors: string[] = [];
+  for (let d = $from.depth; d > 0; d--) ancestors.push($from.node(d).type.name);
+  return JSON.stringify([
+    fontStateOf(e),
+    sizeStateOf(e),
+    e.getAttributes('textColor').color ?? null,
+    e.getAttributes('highlight').color ?? null,
+    ['bold', 'italic', 'underline', 'strike', 'code', 'link', 'table', 'codeBlock'].map((n) => e.isActive(n)),
+    [1, 2, 3].map((level) => e.isActive('heading', { level })),
+    ancestors,
+    e.can().undo(),
+    e.can().redo(),
+    e.isEditable,
+  ]);
+}
+
 // The note schema with the web-only image resize view (same node, same attributes) and its Tab key.
 const EDITOR_EXTENSIONS = [...noteExtensions.map((e) => (e.name === 'image' ? ResizableImage : e)), ImageResizeKeys];
 
@@ -623,6 +661,8 @@ function Toolbar({
   notice: (m: string) => void;
 }) {
   const dialogs = useDialogs();
+  // Re-render only when something the toolbar shows changes, not on every keystroke (CLEANUP-PLAN pass 1 item 3).
+  useEditorState({ editor, selector: ({ editor }) => toolbarKey(editor) });
   const [pillRef, wrapped] = usePillWrapped();
   const b = (label: ReactNode, title: string, active: boolean, run: () => void, disabled = false, withText = false) => (
     <button
