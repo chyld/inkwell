@@ -126,11 +126,31 @@ describe("text colours and highlights, palette 'Jewel'", () => {
 });
 
 
+/** The stylesheet without comments and @media blocks: the rules on a wide screen with a mouse. */
+const wideCss = (() => {
+  const text = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  let out = '';
+  let i = 0;
+  while (i < text.length) {
+    const at = text.indexOf('@media', i);
+    if (at < 0) return out + text.slice(i);
+    out += text.slice(i, at);
+    let depth = 0;
+    let j = text.indexOf('{', at);
+    for (; j < text.length; j++) {
+      if (text[j] === '{') depth++;
+      else if (text[j] === '}' && --depth === 0) break;
+    }
+    i = j + 1;
+  }
+  return out;
+})();
+
 describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
   /** Every declaration given to exactly this selector, in source order. */
   const decls = (sel: string) => {
     const out: Record<string, string> = {};
-    for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const m of wideCss.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       if (!m[1].split(',').some((x) => x.trim() === sel)) continue;
       for (const d of m[2].split(';')) {
         const i = d.indexOf(':');

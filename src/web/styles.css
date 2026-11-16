@@ -1274,7 +1274,9 @@ mark {
   outline-offset: 2px;
 }
 @media (pointer: coarse) {
-  .toolbar .tb {
+  .toolbar .tb,
+  .editor-header button,
+  .list-title button {
     min-width: 34px;
     min-height: 34px;
   }
@@ -1582,7 +1584,7 @@ mark[data-highlight] {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--bg);
+  background: var(--bg-soft); /* the app ground; the cards are on paper (REDESIGN-BRIEF 3) */
 }
 .fonts-scroll {
   position: relative;
@@ -1678,8 +1680,8 @@ mark[data-highlight] {
   gap: 6px;
   min-width: 0;
   padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: var(--bg);
 }
 .font-card.selected {
@@ -2035,7 +2037,7 @@ mark[data-highlight] {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--bg);
+  background: var(--bg-soft); /* the app ground; the cards are on paper (REDESIGN-BRIEF 3) */
 }
 .styles-scroll {
   flex: 1;
@@ -2097,8 +2099,8 @@ mark[data-highlight] {
   gap: 8px;
   min-width: 0;
   padding: 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border: 1px solid transparent;
+  border-radius: 12px;
   background: var(--bg);
 }
 .style-card-name {
@@ -2329,18 +2331,30 @@ mark[data-highlight] {
   .desktop-only {
     display: none;
   }
-  .editor-scroll {
-    padding: 14px 16px 60px;
+  /* the editor on a phone: the paper fills the width with smaller padding; the slim line takes two lines */
+  .editor-pane {
+    padding: 6px 6px 0;
+    gap: 6px;
+  }
+  .editor-scroll.paper {
+    padding: 18px 16px 60px;
+  }
+  .editor-row {
+    flex-wrap: wrap;
+    row-gap: 2px;
+  }
+  .slim-left {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+  .slim-right {
+    flex: 1 1 100%;
+    justify-content: flex-end;
   }
   .editor-header {
     padding: 3px 6px 3px 8px;
   }
-  .editor-row {
-    flex-wrap: wrap;
-  }
-  .editor-tags {
-    padding-left: 8px;
-  }
+
   .folder-menu-button {
     opacity: 1;
   }
