@@ -54,7 +54,11 @@ const coarse = atBlock('@media (pointer: coarse)');
 
 describe('other screens (REDESIGN-BRIEF 3)', () => {
   it('/fonts and /styles sit on the app ground with their cards on paper, rounded like the note cards', () => {
-    for (const page of ['.fonts-page', '.styles-page']) expect(decls(page).background, page).toBe('var(--bg-soft)');
+    // Both pages share the browse-page shell (CLEANUP-PLAN pass 2 item 3).
+    expect(decls('.browse-page').background).toBe('var(--bg-soft)');
+    for (const [file, page] of [['FontsPage.tsx', 'fonts-page'], ['StylesPage.tsx', 'styles-page']]) {
+      expect(fs.readFileSync(path.join(__dirname, '../src/web/components', file), 'utf8'), file).toContain(`className="browse-page ${page}"`);
+    }
     for (const card of ['.font-card', '.style-card']) {
       expect(decls(card).background, card).toBe('var(--bg)');
       expect(decls(card)['border-radius'], card).toBe('12px');

@@ -65,7 +65,7 @@ describe('default fonts', () => {
   it('tabular figures where numbers line up, not in prose', () => {
     const rule = /([^{}]+)\{\s*font-variant-numeric: tabular-nums;\s*\}/.exec(css)!;
     const selectors = rule[1].replace(/\/\*[\s\S]*?\*\//g, '').split(',').map((x) => x.trim());
-    expect(selectors).toEqual(['.prose table', '.count', '.note-item time', '.editor-dates', '.storage', '.fonts-count', '.fonts-collection-count', '.size-input', '.styles-count', '.image-size']);
+    expect(selectors).toEqual(['.prose table', '.count', '.note-item time', '.editor-dates', '.storage', '.browse-count', '.fonts-collection-count', '.size-input', '.image-size']); // .browse-count: the counts of /fonts and /styles
     expect(css.match(/tabular-nums/g)!.length).toBe(1);
   });
 

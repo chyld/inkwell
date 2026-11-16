@@ -94,7 +94,7 @@ describe("'Slate and coral' colour scheme", () => {
 
   it('accent roles: links in the link shade, focus rings and selected outlines in the line shade, the rail ring in the rail ink', () => {
     expect(css).toMatch(/\.prose a \{\s*color: var\(--link\);/);
-    expect(css).toMatch(/\.link-button \{\s*color: var\(--link\);/);
+    expect(css).toMatch(/\.link-button \{[^}]*\scolor: var\(--link\);/);
     expect(css).toMatch(/:focus-visible \{\s*outline: 2px solid var\(--accent-line\);/);
     expect(css).toMatch(/\.rail-button:focus-visible \{\s*outline-color: var\(--rail-icon\);/);
     expect(css).toMatch(/accent-color: var\(--accent\)/);

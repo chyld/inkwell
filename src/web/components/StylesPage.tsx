@@ -81,14 +81,14 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
   );
 
   return (
-    <section className="styles-page" aria-label="Styles">
-      <div className="styles-scroll">
-        <header className="styles-header">
+    <section className="browse-page styles-page" aria-label="Styles">
+      <div className="browse-scroll styles-scroll">
+        <header className="browse-header styles-header">
           <button className="icon-button mobile-only" onClick={onBack} aria-label="Back to notes" title="Back to notes">
             <ChevronLeft />
           </button>
           <h2>Styles</h2>
-          <p className="styles-count" role="status" aria-live="polite">
+          <p className="browse-count styles-count" role="status" aria-live="polite">
             {styles === null ? '' : `${list.length} of ${STYLES_MAX}`}
           </p>
           {newButton}

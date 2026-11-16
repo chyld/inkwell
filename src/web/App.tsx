@@ -464,12 +464,12 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}`}>
       <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} onNewNote={() => void newNote(true)} />
       {page === 'fonts' && (
-        <Suspense fallback={<section className="fonts-page" aria-label="Fonts" aria-busy="true" />}>
+        <Suspense fallback={<section className="browse-page fonts-page" aria-label="Fonts" aria-busy="true" />}>
           <FontsPage onBack={leavePage} />
         </Suspense>
       )}
       {page === 'styles' && (
-        <Suspense fallback={<section className="styles-page" aria-label="Styles" aria-busy="true" />}>
+        <Suspense fallback={<section className="browse-page styles-page" aria-label="Styles" aria-busy="true" />}>
           <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />
         </Suspense>
       )}

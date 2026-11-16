@@ -246,13 +246,6 @@ button.wide {
   width: 100%;
   padding: 10px;
 }
-.link-button,
-.icon-button {
-  padding: 4px 8px;
-}
-.link-button {
-  color: var(--link);
-}
 .icon-button {
   display: inline-flex;
   align-items: center;
@@ -264,6 +257,8 @@ button.wide {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  padding: 4px 8px;
+  color: var(--link);
 }
 /* icons (lucide): one size and stroke everywhere, coloured by the surrounding text */
 svg.lucide {
@@ -657,9 +652,18 @@ mark {
   color: var(--text);
   white-space: nowrap;
 }
-.tag-chip.small {
-  font-size: 0.75rem;
-  padding: 0 7px;
+/* a note's tags (on the note cards and in the title row) are soft coral blocks; the rail's tag panel keeps the
+   outlined chips above */
+.tag-chip.small,
+.editor-header .tag-chip {
+  gap: 2px;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 4px 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--tag-bg);
+  color: var(--tag-ink);
 }
 .tag-chip.active {
   background: var(--bg-active);
@@ -879,7 +883,6 @@ mark {
   top: 10px;
   left: 10px;
 }
-/* the slim line: folder and tags on the left; dates, save status and Move to Trash on the right */
 /* the title row: folder / title, tags on the left; dates, save status and Move to Trash on the right */
 .editor-header {
   padding: 0 16px;
@@ -971,6 +974,25 @@ mark {
   padding: 3px 6px;
   background: var(--rail);
 }
+/* toolbar-style buttons (the toolbar and the style form); the toolbar below makes them smaller and slate */
+.tb-group {
+  display: flex;
+  gap: 2px;
+}
+.tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  padding: 4px 5px;
+  min-width: 28px;
+  font-size: 0.8rem;
+}
+.tb.active {
+  background: var(--bg-active);
+  border-color: var(--border);
+}
 /* The slate toolbar: icons and labels in the rail ink, hover and pressed a lighter slate. The ink is set on the
    buttons only, so the light menus that open from the toolbar keep the normal text colour. */
 .toolbar .tb-group {
@@ -981,6 +1003,9 @@ mark {
   min-width: 24px;
   padding: 3px;
   border-radius: 4px;
+}
+.toolbar .tb.with-text {
+  padding: 3px 7px;
 }
 .toolbar .tb:hover:not(:disabled) {
   background: var(--bar-on);
@@ -995,9 +1020,6 @@ mark {
 .toolbar .tb:focus-visible,
 .toolbar .size-input:focus-visible {
   outline-color: var(--rail-icon); /* visible on the slate bar in both themes; the light menus keep the coral ring */
-}
-.toolbar .styles-button {
-  width: 80px;
 }
 .toolbar .font-button {
   width: 96px;
@@ -1015,27 +1037,6 @@ mark {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-.tb-group {
-  display: flex;
-  gap: 2px;
-}
-.tb {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border: 1px solid transparent;
-  padding: 4px 5px;
-  min-width: 28px;
-  font-size: 0.8rem;
-}
-.tb.with-text {
-  padding: 3px 7px;
-}
-.tb.active {
-  background: var(--bg-active);
-  border-color: var(--border);
 }
 /* the toolbar (mock-up 07): a flat, full-width bar in the rail slate, directly under the title row */
 .toolbar-wrap {
@@ -1056,7 +1057,6 @@ mark {
   border-top: 1px solid var(--bar-line);
   font-size: 0.75rem;
 }
-/* the paper: a white sheet with rounded top corners to the bottom of the window; its content scrolls */
 /* the paper: directly under the toolbar, square corners, full width; its content scrolls */
 .editor-scroll.paper {
   flex: 1;
@@ -1111,18 +1111,7 @@ mark {
 .editor-header .folder-button {
   flex-shrink: 0; /* its natural width (still at most 35% of the row) */
 }
-/* tags as soft coral blocks; the remove cross shows on hover and focus, and is always reachable */
-.editor-header .tag-chip,
-.tag-chip.small {
-  gap: 2px;
-  border: none;
-  border-radius: 4px;
-  padding: 1px 4px 1px 6px;
-  font-size: 11px;
-  font-weight: 500;
-  background: var(--tag-bg);
-  color: var(--tag-ink);
-}
+/* the remove cross shows on hover and focus, and is always reachable */
 .editor-header .tag-chip .chip-x {
   color: inherit;
   opacity: 0;
@@ -1631,8 +1620,8 @@ mark[data-highlight] {
   color: var(--text-soft);
 }
 
-/* the /fonts page (FONTS-SPEC 7) */
-.fonts-page {
+/* the /fonts and /styles pages: one shell (browse-*), each page adding only what differs */
+.browse-page {
   grid-column: 2 / -1;
   display: flex;
   flex-direction: column;
@@ -1640,22 +1629,33 @@ mark[data-highlight] {
   min-height: 0;
   background: var(--bg-soft); /* the app ground; the cards are on paper (REDESIGN-BRIEF 3) */
 }
-.fonts-scroll {
-  position: relative;
+.browse-scroll {
   flex: 1;
   overflow-x: hidden;
   overflow-y: auto;
   padding: 0 20px 40px;
 }
-.fonts-header {
+.browse-header {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 0 4px;
 }
-.fonts-header h2 {
+.browse-header h2 {
   margin: 0;
   font-size: 1.2rem;
+}
+.browse-count {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+}
+
+/* the /fonts page (FONTS-SPEC 7) */
+.fonts-scroll {
+  position: relative;
+}
+.fonts-header {
+  padding: 12px 0 4px;
 }
 .fonts-controls {
   display: flex;
@@ -1673,9 +1673,6 @@ mark[data-highlight] {
   font: inherit;
 }
 .fonts-count {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-soft);
   white-space: nowrap;
 }
 .fonts-collection {
@@ -1764,10 +1761,9 @@ mark[data-highlight] {
 .note-item time,
 .editor-dates,
 .storage,
-.fonts-count,
+.browse-count,
 .fonts-collection-count,
 .size-input,
-.styles-count,
 .image-size {
   font-variant-numeric: tabular-nums;
 }
@@ -2080,35 +2076,10 @@ mark[data-highlight] {
 }
 
 /* the /styles page (STYLES-SPEC 9) */
-.styles-page {
-  grid-column: 2 / -1;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  background: var(--bg-soft); /* the app ground; the cards are on paper (REDESIGN-BRIEF 3) */
-}
-.styles-scroll {
-  flex: 1;
-  overflow-x: hidden;
-  overflow-y: auto;
-  padding: 0 20px 40px;
-}
 .styles-header {
-  display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 8px 12px;
   padding: 12px 0;
-}
-.styles-header h2 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-.styles-count {
-  margin: 0;
-  font-size: 0.85rem;
-  color: var(--text-soft);
 }
 .styles-header .primary,
 .styles-empty .primary {
@@ -2208,7 +2179,7 @@ mark[data-highlight] {
 /* the editor's Styles menu (STYLES-SPEC 8) */
 .styles-button {
   /* Fixed width like the font button: the toolbar does not jump when the style name changes; long names are cut short. */
-  width: 112px;
+  width: 80px;
   justify-content: space-between;
   gap: 4px;
   font-size: 0.88rem;
@@ -2321,10 +2292,7 @@ mark[data-highlight] {
   .app.screen-styles > .styles-page {
     display: flex;
   }
-  .styles-scroll {
-    padding: 0 12px 40px;
-  }
-  .fonts-scroll {
+  .browse-scroll {
     padding: 0 12px 40px;
   }
   .note-list {
@@ -2378,7 +2346,7 @@ mark[data-highlight] {
   .desktop-only {
     display: none;
   }
-  /* the editor on a phone: the paper fills the width with smaller padding; the slim line takes two lines */
+  /* the editor on a phone: the paper fills the width with smaller padding; the title row wraps */
   .editor-header {
     padding: 0 10px;
   }

@@ -129,9 +129,9 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <section className="fonts-page" aria-label="Fonts">
-      <div className="fonts-scroll" ref={scrollRef}>
-        <header className="fonts-header">
+    <section className="browse-page fonts-page" aria-label="Fonts">
+      <div className="browse-scroll fonts-scroll" ref={scrollRef}>
+        <header className="browse-header fonts-header">
           <button className="icon-button mobile-only" onClick={onBack} aria-label="Back to notes" title="Back to notes">
             <ChevronLeft />
           </button>
@@ -146,7 +146,7 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
               </option>
             ))}
           </select>
-          <p className="fonts-count" role="status" aria-live="polite">
+          <p className="browse-count fonts-count" role="status" aria-live="polite">
             {matching.length} of {total}
           </p>
         </div>
