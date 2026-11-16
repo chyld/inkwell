@@ -7,11 +7,12 @@ import sharp, { type Metadata } from 'sharp';
 import type { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
 import { AppError, badRequest } from './errors.js';
-import { IMAGE_CSP, type AppOptions } from './app.js';
+import type { AppOptions } from './app.js';
+import { MiB } from './units.js';
+import { imageSrc } from '../shared/noteRules.js';
 
-const MiB = 1024 * 1024;
-import { imageSrc } from '../shared/schema.js';
-
+/** Served images may not run anything, even if a file's bytes say otherwise. */
+export const IMAGE_CSP = "default-src 'none'; sandbox";
 export const MAX_IMAGE_BYTES = 10 * MiB;
 export const MAX_IMAGE_SIDE = 10_000;
 const MIME: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', gif: 'image/gif', webp: 'image/webp' };

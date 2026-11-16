@@ -21,8 +21,8 @@ import {
   type ValidatedBody,
 } from '../shared/schema.js';
 
-export const DAY = 24 * 60 * 60 * 1000;
-export const HOUR = 60 * 60 * 1000;
+import { DAY, HOUR } from './units.js';
+export { DAY, HOUR };
 export const SESSION_IDLE_MS = 30 * DAY;
 export const SESSION_MAX_MS = 90 * DAY;
 export const FOLDER_MAX_DEPTH = 10;
@@ -175,7 +175,7 @@ export class Store {
     this.now = opts.now ?? Date.now;
     this.imagesDir = path.join(opts.dataDir, 'images');
     this.tmpDir = path.join(opts.dataDir, 'tmp');
-    this.fonts = new FontStore(db, { dataDir: opts.dataDir, now: this.now, capBytes: opts.fontCacheBytes ?? 500 * 1024 * 1024 });
+    this.fonts = new FontStore(db, { dataDir: opts.dataDir, tmpDir: this.tmpDir, now: this.now, capBytes: opts.fontCacheBytes ?? 500 * 1024 * 1024 });
     this.styles = new StyleStore(db, this.now);
   }
 
@@ -1172,4 +1172,3 @@ function removeDeadPartials(target: string) {
   }
 }
 
-export { sha256, utf8Length };

@@ -110,9 +110,9 @@ describe('the rail is always shown; the note list collapses', () => {
   it('ignores a stored value it does not understand', () => {
     for (const raw of ['not json', 'null', '42', '{"sidebar":"yes","list":1}']) {
       localStorage.setItem(LAYOUT_KEY, raw);
-      expect(loadLayout(), raw).toEqual({ sidebar: false, list: false });
+      expect(loadLayout(), raw).toEqual({ list: false });
     }
     localStorage.setItem(LAYOUT_KEY, '{"sidebar":false,"list":true}');
-    expect(loadLayout()).toEqual({ sidebar: false, list: true });
+    expect(loadLayout()).toEqual({ list: true });
   });
 });

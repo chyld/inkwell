@@ -25,7 +25,7 @@ export interface Env {
 }
 
 /** Extra app options (e.g. a stand-in font fetcher) and store options (e.g. a small font cap). */
-export type EnvExtra = Partial<Pick<AppOptions, 'fonts' | 'fontService'>> & { storeOptions?: Partial<StoreOptions> };
+export type EnvExtra = Partial<Pick<AppOptions, 'fonts'>> & { storeOptions?: Partial<StoreOptions> };
 
 /** Counts of SQL work, for tests that measure it: statements executed and statements compiled (prepared). */
 export interface SqlCounter {
@@ -59,7 +59,7 @@ export async function makeEnv(overrides: Record<string, string> = {}, extra: Env
   const stream = new PassThrough();
   let logText = '';
   stream.on('data', (c) => (logText += c.toString()));
-  const app = await buildApp({ config, store, logStream: stream, fonts: extra.fonts, fontService: extra.fontService });
+  const app = await buildApp({ config, store, logStream: stream, fonts: extra.fonts });
   await app.ready();
   return {
     dir,

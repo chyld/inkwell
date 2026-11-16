@@ -4,6 +4,7 @@ import { AppError } from './errors.js';
 import { SignInLimiter } from './ratelimit.js';
 import { normalizeUsername } from './store.js';
 import { registerImageRoutes } from './images.js';
+import type { FontService } from './fonts/service.js';
 import { registerFontRoutes } from './fonts/routes.js';
 import { registerStyleRoutes } from './styles.js';
 
@@ -17,7 +18,7 @@ function body(req: FastifyRequest): Record<string, unknown> {
   return b as Record<string, unknown>;
 }
 
-export async function registerApi(api: FastifyInstance, opts: AppOptions) {
+export async function registerApi(api: FastifyInstance, opts: AppOptions & { fontService: FontService }) {
   const { config, store } = opts;
   const limiter = new SignInLimiter(store.now);
 
@@ -164,7 +165,7 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
   await registerImageRoutes(api, opts);
 
   // ---- fonts (FONTS-SPEC 6) ----
-  await registerFontRoutes(api, store, opts.fontService!);
+  await registerFontRoutes(api, store, opts.fontService);
 
   // ---- text styles (STYLES-SPEC 6) ----
   await registerStyleRoutes(api, store.styles);

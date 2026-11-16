@@ -199,13 +199,12 @@ describe('the editor toolbar: a flat teal bar (mock-up 07, DEVIATIONS 47)', () =
     expect(others).toEqual(['svg.lucide']); // no other rule changes the stroke
   });
 
-  it('the bar is flat and full width, its contents left-aligned at the title row padding, flat when wrapped; the table tools a second flat bar', () => {
+  it('the bar is flat and full width, its contents left-aligned at the title row padding; the table tools a second flat bar', () => {
     expect(decls('.toolbar-wrap')['align-items']).toBe('stretch');
     expect(decls('.toolbar-wrap > .toolbar')['border-radius']).toBe('0');
     expect(decls('.toolbar-wrap > .toolbar')['justify-content']).toBe('flex-start');
     expect(decls('.toolbar-wrap > .toolbar').padding).toBe('3px 16px');
     expect(decls('.editor-header').padding).toBe('0 16px');
-    expect(decls('.toolbar-wrap > .toolbar[data-wrapped]')['border-radius']).toBeUndefined(); // no rounding when wrapped
     expect(decls('.toolbar-wrap > .table-tools')['font-size']).toBe('0.75rem');
     expect(decls('.toolbar-wrap > .table-tools')['border-top']).toBe('1px solid var(--bar-line)');
   });

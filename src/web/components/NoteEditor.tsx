@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Baseline,
   BetweenHorizontalEnd,
@@ -40,7 +40,7 @@ import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
 import { APP_TITLE, noteTitle } from '../route';
 import { useDialogs } from './Dialogs';
-import { findFolder, folderPath } from './Sidebar';
+import { folderPath } from './folders';
 import { useImageUpload } from './images';
 import { NoteNotFound } from './NoteNotFound';
 
@@ -453,7 +453,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     }
   }
 
-  const location = folderId ? folderPath(props.folders, folderId) || findFolder(props.folders, folderId)?.name || 'Folder' : 'Unfiled';
+  const location = folderId ? folderPath(props.folders, folderId) || 'Folder' : 'Unfiled';
   const statusText = status === 'saved' ? 'Saved' : status === 'saving' ? 'Saving…' : 'Not saved';
 
   const created = new Date(note.createdAt);
@@ -637,7 +637,6 @@ function Toolbar({
   const dialogs = useDialogs();
   // Re-render only when something the toolbar shows changes, not on every keystroke (CLEANUP-PLAN pass 1 item 3).
   useEditorState({ editor, selector: ({ editor }) => toolbarKey(editor) });
-  const [pillRef, wrapped] = usePillWrapped();
   const b = (label: ReactNode, title: string, active: boolean, run: () => void, disabled = false, withText = false) => (
     <button
       type="button"
@@ -678,7 +677,7 @@ function Toolbar({
   const inCode = editor.isActive('code') || editor.isActive('codeBlock');
   return (
     <div className="toolbar-wrap">
-    <div className="toolbar" role="toolbar" aria-label="Formatting" ref={pillRef} data-wrapped={wrapped || undefined}>
+    <div className="toolbar" role="toolbar" aria-label="Formatting">
       {/* Styles | font | size | colours | inline marks | Headings, Lists, Blocks, Insert | Undo, Redo (DEVIATIONS 45). */}
       <div className="tb-group">
         <StylesMenu editor={editor} notice={notice} onManage={onManageStyles} onBrowseFonts={onBrowseFonts} />
@@ -728,31 +727,6 @@ function Toolbar({
       )}
     </div>
   );
-}
-
-/**
- * Marks the toolbar as wrapped (data-wrapped) when it takes more than one row. Since mock-up 07 the bar is flat
- * either way, so no rule uses it now; it is kept as a hook. CSS cannot tell that a flex row has wrapped, so this
- * compares the bar's height with one row of its buttons.
- */
-function usePillWrapped(): [RefObject<HTMLDivElement | null>, boolean] {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const [wrapped, setWrapped] = useState(false);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => {
-      const row = el.querySelector('.tb')?.getBoundingClientRect().height ?? 0;
-      const inner = el.clientHeight - parseFloat(getComputedStyle(el).paddingTop || '0') - parseFloat(getComputedStyle(el).paddingBottom || '0');
-      setWrapped(row > 0 && inner > row * 1.5);
-    };
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-  return [ref, wrapped];
 }
 
 function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[]; allTags: TagCount[]; readOnly: boolean; onChange: (t: string[]) => void }) {

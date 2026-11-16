@@ -239,19 +239,21 @@ describe('Google unreachable (criterion 12)', () => {
 });
 
 describe('"last used" (5.2)', () => {
+  const lastUsed = (kind: 'preview' | 'faces', fontId: string) =>
+    (env.store.db.prepare(`SELECT last_used FROM ${kind === 'preview' ? 'font_previews' : 'font_face_units'} WHERE font_id = ?`).get(fontId) as { last_used: number } | undefined)?.last_used ?? null;
   it('is updated when /faces or /preview serves the family, at most once an hour', async () => {
     await alice.get('/api/fonts/faces/titan-one');
     await alice.get('/api/fonts/preview/titan-one');
-    const t0 = env.store.fonts.lastUsed('faces', 'titan-one');
-    expect(env.store.fonts.lastUsed('preview', 'titan-one')).toBe(t0);
+    const t0 = lastUsed('faces', 'titan-one');
+    expect(lastUsed('preview', 'titan-one')).toBe(t0);
     await timers.advance(30 * 60_000);
     await alice.get('/api/fonts/faces/titan-one');
-    expect(env.store.fonts.lastUsed('faces', 'titan-one')).toBe(t0);
+    expect(lastUsed('faces', 'titan-one')).toBe(t0);
     await timers.advance(31 * 60_000);
     await alice.get('/api/fonts/faces/titan-one');
     await alice.get('/api/fonts/preview/titan-one');
-    expect(env.store.fonts.lastUsed('faces', 'titan-one')).toBe(env.clock.t);
-    expect(env.store.fonts.lastUsed('preview', 'titan-one')).toBe(env.clock.t);
+    expect(lastUsed('faces', 'titan-one')).toBe(env.clock.t);
+    expect(lastUsed('preview', 'titan-one')).toBe(env.clock.t);
   });
 });
 

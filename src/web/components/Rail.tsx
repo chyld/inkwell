@@ -8,7 +8,7 @@ import { CircleUser, File, Folder, Inbox, Notebook, Paintbrush, Plus, Tag, Trash
 import { api, type FolderNode, type Me, type TagCount } from '../api';
 import { formatBytes } from '../util';
 import { useDialogs } from './Dialogs';
-import { FolderTree, type View } from './Sidebar';
+import { FolderTree, type View } from './folders';
 import { ApiError } from '../api';
 
 type Panel = 'folders' | 'tags' | 'account';

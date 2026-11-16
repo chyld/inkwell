@@ -31,11 +31,9 @@ export class PreviewLoader {
   private sources = new Map<string, string[]>();
   private pausedUntil = 0;
   private tick = 0;
-  private version = 0;
   private listeners = new Set<() => void>();
-  /** For tests: the most previews seen loading at once, and every id ever started. */
+  /** For tests: the most previews seen loading at once. */
   maxLoading = 0;
-  started: string[] = [];
 
   constructor(private deps: PreviewDeps = realDeps) {}
 
@@ -43,17 +41,12 @@ export class PreviewLoader {
     this.listeners.add(l);
     return () => this.listeners.delete(l);
   };
-  getVersion = () => this.version;
   private notify() {
-    this.version++;
     for (const l of [...this.listeners]) l();
   }
 
   isLoaded(id: string) {
     return this.loaded.has(id);
-  }
-  isLoading(id: string) {
-    return this.loading.has(id);
   }
   get registeredCount() {
     return this.loaded.size;
@@ -104,7 +97,6 @@ export class PreviewLoader {
 
   private async load(id: string) {
     this.loading.add(id);
-    this.started.push(id);
     this.maxLoading = Math.max(this.maxLoading, this.loading.size);
     let face: FontFaceLike | null = null;
     const e = fontEnv();

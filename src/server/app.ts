@@ -12,6 +12,7 @@ import { registerApi } from './api.js';
 import { FontService, type Timers } from './fonts/service.js';
 import type { Fetcher } from './fonts/upstream.js';
 import { registerMcp } from './mcp.js';
+import { MiB } from './units.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
@@ -27,7 +28,6 @@ export interface AppOptions {
   logLevel?: string;
   /** Font fetching (FONTS-SPEC 5.1); tests replace the upstream fetcher and the timers. */
   fonts?: { fetcher?: Fetcher; timers?: Timers };
-  fontService?: FontService;
 }
 
 declare module 'fastify' {
@@ -38,12 +38,11 @@ declare module 'fastify' {
 }
 
 export const SESSION_COOKIE = 'notes_session';
-export const MiB = 1024 * 1024;
+export { MiB };
 
 export const PAGE_CSP =
   "default-src 'self'; script-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; " +
   "connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
-export const IMAGE_CSP = "default-src 'none'; sandbox";
 
 export function errorBody(code: string, message: string, extra: Record<string, unknown> = {}) {
   return { error: { code, message, ...extra } };
@@ -118,7 +117,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     return { ok: true };
   });
 
-  const fontService = opts.fontService ?? new FontService(store.fonts, { now: store.now, fetcher: opts.fonts?.fetcher, timers: opts.fonts?.timers });
+  const fontService = new FontService(store.fonts, { now: store.now, fetcher: opts.fonts?.fetcher, timers: opts.fonts?.timers });
   app.decorate('fontService', fontService);
   await app.register(async (api) => registerApi(api, { ...opts, fontService }), { prefix: '/api' });
   await app.register(async (scope) => registerMcp(scope, opts));

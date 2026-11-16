@@ -5,7 +5,8 @@ import { createMcpHandler, isLegacyRequest, McpServer, WebStandardStreamableHTTP
 import * as z from 'zod';
 import type { AuthInfo } from '@modelcontextprotocol/server';
 import type { AppOptions } from './app.js';
-import { MiB, errorBody } from './app.js';
+import { errorBody } from './app.js';
+import { MiB } from './units.js';
 import { AppError } from './errors.js';
 import type { AgentAuth, Store } from './store.js';
 import { normalizeTags } from './store.js';

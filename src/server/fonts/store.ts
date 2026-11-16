@@ -6,8 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { stmt, type DB } from '../db.js';
 import { COLLECTION_MAX, FONT_HASH_RE, fontById } from '../../shared/fonts.js';
-
-export const HOUR = 60 * 60 * 1000;
+import { HOUR } from '../units.js';
 
 export interface StoredFace {
   weight: string;
@@ -33,14 +32,10 @@ export class FontStore {
 
   constructor(
     private db: DB,
-    private opts: { dataDir: string; now: () => number; capBytes: number },
+    private opts: { dataDir: string; tmpDir: string; now: () => number; capBytes: number },
   ) {
     this.dir = path.join(opts.dataDir, 'fonts');
-    this.tmpDir = path.join(opts.dataDir, 'tmp');
-  }
-
-  get capBytes() {
-    return this.opts.capBytes;
+    this.tmpDir = opts.tmpDir;
   }
 
   // ---- collections ----------------------------------------------------------
@@ -93,11 +88,6 @@ export class FontStore {
     stmt(this.db, `UPDATE ${table} SET last_used = ? WHERE font_id = ? AND last_used <= ?`).run(now, fontId, now - HOUR);
   }
 
-  lastUsed(kind: 'preview' | 'faces', fontId: string): number | null {
-    const table = kind === 'preview' ? 'font_previews' : 'font_face_units';
-    const r = stmt(this.db, `SELECT last_used FROM ${table} WHERE font_id = ?`).get(fontId) as { last_used: number } | undefined;
-    return r ? r.last_used : null;
-  }
 
   filePath(hash: string): string {
     return path.join(this.dir, hash);

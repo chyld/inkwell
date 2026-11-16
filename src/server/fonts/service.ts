@@ -67,8 +67,6 @@ export class FontService {
   private fetcher: Fetcher;
   private timers: Timers;
   private now: () => number;
-  /** For tests: the most upstream requests seen running at once. */
-  maxRunning = 0;
 
   /** Operations started that have not yet had their first upstream slot. */
   get waitingOperations(): number {
@@ -149,14 +147,12 @@ export class FontService {
   private acquireSlot(): Promise<void> {
     if (this.running < UPSTREAM_SLOTS) {
       this.running++;
-      this.maxRunning = Math.max(this.maxRunning, this.running);
       return Promise.resolve();
     }
     return new Promise((resolve) =>
       this.slotWaiters.push(() => {
         this.running++;
-        this.maxRunning = Math.max(this.maxRunning, this.running);
-        resolve();
+          resolve();
       }),
     );
   }

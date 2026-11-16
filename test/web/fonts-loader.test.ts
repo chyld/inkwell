@@ -35,12 +35,18 @@ describe('rows to render', () => {
 let pending: Map<string, { ok: (h: string) => void; fail: (e: unknown) => void }>;
 let now: number;
 let timers: { at: number; fn: () => void }[];
+/** Every id the loader started fetching, in order. */
+let started: string[];
 function loader() {
   pending = new Map();
   now = 1_000_000;
   timers = [];
+  started = [];
   return new PreviewLoader({
-    fetchPreview: (id) => new Promise((ok, fail) => pending.set(id, { ok, fail })),
+    fetchPreview: (id) => {
+      started.push(id);
+      return new Promise((ok, fail) => pending.set(id, { ok, fail }));
+    },
     now: () => now,
     setTimeout: (fn, ms) => timers.push({ at: now + ms, fn }),
   });
@@ -69,7 +75,7 @@ describe('the preview loader', () => {
       expect(pending.size).toBeLessThanOrEqual(6);
     }
     expect(l.maxLoading).toBe(6);
-    expect(l.started).toEqual(rendered);
+    expect(started).toEqual(rendered);
     expect(registeredFamilies().sort()).toEqual(rendered.map((id) => `preview-${id}`).sort());
     expect(FakeFontFace.made.every((f) => f.source.startsWith('url(/api/fonts/file/') && f.loadCalls === 1)).toBe(true);
     expect(rendered.every((id) => l.isLoaded(id))).toBe(true);
@@ -100,7 +106,7 @@ describe('the preview loader', () => {
       pending.delete(id);
     }
     await flush();
-    expect(l.started).toEqual([...top.slice(0, 6), ...end]); // top[6..29] were skipped
+    expect(started).toEqual([...top.slice(0, 6), ...end]); // top[6..29] were skipped
     expect(l.isLoaded(top[0])).toBe(true); // in flight at the jump: allowed to finish
     // Back to the top: the skipped cards are candidates again and load.
     l.setRendered('grid', top);

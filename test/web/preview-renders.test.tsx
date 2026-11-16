@@ -11,6 +11,7 @@ import { HASH, installFontEnv } from './fonts-env';
 
 const [a, b, c] = FONT_CATALOGUE.slice(0, 3).map((f) => f.id);
 let pending: Map<string, (hash: string) => void>;
+let started: string[];
 let loader: PreviewLoader;
 const renders: Record<string, number> = {};
 
@@ -27,7 +28,8 @@ beforeEach(() => {
   installFontEnv();
   clearAllFonts();
   pending = new Map();
-  loader = new PreviewLoader({ fetchPreview: (id) => new Promise((ok) => pending.set(id, ok)), now: () => 0, setTimeout: () => 0 });
+  started = [];
+  loader = new PreviewLoader({ fetchPreview: (id) => (started.push(id), new Promise((ok) => pending.set(id, ok))), now: () => 0, setTimeout: () => 0 });
   setPreviewLoader(loader);
   for (const k of Object.keys(renders)) delete renders[k];
 });
@@ -42,7 +44,7 @@ describe('preview completions', () => {
       </>,
     );
     await settle();
-    expect(loader.started.sort()).toEqual([a, b, c].sort()); // the closed menu asked for nothing of its own
+    expect(started.sort()).toEqual([a, b, c].sort()); // the closed menu asked for nothing of its own
     const before = { ...renders };
     await act(async () => pending.get(c)!(HASH(3)));
     await settle();

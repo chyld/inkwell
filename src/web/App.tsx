@@ -4,7 +4,7 @@ import { api, ApiError, setUnauthorizedHandler, type FolderNode, type Me, type N
 import { localDrafts } from './drafts';
 import { DialogProvider, useDialogs } from './components/Dialogs';
 import { SignIn } from './components/SignIn';
-import { findFolder, sameView, type View } from './components/Sidebar';
+import { findFolder, sameView, type View } from './components/folders';
 import { Rail } from './components/Rail';
 import { NoteList } from './components/NoteList';
 import { NoteNotFound } from './components/NoteNotFound';
@@ -126,15 +126,15 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   /** The /fonts page takes the place of the note list and the editor (FONTS-SPEC 7). */
   const [page, setPage] = useState<Page>(initial.kind === 'fonts' || initial.kind === 'styles' ? initial.kind : 'notes');
   useEffect(() => initHistory(), []);
-  // The collapsed note list (wide screens only). The rail is always shown; the old sidebar setting is ignored.
+  // The collapsed note list (wide screens only). The rail is always shown.
   const [layout, setLayout] = useState<Layout>(loadLayout);
   const focusAfterToggle = useRef<string | null>(null);
-  function togglePanel(which: 'list') {
-    const next = { ...layout, [which]: !layout[which] };
+  function toggleList() {
+    const next = { list: !layout.list };
     setLayout(next);
     saveLayout(next);
     // The button that was pressed goes away; keep the focus on its counterpart.
-    focusAfterToggle.current = `${which}-${next[which] ? 'show' : 'hide'}`;
+    focusAfterToggle.current = `list-${next.list ? 'show' : 'hide'}`;
   }
   useEffect(() => {
     if (focusAfterToggle.current) document.getElementById(focusAfterToggle.current)?.focus();
@@ -256,7 +256,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   }, []);
 
   /**
-   * The /fonts and /styles pages (from the sidebar, "Browse fonts…" or "Manage styles…"): the open note is
+   * The /fonts and /styles pages (from the rail, "Browse fonts…" or "Manage styles…"): the open note is
    * saved and closed first, as on any navigation; the page takes the place of the list and the editor.
    */
   async function openPage(p: 'fonts' | 'styles', fromHistory = false) {
@@ -284,7 +284,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
 
   async function changeView(v: View) {
     if (v.kind === 'fonts' || v.kind === 'styles') return openPage(v.kind);
-    // Choosing anything else in the sidebar leaves the fonts or styles page.
+    // Choosing anything else on the rail leaves the fonts or styles page.
     if (page !== 'notes') {
       setPage('notes');
       setAddress('/', 'push');
@@ -461,7 +461,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
                 : 'Fonts';
 
   return (
-    <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page !== 'notes' ? ` ${page}-open` : ''}`}>
+    <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}`}>
       <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} onNewNote={() => void newNote(true)} />
       {page === 'fonts' && (
         <Suspense fallback={<section className="fonts-page" aria-label="Fonts" aria-busy="true" />}>
@@ -473,10 +473,10 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
           <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />
         </Suspense>
       )}
-      {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
+      {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => toggleList()} />}
       {page === 'notes' && <NoteList
         collapsed={layout.list}
-        onCollapse={() => togglePanel('list')}
+        onCollapse={() => toggleList()}
         heading={heading}
         items={items}
         loading={loading}

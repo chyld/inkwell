@@ -1,4 +1,4 @@
-// Views, folder helpers and the folder tree. The sidebar itself was replaced by the rail (Rail.tsx).
+// Views, folder helpers and the folder tree (shown in the rail's Folders panel, Rail.tsx).
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronRight, Ellipsis, Folder } from 'lucide-react';
 import { api, type FolderNode } from '../api';

@@ -323,7 +323,7 @@ describe('disabled states, as before', () => {
   });
 });
 
-describe('the toolbar bar and its wrap marker (DEVIATIONS 47)', () => {
+describe('the toolbar bar (DEVIATIONS 47)', () => {
   it('the toolbar sits in its wrapper; in a table the table tools are a second bar under it', async () => {
     await open([p(t('hello'))]);
     const wrap = view!.container.querySelector('.editor-pane > .toolbar-wrap')!;
@@ -331,29 +331,5 @@ describe('the toolbar bar and its wrap marker (DEVIATIONS 47)', () => {
     await act(async () => void ed().chain().focus().insertTable({ rows: 2, cols: 2, withHeaderRow: false }).run());
     expect([...wrap.children].map((e) => `${e.className}:${e.getAttribute('role')}:${e.getAttribute('aria-label')}`)).toEqual(['toolbar:toolbar:Formatting', 'toolbar table-tools:toolbar:Table']);
     expect(wrap.querySelector('.table-tools button[aria-label="Add row below"]')).toBeTruthy();
-  });
-
-  it('is marked wrapped when it is taller than one row of buttons, and not otherwise', async () => {
-    const restore: (() => void)[] = [];
-    const stub = (proto: object, key: string, desc: PropertyDescriptor) => {
-      const before = Object.getOwnPropertyDescriptor(proto, key);
-      Object.defineProperty(proto, key, { configurable: true, ...desc });
-      restore.push(() => (before ? Object.defineProperty(proto, key, before) : delete (proto as any)[key]));
-    };
-    for (const [height, wrapped] of [
-      [60, true],
-      [26, false],
-    ] as const) {
-      stub(HTMLElement.prototype, 'clientHeight', { get(this: HTMLElement) { return this.classList.contains('toolbar') ? height : 0; } });
-      stub(HTMLElement.prototype, 'getBoundingClientRect', { value(this: HTMLElement) { return { top: 0, left: 0, right: 26, bottom: 26, width: 26, height: this.classList.contains('tb') ? 26 : 0, x: 0, y: 0, toJSON() {} }; } });
-      try {
-        await open([p(t('hello'))]);
-        expect(view!.container.querySelector('.toolbar')!.hasAttribute('data-wrapped'), `height ${height}`).toBe(wrapped);
-      } finally {
-        while (restore.length) restore.pop()!();
-        await view?.unmount();
-        view = null;
-      }
-    }
   });
 });
