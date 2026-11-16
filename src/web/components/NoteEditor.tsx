@@ -57,7 +57,6 @@ interface Props {
   onRestored: (id: string) => void;
   onDeleted: (id: string) => void;
   onTagsChanged: () => void;
-  onStorageChanged: () => void;
   onBack: () => void;
   /** "Go to all notes" from the not-found state. */
   onAllNotes?: () => void;
@@ -254,7 +253,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           const ed = editorRef.current;
           const snippet = ed && !ed.isDestroyed ? ed.getText().slice(0, 200) : undefined;
           propsRef.current.onMeta(note.id, { title: info.title, updatedAt: at, ...(snippet === undefined ? {} : { snippet }) });
-          propsRef.current.onStorageChanged();
+          // The storage line is read when the account menu opens (Rail), not after every save.
         },
       });
       saverRef.current = s;
@@ -286,7 +285,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   }, []);
 
   const editorRef = useRef<Editor | null>(null);
-  const upload = useImageUpload(editorRef, dialogs, () => propsRef.current.onStorageChanged());
+  const upload = useImageUpload(editorRef, dialogs);
   // Until the user answers the draft offer, nothing can be edited: an edit would overwrite the stored draft.
   const locked = trashed || draft !== null;
   const lockedRef = useRef(locked);

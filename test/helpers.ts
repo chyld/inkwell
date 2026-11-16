@@ -18,6 +18,8 @@ export interface Env {
   store: Store;
   app: FastifyInstance;
   clock: { t: number };
+  /** SQL statements executed and compiled since the last reset (see SqlCounter). */
+  sql: SqlCounter;
   logs: () => string;
   close: () => Promise<void>;
 }
@@ -25,10 +27,30 @@ export interface Env {
 /** Extra app options (e.g. a stand-in font fetcher) and store options (e.g. a small font cap). */
 export type EnvExtra = Partial<Pick<AppOptions, 'fonts' | 'fontService'>> & { storeOptions?: Partial<StoreOptions> };
 
+/** Counts of SQL work, for tests that measure it: statements executed and statements compiled (prepared). */
+export interface SqlCounter {
+  executed: string[];
+  compiled: string[];
+  reset(): void;
+}
+
 export async function makeEnv(overrides: Record<string, string> = {}, extra: EnvExtra = {}): Promise<Env> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-test-'));
   const config = loadConfig({ NOTES_HOST: HOST, NOTES_DATA_DIR: dir, NOTES_WEB_DIR: path.join(dir, 'no-web'), ...overrides });
-  const db = openDatabase(config.dbPath);
+  const sql: SqlCounter = {
+    executed: [],
+    compiled: [],
+    reset() {
+      this.executed = [];
+      this.compiled = [];
+    },
+  };
+  const db = openDatabase(config.dbPath, { onSql: (s) => sql.executed.push(s) });
+  const prepare = db.prepare.bind(db);
+  db.prepare = ((source: string) => {
+    sql.compiled.push(source);
+    return prepare(source);
+  }) as typeof db.prepare;
   migrate(db, dir);
   const clock = { t: Date.UTC(2026, 0, 1) };
   const store = new Store(db, { dataDir: dir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, now: () => clock.t, fontCacheBytes: config.fontCacheBytes, ...extra.storeOptions });
@@ -45,6 +67,7 @@ export async function makeEnv(overrides: Record<string, string> = {}, extra: Env
     store,
     app,
     clock,
+    sql,
     logs: () => logText,
     close: async () => {
       await app.close();

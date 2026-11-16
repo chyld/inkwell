@@ -68,6 +68,9 @@ interface NoteRow {
   trashed_at: number | null;
 }
 
+/** What updating a note needs, without its body and text. */
+type NoteMeta = Pick<NoteRow, 'seq' | 'id' | 'folder_id' | 'version' | 'body_size' | 'trashed_at'>;
+
 interface FolderRow {
   id: string;
   user_id: string;
@@ -92,6 +95,9 @@ export type NoteView = 'all' | 'inbox' | 'folder' | 'unfiled' | 'tag' | 'trash';
 const USERNAME_RE = /^[a-z0-9_-]{3,32}$/;
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+
+/** Tags in the order `ORDER BY name` gives (SQLite's BINARY collation compares the UTF-8 bytes). */
+const sortTags = (tags: string[]) => [...tags].sort((a, b) => Buffer.compare(Buffer.from(a), Buffer.from(b)));
 
 export function normalizeUsername(raw: string): string {
   return String(raw ?? '').trim().toLowerCase();
@@ -547,12 +553,37 @@ export class Store {
     return n;
   }
 
+  /** The note's metadata, without its body and text (which can be up to 1 MB each): enough to check and update it. */
+  private ownNoteMeta(userId: string, id: unknown): NoteMeta {
+    if (typeof id !== 'string') throw notFound('Note not found.');
+    const n = this.db.prepare('SELECT seq, id, folder_id, version, body_size, trashed_at FROM notes WHERE id = ? AND user_id = ?').get(id, userId) as
+      | NoteMeta
+      | undefined;
+    if (!n) throw notFound('Note not found.');
+    return n;
+  }
+
   private tagsOf(seq: number): string[] {
     return (this.db.prepare('SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_seq = ? ORDER BY t.name').all(seq) as { name: string }[]).map(
       (r) => r.name,
     );
   }
 
+  /** Index a note that is not in Trash, from values the caller already holds (no row of its own yet). */
+  private ftsInsert(seq: number, title: string, text: string, tags: string[]) {
+    this.db.prepare('INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?, ?, ?, ?)').run(seq, title, text, sortTags(tags).join(' '));
+  }
+
+  /** Update some of an indexed note's columns in place; rebuilds the entry from the note if it is missing. */
+  private ftsUpdate(seq: number, cols: { title: string; text: string } | { tags: string[] }) {
+    const r =
+      'tags' in cols
+        ? this.db.prepare('UPDATE notes_fts SET tags = ? WHERE rowid = ?').run(sortTags(cols.tags).join(' '), seq)
+        : this.db.prepare('UPDATE notes_fts SET title = ?, body = ? WHERE rowid = ?').run(cols.title, cols.text, seq);
+    if (r.changes === 0) this.syncFts(seq);
+  }
+
+  /** Rebuild a note's index entry from the database (restore, and the fallback above). */
   private syncFts(seq: number) {
     this.db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(seq);
     const n = this.db.prepare('SELECT title, body_text, trashed_at FROM notes WHERE seq = ?').get(seq) as
@@ -562,12 +593,13 @@ export class Store {
     this.db.prepare('INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?, ?, ?, ?)').run(seq, n.title, n.body_text, this.tagsOf(seq).join(' '));
   }
 
+  /** Set a note's tags with a constant number of statements, whatever the number of tags. */
   private setTags(userId: string, seq: number, tags: string[]) {
     this.db.prepare('DELETE FROM note_tags WHERE note_seq = ?').run(seq);
-    for (const t of tags) {
-      this.db.prepare('INSERT INTO tags (user_id, name) VALUES (?, ?) ON CONFLICT (user_id, name) DO NOTHING').run(userId, t);
-      const tag = this.db.prepare('SELECT id FROM tags WHERE user_id = ? AND name = ?').get(userId, t) as { id: number };
-      this.db.prepare('INSERT INTO note_tags (note_seq, tag_id) VALUES (?, ?)').run(seq, tag.id);
+    if (tags.length) {
+      const list = JSON.stringify(tags);
+      this.db.prepare('INSERT INTO tags (user_id, name) SELECT ?, value FROM json_each(?) WHERE true ON CONFLICT (user_id, name) DO NOTHING').run(userId, list);
+      this.db.prepare('INSERT INTO note_tags (note_seq, tag_id) SELECT ?, id FROM tags WHERE user_id = ? AND name IN (SELECT value FROM json_each(?))').run(seq, userId, list);
     }
     this.gcTags(userId);
   }
@@ -577,8 +609,13 @@ export class Store {
   }
 
   private assertImagesOwned(userId: string, ids: string[]) {
-    const q = this.db.prepare('SELECT 1 FROM images WHERE id = ? AND user_id = ?');
-    const missing = ids.filter((id) => !q.get(id, userId));
+    if (!ids.length) return;
+    // One query for all of them, in the note's order.
+    const missing = (
+      this.db.prepare('SELECT value FROM json_each(?) WHERE value NOT IN (SELECT id FROM images WHERE user_id = ?) ORDER BY key').all(JSON.stringify(ids), userId) as {
+        value: string;
+      }[]
+    ).map((r) => r.value);
     if (missing.length) {
       throw new AppError(
         400,
@@ -590,20 +627,21 @@ export class Store {
     }
   }
 
+  /** Make the note's image links exactly `ids`, touching only the links that change. */
   private setImageLinks(seq: number, ids: string[]) {
-    this.db.prepare('DELETE FROM note_images WHERE note_seq = ?').run(seq);
-    const ins = this.db.prepare('INSERT INTO note_images (note_seq, image_id) VALUES (?, ?)');
-    for (const id of ids) ins.run(seq, id);
+    const list = JSON.stringify(ids);
+    this.db.prepare('DELETE FROM note_images WHERE note_seq = ? AND image_id NOT IN (SELECT value FROM json_each(?))').run(seq, list);
+    if (ids.length) this.db.prepare('INSERT OR IGNORE INTO note_images (note_seq, image_id) SELECT ?, value FROM json_each(?)').run(seq, list);
   }
 
-  private noteOut(n: NoteRow) {
+  private noteOut(n: NoteRow, tags = this.tagsOf(n.seq)) {
     return {
       id: n.id,
       title: n.title,
       body: JSON.parse(n.body),
       version: n.version,
       folderId: n.folder_id,
-      tags: this.tagsOf(n.seq),
+      tags,
       createdAt: iso(n.created_at),
       updatedAt: iso(n.updated_at),
       trashedAt: iso(n.trashed_at),
@@ -629,8 +667,20 @@ export class Store {
            VALUES (?, ?, ?, '', ?, ?, ?, 1, ?, ?)`,
         )
         .run(id, userId, folder, body.serialized, body.text, body.bytes, now, now);
-      this.syncFts(Number(r.lastInsertRowid));
-      return this.getNote(userId, id);
+      this.ftsInsert(Number(r.lastInsertRowid), '', body.text, []);
+      // The note as getNote would return it, from the values just written.
+      return {
+        id,
+        title: '',
+        body: JSON.parse(body.serialized),
+        version: 1,
+        folderId: folder,
+        tags: [] as string[],
+        createdAt: iso(now),
+        updatedAt: iso(now),
+        trashedAt: iso(null),
+        origin: { type: 'user' as const },
+      };
     });
   }
 
@@ -650,7 +700,7 @@ export class Store {
     if (!Number.isInteger(input.version)) throw badRequest('version must be an integer.');
     const body = this.validateUserBody(input.body);
     return this.tx(() => {
-      const n = this.ownNote(userId, id);
+      const n = this.ownNoteMeta(userId, id);
       if (n.trashed_at !== null) throw new AppError(409, 'in_trash', 'This note is in Trash and cannot be edited.');
       if (n.version !== input.version) {
         throw new AppError(409, 'version_conflict', 'This note was changed somewhere else.', { version: n.version });
@@ -663,7 +713,7 @@ export class Store {
         .prepare('UPDATE notes SET title = ?, body = ?, body_text = ?, body_size = ?, version = ?, updated_at = ? WHERE seq = ?')
         .run(title, body.serialized, body.text, body.bytes, version, now, n.seq);
       this.setImageLinks(n.seq, body.imageIds);
-      this.syncFts(n.seq);
+      this.ftsUpdate(n.seq, { title, text: body.text });
       return { version, updatedAt: iso(now) };
     });
   }
@@ -672,44 +722,48 @@ export class Store {
   patchNote(userId: string, id: unknown, changes: { folderId?: unknown; tags?: unknown }) {
     const tags = changes.tags !== undefined ? normalizeTags(changes.tags) : undefined;
     return this.tx(() => {
-      const n = this.ownNote(userId, id);
+      const n = this.ownNoteMeta(userId, id);
       if (n.trashed_at !== null) throw new AppError(409, 'in_trash', 'This note is in Trash and cannot be changed.');
+      let folderId = n.folder_id;
       if (changes.folderId !== undefined) {
-        const folder = changes.folderId === null ? null : this.ownFolder(userId, changes.folderId).id;
-        this.db.prepare('UPDATE notes SET folder_id = ? WHERE seq = ?').run(folder, n.seq);
+        folderId = changes.folderId === null ? null : this.ownFolder(userId, changes.folderId).id;
+        this.db.prepare('UPDATE notes SET folder_id = ? WHERE seq = ?').run(folderId, n.seq);
       }
       if (tags) {
         this.setTags(userId, n.seq, tags);
-        this.syncFts(n.seq);
+        this.ftsUpdate(n.seq, { tags });
       }
-      const after = this.ownNote(userId, n.id);
-      return { folderId: after.folder_id, tags: this.tagsOf(n.seq) };
+      // What was written, without reading it back (tags in the order tagsOf gives).
+      return { folderId, tags: tags ? sortTags(tags) : this.tagsOf(n.seq) };
     });
   }
 
   trashNote(userId: string, id: unknown) {
     this.tx(() => {
-      const n = this.ownNote(userId, id);
+      const n = this.ownNoteMeta(userId, id);
       if (n.trashed_at !== null) return;
       this.db.prepare('UPDATE notes SET trashed_at = ? WHERE seq = ?').run(this.now(), n.seq);
-      this.syncFts(n.seq);
+      this.db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(n.seq); // notes in Trash are not searched
     });
   }
 
+  /** Restore a note from Trash; returns it as getNote would, from the row it reads (no second read). */
   restoreNote(userId: string, id: unknown) {
-    this.tx(() => {
+    return this.tx(() => {
       const n = this.ownNote(userId, id);
-      if (n.trashed_at === null) return;
+      if (n.trashed_at === null) return this.noteOut(n);
       // folder_id is already NULL if the folder was deleted (ON DELETE SET NULL / deleteFolder).
       this.db.prepare('UPDATE notes SET trashed_at = NULL WHERE seq = ?').run(n.seq);
-      this.syncFts(n.seq);
+      const tags = this.tagsOf(n.seq);
+      this.ftsInsert(n.seq, n.title, n.body_text, tags);
+      return this.noteOut({ ...n, trashed_at: null }, tags);
     });
   }
 
   /** Permanently delete one trashed note. */
   deleteNote(userId: string, id: unknown) {
     this.tx(() => {
-      const n = this.ownNote(userId, id);
+      const n = this.ownNoteMeta(userId, id);
       if (n.trashed_at === null) throw new AppError(409, 'not_in_trash', 'Only a note in Trash can be deleted permanently.');
       this.db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(n.seq);
       this.db.prepare('DELETE FROM notes WHERE seq = ?').run(n.seq);
@@ -869,7 +923,7 @@ export class Store {
       const seq = Number(r.lastInsertRowid);
       this.setTags(agent.userId, seq, input.tags);
       this.setImageLinks(seq, input.body.imageIds);
-      this.syncFts(seq);
+      this.ftsInsert(seq, input.title, input.body.text, input.tags);
       this.db.prepare('DELETE FROM agent_calls WHERE agent_id = ? AND at <= ?').run(agent.agentId, now - HOUR);
       this.db.prepare('INSERT INTO agent_calls (agent_id, at) VALUES (?, ?)').run(agent.agentId, now);
       this.db.prepare('UPDATE agents SET notes_created = notes_created + 1, last_used = ? WHERE id = ?').run(now, agent.agentId);

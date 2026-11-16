@@ -93,6 +93,8 @@ const toStyle = (r: Row): Style => ({
   highlight: r.highlight,
 });
 const COLS = 'id, name, font, size, bold, italic, underline, strike, text_color, highlight';
+/** A style as `toStyle` gives it (same keys, same order), from the values just written. */
+const asStyle = (id: string, s: StyleInput): Style => ({ id, name: s.name, font: s.font, size: s.size, bold: s.bold, italic: s.italic, underline: s.underline, strike: s.strike, textColor: s.textColor, highlight: s.highlight });
 
 /** A unique-index violation: another request created the name between our check and our write. */
 function isUniqueViolation(e: unknown) {
@@ -132,7 +134,7 @@ export class StyleStore {
       if (isUniqueViolation(e)) throw nameTaken();
       throw e;
     }
-    return this.get(userId, id)!;
+    return asStyle(id, s); // what was written, without reading it back
   }
 
   /** Replace a style's name and settings; 404 for an id that is not this user's. Last save wins. */
@@ -151,7 +153,7 @@ export class StyleStore {
       if (isUniqueViolation(e)) throw nameTaken();
       throw e;
     }
-    return this.get(userId, id)!;
+    return asStyle(id, s);
   }
 
   /** Delete the user's style with that id; an unknown or another user's id deletes nothing. */

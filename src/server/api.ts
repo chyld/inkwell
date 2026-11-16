@@ -122,8 +122,7 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
   });
 
   api.post('/notes/:id/restore', async (req) => {
-    store.restoreNote(req.user!.id, (req.params as { id: string }).id);
-    return store.getNote(req.user!.id, (req.params as { id: string }).id);
+    return store.restoreNote(req.user!.id, (req.params as { id: string }).id);
   });
 
   api.delete('/notes/:id', async (req) => {

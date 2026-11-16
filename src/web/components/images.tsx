@@ -36,7 +36,7 @@ export async function waitForUploads(ms: number): Promise<boolean> {
 const MAX = 10 * 1024 * 1024;
 
 /** Upload button, paste and drop for images (SPEC 6.5). */
-export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialogs: DialogApi, onStorageChanged: () => void) {
+export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialogs: DialogApi) {
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // Closing the note stops a batch: files not yet sent are not sent.
@@ -76,7 +76,6 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
       const node = { type: 'image', attrs: { src: r.src, alt: file.name.replace(/\.[a-z0-9]+$/i, '') } };
       if (pos !== undefined) ed.chain().focus().insertContentAt(Math.min(pos, ed.state.doc.content.size), node).run();
       else ed.chain().focus().insertContent(node).run();
-      onStorageChanged();
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? `Image not added: ${e.message}` : 'Image not added: the server could not be reached.');
     } finally {

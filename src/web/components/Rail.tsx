@@ -93,8 +93,22 @@ export function Rail({ me, folders, tags, view, onView, onFoldersChanged, onSign
   }
 
   const toggle = (p: Panel) => (panel === p ? close(true) : setPanel(p));
-  const pct = Math.min(100, (me.storageUsed / me.storageLimit) * 100);
-  const storage = `${formatBytes(me.storageUsed)} of ${formatBytes(me.storageLimit)} used`;
+  // The storage line is fetched when the account menu opens (not after every save); until it arrives, the
+  // figures from the last fetch (or sign-in) show.
+  const [usage, setUsage] = useState<Pick<Me, 'storageUsed' | 'storageLimit'>>(me);
+  useEffect(() => {
+    if (panel !== 'account') return;
+    let live = true;
+    api<Me>('GET', '/me').then(
+      (m) => live && setUsage(m),
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+  }, [panel]);
+  const pct = Math.min(100, (usage.storageUsed / usage.storageLimit) * 100);
+  const storage = `${formatBytes(usage.storageUsed)} of ${formatBytes(usage.storageLimit)} used`;
 
   const item = (label: string, icon: ReactNode, current: boolean, onClick: () => void, extra: Record<string, unknown> = {}) => (
     <button type="button" className={'rail-button' + (current ? ' current' : '')} aria-label={label} title={label} aria-current={current ? 'page' : undefined} onClick={onClick} {...extra}>

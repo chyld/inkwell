@@ -84,7 +84,7 @@ export function App() {
           }}
         />
       ) : (
-        <Main me={me} updateMe={updateMe} onSignedOut={signedOut} />
+        <Main me={me} onSignedOut={signedOut} />
       )}
     </DialogProvider>
   );
@@ -104,7 +104,7 @@ function viewQuery(v: View): string {
   }
 }
 
-function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void; onSignedOut: () => void }) {
+function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   const dialogs = useDialogs();
   const [folders, setFolders] = useState<FolderNode[]>([]);
   const [tags, setTags] = useState<TagCount[]>([]);
@@ -145,9 +145,6 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const refreshTags = useCallback(() => {
     api<{ tags: TagCount[] }>('GET', '/tags').then((r) => setTags(r.tags), () => {});
   }, []);
-  const refreshMe = useCallback(() => {
-    api<Me>('GET', '/me').then(updateMe, () => {});
-  }, [updateMe]);
 
   useEffect(() => {
     refreshFolders();
@@ -324,7 +321,6 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
       setScreen('editor');
       setAddress(notePath(n.id), 'push');
       refreshFolders();
-      refreshMe();
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
     }
@@ -410,7 +406,6 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     setAddress('/', 'replace'); // moved to Trash, restored or deleted: no note is open
     refreshFolders();
     refreshTags();
-    refreshMe();
   }
 
   async function emptyTrash() {
@@ -442,7 +437,6 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     setAddress('/', 'replace');
     loadList(false, null);
     refreshTags();
-    refreshMe();
   }
 
   const heading =
@@ -497,7 +491,6 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
           onRestored={removed}
           onDeleted={removed}
           onTagsChanged={refreshTags}
-          onStorageChanged={refreshMe}
           onBack={() => void closeNote('push')}
           onAllNotes={allNotes}
           onBrowseFonts={() => void openFonts()}

@@ -173,9 +173,10 @@ CREATE UNIQUE INDEX styles_user_name ON styles(user_id, name_key);
   },
 ];
 
-export function openDatabase(file: string): DB {
+/** `onSql`, for tests only, is told the text of every statement executed (better-sqlite3's verbose hook). */
+export function openDatabase(file: string, opts: { onSql?: (sql: string) => void } = {}): DB {
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  const db = new Database(file);
+  const db = new Database(file, opts.onSql ? { verbose: (sql) => opts.onSql!(String(sql)) } : {});
   db.pragma('journal_mode = WAL');
   db.pragma('busy_timeout = 5000');
   db.pragma('foreign_keys = ON');
