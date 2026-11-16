@@ -505,6 +505,8 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
               id="note-title"
               className="title-input"
               placeholder="Untitled"
+              /* As wide as its text: CSS field-sizing does it where supported; this is the fallback (DEVIATIONS 50). */
+              size={Math.max(title.length, 8)}
               value={title}
               maxLength={200}
               readOnly={locked}
@@ -517,6 +519,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
               }}
               aria-label="Title"
             />
+            {(showTagRow || note.origin.type === 'agent') && <span className="title-divider" aria-hidden />}
             {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
             {showTagRow && <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />}
           </div>

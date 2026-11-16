@@ -91,6 +91,8 @@
   --warn-bg: #fff4d6;
   --warn-text: #6b4e00;
   --mark: #ffe3dc;
+  --tag-bg: #ffe3dc; /* tags: soft coral blocks (DEVIATIONS 50) */
+  --tag-ink: #7a3328; /* 7.41:1 on --tag-bg */
   --code-bg: #eef1f4;
   --selection: rgba(255, 122, 102, 0.25);
   --rail: #3d4a5c;
@@ -155,6 +157,8 @@
     --warn-bg: #3b3115;
     --warn-text: #f3d98b;
     --mark: #5a3328;
+    --tag-bg: #4a2d28;
+    --tag-ink: #ffb3a5; /* 7.21:1 on --tag-bg */
     --code-bg: #232b36;
     --selection: rgba(255, 139, 120, 0.3);
     --rail: #2b3545;
@@ -900,17 +904,18 @@ mark {
   color: var(--text-soft);
 }
 .slim-left {
-  flex: 1;
+  flex: 1 1 0;
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: 0;
+  min-width: auto; /* its own minimum: the shortened title and the narrowest tags */
 }
 .slim-right {
-  flex: none;
+  flex: 0 1 auto;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0; /* shrinks before it could overlap: the dates are cut short first */
 }
 .folder-button,
 .editor-trashed {
@@ -1073,9 +1078,13 @@ mark {
 }
 /* the title: the first thing on the paper, large and bold */
 /* the title, in the title row: bold, taking the free width, cut short with an ellipsis */
+/* the title, in the title row: as wide as its own text (field-sizing; the size attribute is the fallback), at least
+   8 characters; it is the first thing to shorten (with an ellipsis while not focused) when the row runs out of room */
 .title-input {
-  flex: 1 1 120px;
-  min-width: 80px;
+  flex: 0 1000 auto;
+  field-sizing: content;
+  min-width: 8ch;
+  max-width: 100%;
   margin: 0;
   border: none !important;
   border-radius: 4px !important;
@@ -1088,6 +1097,49 @@ mark {
   white-space: nowrap;
   outline: none;
   background: transparent !important;
+}
+.title-input::placeholder {
+  color: var(--text-soft);
+}
+/* the thin divider between the title and the tags */
+.title-divider {
+  flex: none;
+  width: 1px;
+  height: 16px;
+  margin: 0 2px;
+  background: var(--border);
+}
+/* the tags follow the title; they wrap inside their own box once the title has shortened */
+.editor-header .tag-editor {
+  flex: 0 1 auto;
+  min-width: auto;
+}
+/* tags as soft coral blocks; the remove cross shows on hover and focus, and is always reachable */
+.editor-header .tag-chip,
+.tag-chip.small {
+  gap: 2px;
+  border: none;
+  border-radius: 4px;
+  padding: 1px 4px 1px 6px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--tag-bg);
+  color: var(--tag-ink);
+}
+.editor-header .tag-chip .chip-x {
+  color: inherit;
+  opacity: 0;
+}
+.editor-header .tag-chip:hover .chip-x,
+.editor-header .tag-chip:focus-within .chip-x {
+  opacity: 1;
+}
+.editor-header .chip-x:hover:not(:disabled) {
+  color: inherit;
+}
+.editor-header .chip-x svg.lucide {
+  width: 12px;
+  height: 12px;
 }
 .title-input:focus-visible {
   outline: none;
@@ -1280,6 +1332,9 @@ mark {
   outline-offset: 2px;
 }
 @media (pointer: coarse) {
+  .editor-header .tag-chip .chip-x {
+    opacity: 1;
+  }
   .toolbar .tb,
   .editor-header button,
   .list-title button {

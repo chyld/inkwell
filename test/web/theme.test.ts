@@ -66,6 +66,7 @@ describe("'Slate and coral' colour scheme", () => {
       ['danger', 'bg', 4.5], ['danger', 'bg-soft', 4.5], ['warn-text', 'warn-bg', 4.5], ['text', 'mark', 4.5], ['bg', 'text', 4.5],
       ['rail-icon', 'rail', 4.5], ['rail-icon', 'rail-hover', 4.5], ['rail-current-icon', 'rail-current', 4.5], // the rail; its focus ring is --rail-icon
       ['accent-text', 'accent', 4.5], // the badge and the New button: ink on a coral fill
+      ['tag-ink', 'tag-bg', 4.5], // tags as soft coral blocks (DEVIATIONS 50)
     ];
     for (const [theme, t] of Object.entries({ light, dark })) {
       for (const [fg, bg, min] of pairs) expect(contrast(t[fg], t[bg]), `${theme}: --${fg} on --${bg}`).toBeGreaterThanOrEqual(min);
