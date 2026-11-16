@@ -10,6 +10,8 @@ services:
       NOTES_HOST: ${NOTES_HOST:?Set NOTES_HOST in .env, for example NOTES_HOST=chyld-notes.duckdns.org}
       NOTES_USER_QUOTA_MB: ${NOTES_USER_QUOTA_MB:-1024}
       NOTES_AGENT_RATE_PER_HOUR: ${NOTES_AGENT_RATE_PER_HOUR:-60}
+      NOTES_FONT_CACHE_MB: ${NOTES_FONT_CACHE_MB:-500}
+      # The app needs outbound HTTPS to fonts.googleapis.com and fonts.gstatic.com for fonts (README section 12).
       # Only Caddy, on this network, may set X-Forwarded-For.
       NOTES_TRUSTED_PROXY: 172.30.87.0/24
     volumes:

@@ -85,6 +85,20 @@
    "userAgent": "modern",
    "status": 200,
    "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "fact-color-font-preview-nabla",
+   "url": "https://fonts.googleapis.com/css2?family=Nabla:wght@400&text=Nabla",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
+  },
+  {
+   "name": "fact-color-font-faces-nabla",
+   "url": "https://fonts.googleapis.com/css2?family=Nabla:wght@400",
+   "userAgent": "modern",
+   "status": 200,
+   "contentType": "text/css; charset=utf-8"
   }
  ],
  "files": {

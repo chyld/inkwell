@@ -33,6 +33,9 @@ to your own machine. The app keeps working during the copy (it only postpones
 removing unused images until the copy is done). If an image file is missing
 the copy fails and nothing is left behind; an interrupted copy leaves at most a
 `<dir>.partial-<number>` directory, which the next copy to `<dir>` removes.
+The copy leaves out the font store (`/data/fonts/`): font files are a cache that
+the app fetches again from Google when needed (see section 12; a retired font
+cannot be fetched again).
 Delete the copy on the VPS when you have it elsewhere.
 
 Contents:
@@ -514,7 +517,7 @@ is running.
 | `agent add <username> <agent-name>` | Create an agent; prints its token once with the client configurations. |
 | `agent list [<username>]` | Agent name, owner, created, last used, notes created, revoked or not. |
 | `agent revoke <username> <agent-name>` | The token stops working at once; its notes stay. |
-| `data copy <dir>` | Consistent copy of the database and the image files into the new directory `<dir>` (see the top of this file). |
+| `data copy <dir>` | Consistent copy of the database (font collections included) and the image files into the new directory `<dir>` (see the top of this file); the font store `/data/fonts/` is left out. |
 
 Passwords can also be piped (two lines), for example from a password manager:
 `printf '%s\n%s\n' "$PW" "$PW" | docker compose exec -T app notes user passwd chyld`.
@@ -549,5 +552,84 @@ npm test
 | 15 CLI commands; failing migration | `test/cli.test.ts` |
 | 16 no secrets in logs | `test/logs.test.ts` |
 
+The Fonts feature's acceptance criteria (`FONTS-SPEC.md` section 11) run in the
+same `npm test`, with no network: the upstream fetcher is replaced, and Google's
+answers recorded from the live service on 2026-11-15 are in
+`test/fixtures/fonts/`.
+
+| Fonts criterion | Test file(s) |
+|---|---|
+| 1 search, category, "N of T", no retired families | `test/web/fonts-page.test.tsx` |
+| 2 rendered rows, at most 6 loading, jumping, dropped cards | `test/web/fonts-loader.test.ts`, `test/web/fonts-page.test.tsx` |
+| 3 collection row, editor menu, reload, privacy | `test/fonts-api.test.ts`, `test/web/fonts-page.test.tsx`, `test/web/fonts-editor.test.tsx` |
+| 4 the 50 limit, parallel adds, failed downloads | `test/fonts-api.test.ts` |
+| 5 applying a font, Default font | `test/web/fonts-editor.test.tsx` |
+| 6 a font no longer in the collection | `test/web/fonts-editor.test.tsx`, `test/fonts-schema.test.ts` |
+| 7 server refusals | `test/fonts-schema.test.ts` |
+| 8 paste rules, the 51st font | `test/web/fonts-editor.test.tsx` |
+| 9 crafted ids and hashes | `test/fonts-api.test.ts` |
+| 10 upstream answers accepted and rejected | `test/fonts-stylesheet.test.ts`, `test/fonts-store.test.ts` |
+| 11 shared operations, slots, queue, time limits | `test/fonts-store.test.ts` |
+| 12 Google unreachable | `test/fonts-api.test.ts`, `test/web/fonts-editor.test.tsx` |
+| 13 cap and eviction | `test/fonts-store.test.ts` |
+| 14 reconciliation | `test/fonts-store.test.ts` |
+| 15 headers, sessions, Origin, rate limit, retired, no-store | `test/fonts-api.test.ts` |
+| 16 registering fonts on open, restore, conflict, paste, undo; failures | `test/web/fonts-editor.test.tsx` |
+| 17 agents cannot set fonts | `test/fonts-schema.test.ts` |
+| 18 data copy, user deletion | `test/fonts-store.test.ts` |
+| 19 the snapshot and the generator | `test/font-catalogue.test.ts` |
+| 20 CSP, bad setting, logs | `test/fonts-api.test.ts` |
+| 21 `/fonts` routing | `test/web/fonts-page.test.tsx` |
+| 22 preview names, 400 limit, shared queue, sign-out | `test/web/fonts-loader.test.ts`, `test/web/fonts-page.test.tsx` |
+| 23 "Mixed", no selection | `test/web/fonts-editor.test.tsx` |
+
 `DEVIATIONS.md` lists where the implementation interprets an ambiguous point of
 the specification.
+
+## 12. Fonts
+
+Each person can browse the Google Fonts catalogue at **`/fonts`** (the "Fonts"
+entry in the sidebar), search it, filter it by category, and add up to 50 fonts
+to their own collection. In a note, the toolbar's font menu lists that
+collection; choose a font to apply it to the selected text, or "Default font" to
+remove it. Collections are private. Latin text only, in regular and bold,
+upright and italic.
+
+**Outbound access.** Browsers never contact Google: the app fetches font files
+from `fonts.googleapis.com` and `fonts.gstatic.com` (HTTPS, port 443) the first
+time they are needed and serves them itself. The app container therefore needs
+outbound HTTPS to those two hosts. Without it, fonts already fetched keep
+working, adding a new font answers "This font could not be downloaded. Try again
+later.", and nothing else is affected.
+
+**The font store** is `/data/fonts/` in the data volume: one shared cache for
+all users, not counted toward anyone's storage limit. `NOTES_FONT_CACHE_MB` in
+`.env` caps it (default `500`; a whole number of at least `50`, or the app does
+not start). When it is full, the note-font files of fonts that nobody has in a
+collection are removed, least recently used first; previews, fonts in a
+collection and retired fonts are kept. If even that cannot make room, adding a
+font answers "The font store is full."
+
+**Backups.** `notes data copy` includes everyone's collections (they are in the
+database) but leaves `/data/fonts/` out. After restoring such a copy the app
+notices at start-up that the font files are missing and fetches them again from
+Google as they are used. The one exception is a *retired* font (one Google no
+longer lists): it may no longer be downloadable, so after a restore text in a
+retired font shows in a fallback font.
+
+**The catalogue** is a snapshot shipped with the app,
+`src/shared/font-catalogue.json` (1,839 families on 2026-11-15); the running app
+needs no Google account or key and never refreshes it. To update it, on a
+developer machine with internet access:
+
+```sh
+npm run fonts:catalogue              # or: npm run fonts:catalogue -- --from listing.json
+git diff --stat src/shared/font-catalogue.json
+```
+
+The script reads Google's public listing (`https://fonts.google.com/metadata/fonts`),
+prints the families added, retired and un-retired, and refuses to write anything
+if two families would share an id or the listing's format is not what it
+expects. Ids never change and are never removed: a family Google drops is marked
+retired (hidden on `/fonts`, still working where it is already used). Commit the
+file and rebuild the image (section 6) to ship it.

@@ -1,0 +1,10 @@
+@font-face {
+  font-family: 'Nabla';
+  font-style: normal;
+  font-weight: 400;
+  src: url(https://fonts.gstatic.com/l/font?kit=j8_D6-LI0Lvpe7Makz5UhJt9C3uqg_X_75gyGS4jAxsNIjrRNRVMFBIfrbLOvw&skey=5cf4ec8f07a6c7c3&v=v17) format('woff2');
+  unicode-range: U+4e, U+61-62, U+6c;
+}
+body {
+  --google-font-color-nabla:colrv1;
+}

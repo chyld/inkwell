@@ -142,3 +142,14 @@ describe('rejected', () => {
     for (const css of ['/* unterminated', '@font-face {', '@font-face { font-family: "A" { }', "@font-face { src: url(https://fonts.gstatic.com/a.woff2 format('woff2'); }", '<!DOCTYPE html><html>']) bad(css);
   });
 });
+
+describe('colour-capable families (found in the hand checks, 2026-11-15)', () => {
+  it("Google adds a `body { --google-font-color-…: none; }` rule for them, which 5.1's grammar refuses", () => {
+    for (const n of ['fact-color-font-preview-nabla', 'fact-color-font-faces-nabla']) {
+      expect(recorded.status(n)).toBe(200);
+      expect(recorded.css(n)).toMatch(/\nbody \{\s*--google-font-color-nabla:/);
+    }
+    expect(() => checkPreview(F('nabla'), recorded.css('fact-color-font-preview-nabla'))).toThrow(/a rule other than @font-face/);
+    expect(() => checkFaces(F('nabla'), recorded.css('fact-color-font-faces-nabla'))).toThrow(/a rule other than @font-face/);
+  });
+});
