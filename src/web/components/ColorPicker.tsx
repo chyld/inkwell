@@ -1,4 +1,5 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { placementStyle, useMenuPlacement } from './menuPlacement';
 import type { Editor } from '@tiptap/react';
 import { Eraser } from 'lucide-react';
 
@@ -52,7 +53,6 @@ interface MenuProps {
 export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, removeLabel, removeText = 'Remove', icon, disabled, refocusAfterPick = false }: MenuProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
-  const [shift, setShift] = useState(0);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -62,14 +62,13 @@ export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, re
   const current = currentRaw && colors.includes(currentRaw) ? currentRaw : null;
   const count = colors.length + 1; // the swatches, then Remove
 
+  const place = useMenuPlacement(open, wrapRef, popRef, []);
   // On opening: focus the colour in use (or the first), keep the popover on screen, close on an outside click.
   useLayoutEffect(() => {
     if (!open) return;
     const start = current ? colors.indexOf(current) : 0;
     setFocusIdx(start);
     itemsRef.current[start]?.focus();
-    const r = popRef.current?.getBoundingClientRect();
-    if (r && r.right > window.innerWidth - 8) setShift(Math.min(0, window.innerWidth - 8 - r.right));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
   useEffect(() => {
@@ -83,7 +82,6 @@ export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, re
 
   function close(refocusButton: boolean) {
     setOpen(false);
-    setShift(0);
     if (refocusButton) buttonRef.current?.focus();
   }
 
@@ -144,7 +142,7 @@ export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, re
           className="color-popover"
           role="group"
           aria-label={label}
-          style={shift ? { left: shift } : undefined}
+          style={placementStyle(place)}
           onKeyDown={onKeyDown}
           onBlur={(e) => {
             if (!wrapRef.current?.contains(e.relatedTarget as Node | null)) close(false);

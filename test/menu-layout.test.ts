@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { MENU_MAX_HEIGHT, MENU_MIN_HEIGHT, menuPlacement, placementStyle } from '../src/web/components/menuPlacement';
+import { MENU_MAX_HEIGHT, MENU_MIN_HEIGHT, fixedPosition, menuPlacement, placementStyle } from '../src/web/components/menuPlacement';
 
 const css = fs.readFileSync(path.join(__dirname, '../src/web/styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 /** Every declaration given to exactly this selector, in source order (later wins). */
@@ -99,5 +99,68 @@ describe('menuPlacement', () => {
     expect(menuPlacement({ top: 0, bottom: 24, left: 200 }, 260, { width: 390, height: 700 }).shift).toBe(-(200 + 260 - 382));
     expect(menuPlacement({ top: 0, bottom: 24, left: 20 }, 500, { width: 390, height: 700 }).shift).toBe(-12);
     expect(placementStyle(menuPlacement({ top: 0, bottom: 24, left: 8 }, 100, { width: 390, height: 700 }))).toEqual({ maxHeight: MENU_MAX_HEIGHT });
+  });
+});
+
+describe('the phone toolbar (CLEANUP-PLAN pass 2 item 6)', () => {
+  /** The declarations for this selector inside the phone media block only. */
+  const phone = (sel: string) => {
+    const at = css.indexOf('@media (max-width: 760px)');
+    const block = css.slice(at, css.indexOf('\n}\n', at));
+    const out: Record<string, string> = {};
+    for (const m of block.slice(block.indexOf('{') + 1).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!m[1].split(',').some((x) => x.trim() === sel)) continue;
+      for (const d of m[2].split(';')) {
+        const i = d.indexOf(':');
+        if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
+      }
+    }
+    return out;
+  };
+
+  it('is one row that scrolls sideways inside itself (the table tools too); its buttons never shrink', () => {
+    for (const bar of ['.toolbar-wrap > .toolbar', '.toolbar-wrap > .table-tools']) {
+      const d = phone(bar);
+      expect(d['flex-wrap'], bar).toBe('nowrap');
+      expect(d['overflow-x'], bar).toBe('auto');
+      expect(d['overflow-y'], bar).toBe('hidden');
+      expect(d['overscroll-behavior-x'], bar).toBe('contain');
+      expect(phone(`${bar} > *`).flex, bar).toBe('none');
+    }
+    expect(decls('.toolbar')['flex-wrap']).toBe('wrap'); // wider screens still wrap by section
+  });
+
+  it('shows a hint at the edge with more: two bar-coloured covers scroll with the buttons over two fixed glows', () => {
+    const bg = phone('.toolbar-wrap > .toolbar').background.replace(/\s+/g, ' ');
+    const layers: string[] = [];
+    let depth = 0, cur = '';
+    for (const ch of bg) {
+      if (ch === ',' && depth === 0) {
+        layers.push(cur.trim());
+        cur = '';
+        continue;
+      }
+      depth += ch === '(' ? 1 : ch === ')' ? -1 : 0;
+      cur += ch;
+    }
+    layers.push(cur.trim());
+    expect(layers).toHaveLength(5);
+    expect(layers.slice(0, 2).every((l) => l.startsWith('linear-gradient(to ') && l.includes('var(--rail)') && l.endsWith(' local'))).toBe(true);
+    expect(layers.slice(2, 4).every((l) => l.includes('var(--bar-hint)') && l.endsWith(' scroll'))).toBe(true);
+    expect(layers[4]).toBe('var(--rail)');
+  });
+
+  it('menus are fixed at coordinates from their button, so the scrolling bar cannot clip them', () => {
+    expect(decls('.font-popover').position).toBe('fixed');
+    expect(decls('.color-popover').position).toBe('fixed');
+    expect(decls('.font-popover').width).toBe('min-content'); // as wide as when it hung from its button
+    const below = menuPlacement({ top: 100, bottom: 134, left: 200 }, 220, { width: 390, height: 780 });
+    expect(below.shift).toBe(-(200 + 220 - 382)); // kept inside the screen
+    expect(fixedPosition({ top: 100, bottom: 134, left: 200 }, below, 780)).toEqual({ left: 200 + below.shift, top: 138 });
+    const above = menuPlacement({ top: 700, bottom: 734, left: 20 }, 220, { width: 390, height: 780 });
+    expect(above.above).toBe(true);
+    expect(fixedPosition({ top: 700, bottom: 734, left: 20 }, above, 780)).toEqual({ left: 20, bottom: 780 - 700 + 4 });
+    expect(placementStyle({ ...below, fixed: { left: 138, top: 138 } })).toEqual({ maxHeight: below.maxHeight, left: 138, top: 138, bottom: 'auto' });
+    expect(placementStyle({ ...above, fixed: { left: 20, bottom: 84 } })).toEqual({ maxHeight: above.maxHeight, left: 20, top: 'auto', bottom: 84 });
   });
 });

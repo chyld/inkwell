@@ -1,4 +1,5 @@
-// Where a toolbar menu opens and how tall it may be, so it never extends past the viewport.
+// Where a toolbar menu opens and how tall it may be, so it never extends past the viewport. Menus are
+// position: fixed at the coordinates computed here, so a toolbar that scrolls sideways (phones) does not clip them.
 import { useLayoutEffect, useState, type RefObject } from 'react';
 
 export const MENU_MAX_HEIGHT = 420;
@@ -25,9 +26,25 @@ export function menuPlacement(button: { top: number; bottom: number; left: numbe
   return { maxHeight, above, shift };
 }
 
-/** Recomputed when the menu opens, when `deps` change (its content) and when the window is resized. */
-export function useMenuPlacement(open: boolean, anchor: RefObject<HTMLElement | null>, menu: RefObject<HTMLElement | null>, deps: unknown[]): Placement | null {
-  const [place, setPlace] = useState<Placement | null>(null);
+/** A menu's viewport position: its left edge, and its top (below the button) or bottom (above it). */
+export interface FixedPosition {
+  left: number;
+  top?: number;
+  bottom?: number;
+}
+export type PlacedMenu = Placement & { fixed?: FixedPosition };
+
+/** Pure: where the menu goes in the viewport for its button's rectangle and its placement. */
+export function fixedPosition(button: { top: number; bottom: number; left: number }, p: Placement, viewportHeight: number): FixedPosition {
+  return { left: button.left + p.shift, ...(p.above ? { bottom: viewportHeight - button.top + GAP } : { top: button.bottom + GAP }) };
+}
+
+/**
+ * Recomputed when the menu opens, when `deps` change (its content), when the window is resized and when anything
+ * around the button scrolls (the toolbar sideways on a phone), so the menu stays with its button.
+ */
+export function useMenuPlacement(open: boolean, anchor: RefObject<HTMLElement | null>, menu: RefObject<HTMLElement | null>, deps: unknown[]): PlacedMenu | null {
+  const [place, setPlace] = useState<PlacedMenu | null>(null);
   useLayoutEffect(() => {
     if (!open) {
       setPlace(null);
@@ -36,18 +53,27 @@ export function useMenuPlacement(open: boolean, anchor: RefObject<HTMLElement | 
     const compute = () => {
       const a = anchor.current?.getBoundingClientRect();
       if (!a) return;
-      setPlace(menuPlacement(a, menu.current?.offsetWidth ?? 0, { width: window.innerWidth, height: window.innerHeight }));
+      const p = menuPlacement(a, menu.current?.offsetWidth ?? 0, { width: window.innerWidth, height: window.innerHeight });
+      setPlace({ ...p, fixed: fixedPosition(a, p, window.innerHeight) });
+    };
+    const onScroll = (e: Event) => {
+      if (!menu.current?.contains(e.target as Node)) compute(); // not the menu's own list
     };
     compute();
     window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
+    window.addEventListener('scroll', onScroll, true);
+    return () => {
+      window.removeEventListener('resize', compute);
+      window.removeEventListener('scroll', onScroll, true);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, ...deps]);
   return place;
 }
 
 /** The style a placed menu gets (layout only; no colours). */
-export function placementStyle(p: Placement | null): Record<string, number> | undefined {
+export function placementStyle(p: PlacedMenu | null): Record<string, number | string> | undefined {
   if (!p) return undefined;
+  if (p.fixed) return { maxHeight: p.maxHeight, left: p.fixed.left, top: p.fixed.top ?? 'auto', bottom: p.fixed.bottom ?? 'auto' };
   return { maxHeight: p.maxHeight, ...(p.shift ? { left: p.shift } : {}) };
 }

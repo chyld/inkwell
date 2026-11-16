@@ -103,6 +103,7 @@
   /* the editor toolbar: a flat bar in the rail slate (mock-up 07), its ink the rail ink */
   --bar-on: #52627a; /* hover and pressed */
   --bar-line: #56647a; /* dividers */
+  --bar-hint: color-mix(in srgb, var(--rail-icon) 55%, transparent); /* the phone toolbar's "more this way" glow */
   /* text colours and highlights, palette 'Jewel' (a note stores the name; see DEVIATIONS) */
   --tc-ruby: #9c012b;
   --tc-garnet: #960157;
@@ -1467,9 +1468,7 @@ mark[data-highlight] {
   background: currentColor;
 }
 .color-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed; /* at the coordinates from menuPlacement.ts, so a sideways-scrolling toolbar cannot clip it */
   z-index: 30;
   display: grid;
   grid-template-columns: repeat(4, 32px);
@@ -1554,14 +1553,13 @@ mark[data-highlight] {
   opacity: 0.45;
 }
 .font-popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  position: fixed; /* at the coordinates from menuPlacement.ts, so a sideways-scrolling toolbar cannot clip it */
   z-index: 30;
   /* The menu itself does not scroll: its list (.menu-scroll) does, and its footer stays below the list.
      The max-height is set from the room left in the viewport (menuPlacement.ts); this is the fallback. */
   display: flex;
   flex-direction: column;
+  width: min-content; /* its longest word, at least 220 px: as wide as it was when it hung from its button */
   min-width: 220px;
   max-width: min(320px, calc(100vw - 16px));
   max-height: 420px;
@@ -1592,10 +1590,6 @@ mark[data-highlight] {
 }
 .font-default-name {
   font-family: var(--font-sans); /* the app's own default font, drawn like the collection's names */
-}
-.font-popover.above {
-  top: auto;
-  bottom: calc(100% + 4px);
 }
 /* The list scrolls when it is taller than the room; its rows are in normal block flow, so they keep
    their natural height. Only the list may shrink. */
@@ -2357,6 +2351,31 @@ mark[data-highlight] {
   .toolbar-wrap > .table-tools {
     padding-left: 10px;
     padding-right: 10px;
+  }
+  /* The toolbar (and the table tools) on a phone: ONE row that scrolls sideways inside itself; the page never
+     does. The hint that there is more is a glow of the bar's ink at that edge: two bar-coloured covers scroll with
+     the buttons (background-attachment: local) and hide the glow at whichever end is reached. */
+  .toolbar-wrap > .toolbar,
+  .toolbar-wrap > .table-tools {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    background:
+      linear-gradient(to right, var(--rail) 45%, transparent) left / 40px 100% no-repeat local,
+      linear-gradient(to left, var(--rail) 45%, transparent) right / 40px 100% no-repeat local,
+      linear-gradient(to right, var(--bar-hint), transparent) left / 22px 100% no-repeat scroll,
+      linear-gradient(to left, var(--bar-hint), transparent) right / 22px 100% no-repeat scroll,
+      var(--rail);
+  }
+  .toolbar-wrap > .toolbar::-webkit-scrollbar,
+  .toolbar-wrap > .table-tools::-webkit-scrollbar {
+    display: none;
+  }
+  .toolbar-wrap > .toolbar > *,
+  .toolbar-wrap > .table-tools > * {
+    flex: none;
   }
   .editor-row {
     flex-wrap: wrap;
