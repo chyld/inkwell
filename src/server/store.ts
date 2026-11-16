@@ -221,7 +221,8 @@ export class Store {
         `SELECT u.username, u.created_at, u.disabled,
            (SELECT count(*) FROM notes n WHERE n.user_id = u.id) AS note_count,
            (SELECT count(*) FROM agents a WHERE a.user_id = u.id AND a.revoked_at IS NULL) AS agent_count,
-           u.id
+           (SELECT ifnull(sum(body_size), 0) FROM notes n WHERE n.user_id = u.id) +
+             (SELECT ifnull(sum(size), 0) FROM images i WHERE i.user_id = u.id) AS used
          FROM users u ORDER BY u.username`,
       )
       .all()
@@ -230,7 +231,7 @@ export class Store {
         createdAt: iso(r.created_at),
         disabled: !!r.disabled,
         noteCount: r.note_count as number,
-        storageUsed: this.usage(r.id),
+        storageUsed: r.used as number, // what usage() gives, in the same query (no query per user)
         agentCount: r.agent_count as number,
       }));
   }

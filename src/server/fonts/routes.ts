@@ -40,9 +40,10 @@ export async function registerFontRoutes(api: FastifyInstance, store: Store, fon
     const f = entry(req);
     const userId = req.user!.id;
     noStore(reply);
-    if (store.fonts.inCollection(userId, f.id)) return reply.status(200).send({ id: f.id }); // nothing fetched, the row untouched
+    const before = store.fonts.collectionState(userId, f.id);
+    if (before.present) return reply.status(200).send({ id: f.id }); // nothing fetched, the row untouched
     if (f.retired) throw retired();
-    if (store.fonts.collectionCount(userId) >= COLLECTION_MAX) throw collectionFull(); // no upstream request
+    if (before.count >= COLLECTION_MAX) throw collectionFull(); // no upstream request
     await fetching(reply, () => fonts.ensureFaces(userId, f)); // on failure the collection is unchanged
     const r = store.fonts.addToCollection(userId, f.id); // the count checked again, in one transaction
     if (r === 'full') throw collectionFull();

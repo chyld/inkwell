@@ -80,3 +80,25 @@ describe('recording a font', () => {
     expect(env.store.fonts.getPreview('abel')).toBeNull(); // dropped, so it is fetched again next time
   });
 });
+
+describe('adding to the collection (CLEANUP-PLAN pass 2, the deferred b08 #6 item)', () => {
+  it('the route checks once and the transaction checks once (before: two and three queries), with the same answers', async () => {
+    const c = await userClient(env, 'alice');
+    for (const id of ['abel', 'lora']) {
+      const f = download(`faces of ${id}`);
+      env.store.fonts.record(id, { kind: 'faces', faces: [{ weight: '400', style: 'normal', unicodeRange: 'U+0000-00FF', file: f.hash }] }, [f]);
+    }
+    const onCollection = () => env.sql.executed.filter((q) => /font_collection/.test(q));
+    env.sql.reset();
+    expect((await c.put('/api/fonts/collection/abel', undefined)).statusCode).toBe(201);
+    if (process.env.FONT_REPORT === '1') console.log(`FONT add to collection: ${onCollection().length} statements on font_collection`);
+    expect(onCollection()).toHaveLength(3); // the route's check, the transaction's check, the insert (before: 6)
+    env.sql.reset();
+    expect((await c.put('/api/fonts/collection/abel', undefined)).statusCode).toBe(200); // already there
+    expect(onCollection()).toHaveLength(1);
+    expect((await c.put('/api/fonts/collection/lora', undefined)).statusCode).toBe(201);
+    expect((await c.get('/api/fonts/collection')).json()).toEqual(['abel', 'lora']); // in the order added
+    expect(env.store.fonts.collectionState(env.store.getUserByUsername('alice')!.id, 'zilla-slab')).toEqual({ present: false, count: 2, nextSeq: 3 });
+  });
+});
+

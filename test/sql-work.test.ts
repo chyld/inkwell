@@ -199,3 +199,22 @@ describe('image clean-up (item 5)', () => {
   });
 });
 
+
+describe('the admin user list (CLEANUP-PLAN pass 2, a deferred b01 #3 item)', () => {
+  it('is one statement for any number of users (before: one more per user), with the same storage figures', async () => {
+    const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#fff' } }).png().toBuffer();
+    for (const name of ['bob', 'carol', 'dave']) {
+      const u = await userClient(env, name);
+      const n = (await u.post('/api/notes', { folderId: null })).json();
+      await u.put(`/api/notes/${n.id}`, { title: name, body: doc(p(`notes of ${name} `.repeat(20))), version: n.version });
+      if (name !== 'dave') expect((await upload(u, 'a.png', 'image/png', png)).statusCode).toBe(201);
+    }
+    env.sql.reset();
+    const users = env.store.listUsers();
+    if (REPORT) console.log(`SQL listUsers (4 users): executed ${env.sql.executed.length}`);
+    expect(env.sql.executed).toHaveLength(1);
+    expect(users.map((u) => u.username)).toEqual(['alice', 'bob', 'carol', 'dave']);
+    for (const u of users) expect(u.storageUsed, u.username).toBe(env.store.usage(env.store.getUserByUsername(u.username)!.id));
+    expect(users.find((u) => u.username === 'bob')!.storageUsed).toBeGreaterThan(users.find((u) => u.username === 'dave')!.storageUsed);
+  });
+});

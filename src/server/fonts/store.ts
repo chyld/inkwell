@@ -44,22 +44,24 @@ export class FontStore {
     return (stmt(this.db, 'SELECT font_id FROM font_collection WHERE user_id = ? ORDER BY seq').all(userId) as { font_id: string }[]).map((r) => r.font_id);
   }
 
-  inCollection(userId: string, fontId: string): boolean {
-    return !!stmt(this.db, 'SELECT 1 FROM font_collection WHERE user_id = ? AND font_id = ?').get(userId, fontId);
-  }
-
-  collectionCount(userId: string): number {
-    return (stmt(this.db, 'SELECT count(*) AS n FROM font_collection WHERE user_id = ?').get(userId) as { n: number }).n;
+  /** One query: whether the font is in the user's collection, how many fonts it holds, and the next position. */
+  collectionState(userId: string, fontId: string): { present: boolean; count: number; nextSeq: number } {
+    const r = stmt(this.db, 'SELECT count(*) AS n, ifnull(max(font_id = @font), 0) AS present, ifnull(max(seq), 0) + 1 AS next FROM font_collection WHERE user_id = @user').get({ user: userId, font: fontId }) as {
+      n: number;
+      present: number;
+      next: number;
+    };
+    return { present: r.present === 1, count: r.n, nextSeq: r.next };
   }
 
   /** In one transaction: check again, then insert. Parallel adds can never leave more than the maximum. */
   addToCollection(userId: string, fontId: string): 'added' | 'present' | 'full' {
     return this.db
       .transaction(() => {
-        if (this.inCollection(userId, fontId)) return 'present' as const;
-        if (this.collectionCount(userId) >= COLLECTION_MAX) return 'full' as const;
-        const seq = (stmt(this.db, 'SELECT ifnull(max(seq), 0) + 1 AS s FROM font_collection WHERE user_id = ?').get(userId) as { s: number }).s;
-        stmt(this.db, 'INSERT INTO font_collection (user_id, font_id, seq) VALUES (?, ?, ?)').run(userId, fontId, seq);
+        const s = this.collectionState(userId, fontId);
+        if (s.present) return 'present' as const;
+        if (s.count >= COLLECTION_MAX) return 'full' as const;
+        stmt(this.db, 'INSERT INTO font_collection (user_id, font_id, seq) VALUES (?, ?, ?)').run(userId, fontId, s.nextSeq);
         return 'added' as const;
       })
       .immediate();
