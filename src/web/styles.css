@@ -75,32 +75,32 @@
 }
 
 :root {
-  /* colour scheme: 'Teal rail and paper' (light); see DEVIATIONS 46 */
+  /* colour scheme: 'Slate and coral' (light); see DEVIATIONS 49 (layout: DEVIATIONS 46-48) */
   --bg: #ffffff; /* paper and cards */
-  --bg-soft: #f1f5f4; /* the app ground behind the list and the editor */
-  --bg-hover: #eaf0ef;
-  --bg-active: #fdece6; /* the current row: a coral tint */
-  --border: #d5e0de;
-  --text: #17302d;
-  --text-soft: #5a706d; /* brief #5f7673, darkened 5% to reach 4.5:1 on the ground */
-  --accent: #ef6f53; /* coral fills: New, checked boxes, badges */
-  --accent-text: #17302d; /* ink on a coral fill (white on it is 2.97:1) */
-  --accent-line: #dc664c; /* thin coral lines: focus ring, selected outlines (3:1 on paper and ground) */
-  --link: #974634; /* link text: deep coral, 4.5:1 on paper, ground and every highlight */
+  --bg-soft: #f3f5f7; /* the app ground behind the list and the editor */
+  --bg-hover: #eaeef2;
+  --bg-active: #ffece8; /* the current row: a coral tint */
+  --border: #d9dfe6;
+  --text: #1e2733;
+  --text-soft: #586474; /* 5.51:1 on the ground */
+  --accent: #ff7a66; /* coral fills: New, checked boxes, badges (2.55:1 on white: fills only) */
+  --accent-text: #1e2733; /* ink on a coral fill (5.91:1) */
+  --accent-line: #d76756; /* thin coral lines: focus ring, selected outlines (3:1 on paper, ground and hover) */
+  --link: #95473c; /* link text: deep coral, 4.5:1 on paper, ground and every highlight */
   --danger: #c4372f;
   --warn-bg: #fff4d6;
   --warn-text: #6b4e00;
-  --mark: #ffe1d6;
-  --code-bg: #edf3f2;
-  --selection: rgba(239, 111, 83, 0.25);
-  --rail: #0f5f5a;
-  --rail-icon: #cfe9e5;
-  --rail-hover: #1b6d67;
+  --mark: #ffe3dc;
+  --code-bg: #eef1f4;
+  --selection: rgba(255, 122, 102, 0.25);
+  --rail: #3d4a5c;
+  --rail-icon: #dbe2ea;
+  --rail-hover: #4a5970;
   --rail-current: #ffffff; /* the current rail item: paper background */
-  --rail-current-icon: #0f5f5a; /* with a rail-coloured icon */
-  /* the editor toolbar: a flat bar in the rail teal (mock-up 07), its ink the rail ink */
-  --bar-on: #1b7a73; /* hover and pressed */
-  --bar-line: #2f7d77; /* dividers */
+  --rail-current-icon: #3d4a5c; /* with a rail-coloured icon */
+  /* the editor toolbar: a flat bar in the rail slate (mock-up 07), its ink the rail ink */
+  --bar-on: #52627a; /* hover and pressed */
+  --bar-line: #56647a; /* dividers */
   /* text colours and highlights, palette 'Jewel' (a note stores the name; see DEVIATIONS) */
   --tc-ruby: #9c012b;
   --tc-garnet: #960157;
@@ -139,31 +139,31 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    /* colour scheme: 'Teal rail and paper' (dark): deep teal-black ground, the paper a raised surface */
-    --bg: #172725;
-    --bg-soft: #0f1c1b;
-    --bg-hover: #20322f;
-    --bg-active: #47302a;
-    --border: #2c403d;
-    --text: #e3efec;
-    --text-soft: #9ab3ae;
-    --accent: #f4806a;
-    --accent-text: #17302d;
-    --accent-line: #f4806a;
-    --link: #ff9d85;
+    /* colour scheme: 'Slate and coral' (dark): blue-grey near-black ground, the paper a raised slate */
+    --bg: #1b222c;
+    --bg-soft: #12161c;
+    --bg-hover: #242c38;
+    --bg-active: #4a2d28;
+    --border: #2e3744;
+    --text: #e4e9ef;
+    --text-soft: #9aa6b4;
+    --accent: #ff8b78;
+    --accent-text: #1e2733;
+    --accent-line: #ff8b78;
+    --link: #ffa594;
     --danger: #ff7a70;
     --warn-bg: #3b3115;
     --warn-text: #f3d98b;
     --mark: #5a3328;
-    --code-bg: #1f302d;
-    --selection: rgba(244, 128, 106, 0.3);
-    --rail: #0c4440;
-    --rail-icon: #cfe9e5;
-    --rail-hover: #155a55;
-    --rail-current: #172725; /* the paper */
-    --rail-current-icon: #8fd6cb; /* a light teal: the rail colour would not show on dark paper */
-    --bar-on: #1a6560;
-    --bar-line: #23605b;
+    --code-bg: #232b36;
+    --selection: rgba(255, 139, 120, 0.3);
+    --rail: #2b3545;
+    --rail-icon: #dbe2ea;
+    --rail-hover: #36425a;
+    --rail-current: #1b222c; /* the paper */
+    --rail-current-icon: #c7d3e3; /* a light slate: the rail colour would not show on dark paper */
+    --bar-on: #3b475c;
+    --bar-line: #46536a;
     --tc-ruby: #fe898f;
     --tc-garnet: #fa86b6;
     --tc-amber: #ef9d32;
@@ -450,7 +450,7 @@ mark {
   color: var(--rail-current-icon);
 }
 .rail-button:focus-visible {
-  outline-color: var(--rail-icon); /* coral is too weak on the rail */
+  outline-color: var(--rail-icon); /* coral is weak on the slate rail */
 }
 .rail-badge-anchor {
   position: relative;
@@ -971,7 +971,7 @@ mark {
   padding: 3px 6px;
   background: var(--rail);
 }
-/* The teal toolbar: icons and labels in the rail ink, hover and pressed a lighter teal. The ink is set on the
+/* The slate toolbar: icons and labels in the rail ink, hover and pressed a lighter slate. The ink is set on the
    buttons only, so the light menus that open from the toolbar keep the normal text colour. */
 .toolbar .tb-group {
   gap: 1px;
@@ -994,7 +994,7 @@ mark {
 }
 .toolbar .tb:focus-visible,
 .toolbar .size-input:focus-visible {
-  outline-color: var(--rail-icon); /* visible on the teal bar in both themes; the light menus keep the coral ring */
+  outline-color: var(--rail-icon); /* visible on the slate bar in both themes; the light menus keep the coral ring */
 }
 .toolbar .styles-button {
   width: 80px;
@@ -1038,7 +1038,7 @@ mark {
   background: var(--bg-active);
   border-color: var(--border);
 }
-/* the toolbar (mock-up 07): a flat, full-width bar in the rail teal, directly under the title row */
+/* the toolbar (mock-up 07): a flat, full-width bar in the rail slate, directly under the title row */
 .toolbar-wrap {
   display: flex;
   flex-direction: column;

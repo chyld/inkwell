@@ -478,7 +478,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   return (
     <section className="editor-pane" aria-label="Editor">
       {/* Mock-up 07 (DEVIATIONS 47): one title row (folder / title, tags; dates, save status and Move to Trash on the
-          right), then the flat teal toolbar, the banners, and the paper with the body, with no gaps between them. */}
+          right), then the flat slate toolbar, the banners, and the paper with the body, with no gaps between them. */}
       <header className="editor-header">
         <div className="editor-row">
           <div className="slim-left">

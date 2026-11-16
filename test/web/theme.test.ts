@@ -17,17 +17,18 @@ const dark = { ...light, ...tokens(darkBlock) };
 // Light values from the brief, with the nudges recorded in DEVIATIONS 46 (soft text darkened 5%; the coral
 // split into a fill, a thin-line and a link shade); the dark values are the ones chosen for it.
 const TEAL = {
+  // 'Slate and coral' (DEVIATIONS 49); the name TEAL is kept so the tests below read as before.
   light: {
-    bg: '#ffffff', 'bg-soft': '#f1f5f4', 'bg-hover': '#eaf0ef', 'bg-active': '#fdece6', border: '#d5e0de', text: '#17302d', 'text-soft': '#5a706d',
-    accent: '#ef6f53', 'accent-text': '#17302d', 'accent-line': '#dc664c', link: '#974634', 'code-bg': '#edf3f2', mark: '#ffe1d6',
-    rail: '#0f5f5a', 'rail-icon': '#cfe9e5', 'rail-hover': '#1b6d67', 'rail-current': '#ffffff', 'rail-current-icon': '#0f5f5a',
-    'bar-on': '#1b7a73', 'bar-line': '#2f7d77',
+    bg: '#ffffff', 'bg-soft': '#f3f5f7', 'bg-hover': '#eaeef2', 'bg-active': '#ffece8', border: '#d9dfe6', text: '#1e2733', 'text-soft': '#586474',
+    accent: '#ff7a66', 'accent-text': '#1e2733', 'accent-line': '#d76756', link: '#95473c', 'code-bg': '#eef1f4', mark: '#ffe3dc',
+    rail: '#3d4a5c', 'rail-icon': '#dbe2ea', 'rail-hover': '#4a5970', 'rail-current': '#ffffff', 'rail-current-icon': '#3d4a5c',
+    'bar-on': '#52627a', 'bar-line': '#56647a',
   },
   dark: {
-    bg: '#172725', 'bg-soft': '#0f1c1b', 'bg-hover': '#20322f', 'bg-active': '#47302a', border: '#2c403d', text: '#e3efec', 'text-soft': '#9ab3ae',
-    accent: '#f4806a', 'accent-text': '#17302d', 'accent-line': '#f4806a', link: '#ff9d85', 'code-bg': '#1f302d', mark: '#5a3328',
-    rail: '#0c4440', 'rail-icon': '#cfe9e5', 'rail-hover': '#155a55', 'rail-current': '#172725', 'rail-current-icon': '#8fd6cb',
-    'bar-on': '#1a6560', 'bar-line': '#23605b',
+    bg: '#1b222c', 'bg-soft': '#12161c', 'bg-hover': '#242c38', 'bg-active': '#4a2d28', border: '#2e3744', text: '#e4e9ef', 'text-soft': '#9aa6b4',
+    accent: '#ff8b78', 'accent-text': '#1e2733', 'accent-line': '#ff8b78', link: '#ffa594', 'code-bg': '#232b36', mark: '#5a3328',
+    rail: '#2b3545', 'rail-icon': '#dbe2ea', 'rail-hover': '#36425a', 'rail-current': '#1b222c', 'rail-current-icon': '#c7d3e3',
+    'bar-on': '#3b475c', 'bar-line': '#46536a',
   },
 };
 
@@ -41,17 +42,18 @@ const contrast = (a: string, b: string) => {
   return (x + 0.05) / (y + 0.05);
 };
 
-describe("'Teal rail and paper' colour scheme", () => {
+describe("'Slate and coral' colour scheme", () => {
   it('sets the agreed token values in both themes', () => {
     for (const [k, v] of Object.entries(TEAL.light)) expect(light[k], `light --${k}`).toBe(v);
     for (const [k, v] of Object.entries(TEAL.dark)) expect(dark[k], `dark --${k}`).toBe(v);
   });
 
-  it('keeps the light values of the brief, except the soft text nudged darker to pass', () => {
-    const brief = { 'bg-soft': '#f1f5f4', bg: '#ffffff', text: '#17302d', border: '#d5e0de', rail: '#0f5f5a', 'rail-icon': '#cfe9e5', accent: '#ef6f53', 'bar-on': '#1b7a73', 'bar-line': '#2f7d77' };
-    for (const [k, v] of Object.entries(brief)) expect(light[k], `light --${k}`).toBe(v);
-    expect(contrast('#5f7673', light['bg-soft'])).toBeLessThan(4.5); // the brief's soft text fails on the ground…
-    expect(contrast(light['text-soft'], light['bg-soft'])).toBeGreaterThanOrEqual(4.5); // …the nudged one passes
+  it("keeps the owner's light values for 'Slate and coral'; the soft text reaches 4.5:1 on the ground", () => {
+    const given = { 'bg-soft': '#f3f5f7', bg: '#ffffff', text: '#1e2733', rail: '#3d4a5c', 'rail-icon': '#dbe2ea', accent: '#ff7a66', 'accent-text': '#1e2733' };
+    for (const [k, v] of Object.entries(given)) expect(light[k], `light --${k}`).toBe(v);
+    expect(contrast(light['text-soft'], light['bg-soft'])).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(light.accent, light.bg)).toBeLessThan(3); // the plain coral is for fills only…
+    expect(contrast(light['accent-line'], light.bg)).toBeGreaterThanOrEqual(3); // …thin lines use the darker one
   });
 
   it('meets WCAG AA for text, soft text, accent text, links and selected states', () => {
@@ -83,6 +85,9 @@ describe("'Teal rail and paper' colour scheme", () => {
     expect(favicon).not.toMatch(/#3b6fd8|#8a3aa8/i);
     // The Plum and Sage values are gone from the stylesheet.
     for (const old of ['#8a3aa8', '#cf8cea', '#f9f6fa', '#ecdcf3', '#46275a', '#e3f0e0', '#c8dfc3', '#405e40', '#252f23', '#bad3b4', '#231a27']) expect(css.toLowerCase(), old).not.toContain(old);
+    // Nor the teal of 'Teal rail and paper' (DEVIATIONS 49).
+    for (const old of ['#0f5f5a', '#cfe9e5', '#1b7a73', '#2f7d77', '#0c4440', '#17302d', '#ef6f53', '#f1f5f4', '#0f1c1b', '#172725']) expect(css.toLowerCase(), old).not.toContain(old);
+    expect(favicon).not.toMatch(/#ef6f53|#17302d/i);
     expect(css).not.toMatch(/--(bg-sidebar|toolbar-bg|toolbar-strong|toolbar-icon)\b/);
   });
 
