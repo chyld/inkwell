@@ -1825,6 +1825,17 @@ mark[data-highlight] {
   font-size: 0.82rem;
 }
 
+/* the editor's Styles menu (STYLES-SPEC 8) */
+.styles-button {
+  gap: 4px;
+  font-size: 0.88rem;
+}
+.styles-popover .style-item {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* modal & notices */
 .modal-backdrop {
   position: fixed;

@@ -348,6 +348,24 @@ describe('/styles routing (criterion 15)', () => {
     expect(document.title).toBe('Notes');
   });
 
+  it('"Manage styles…" in the editor saves the note and goes to /styles (criterion 13)', async () => {
+    server();
+    await start('/');
+    await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
+    await click(view!.container.querySelector('.note-item'));
+    await waitFor(() => !!view!.container.querySelector('.ProseMirror'), 3000, 'editor');
+    await act(async () => {
+      (view!.container.querySelector('.ProseMirror') as any).editor.commands.insertContent(' managed');
+    });
+    await click(view!.container.querySelector('button[aria-label="Styles"]'));
+    await waitFor(() => !!button(view!.container, 'Manage styles…'), 2000, 'menu');
+    await click(button(view!.container, 'Manage styles…'));
+    await waitFor(() => !!page(), 3000, 'page');
+    expect(location.pathname).toBe('/styles');
+    expect(JSON.stringify(noteBody)).toContain('managed');
+    expect(view!.container.querySelector('.ProseMirror')).toBeNull();
+  });
+
   it('a direct visit (also with the trailing slash) puts / beneath; reload stays; Back leads to the notes', async () => {
     server();
     for (const p of ['/styles', '/styles/']) {

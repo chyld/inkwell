@@ -124,9 +124,9 @@ describe('the size control', () => {
       expect(btn(l).querySelector('svg.lucide')).toBeTruthy();
     }
     expect(input().getAttribute('title')).toBe('Font size');
-    // The toolbar's start: font, |, − n +, |, B I U S code link, colour, highlight, then the rest.
+    // The toolbar's start: Styles (STYLES-SPEC 8), |, font, |, − n +, |, B I U S code link, colour, highlight, then the rest.
     const order = [...view!.container.querySelector('.toolbar')!.querySelectorAll('button, input, .tb-sep')].map((e) => (e.classList.contains('tb-sep') ? '|' : e.getAttribute('aria-label')));
-    expect(order.slice(0, 15)).toEqual(['Font: Inter', '|', 'Decrease font size', 'Font size', 'Increase font size', '|', 'Bold', 'Italic', 'Underline', 'Strikethrough', 'Inline code', 'Link', 'Text colour', 'Highlight', 'Heading 1']);
+    expect(order.slice(0, 17)).toEqual(['Styles', '|', 'Font: Inter', '|', 'Decrease font size', 'Font size', 'Increase font size', '|', 'Bold', 'Italic', 'Underline', 'Strikethrough', 'Inline code', 'Link', 'Text colour', 'Highlight', 'Heading 1']);
   });
 
   it('shows the effective size: the block default (16 in a paragraph, 26/21/18 in headings) or the mark', async () => {

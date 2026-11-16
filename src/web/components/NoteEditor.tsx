@@ -44,6 +44,7 @@ import { noteExtensions, isAllowedHref, normalizeTag, fontsInDoc, TAGS_PER_NOTE,
 import { ColorPicker } from './ColorPicker';
 import { FontPicker } from './FontPicker';
 import { FontSizeControl } from './FontSizeControl';
+import { StylesMenu } from './StylesMenu';
 import { NoteFontSession } from '../fonts/runtime';
 import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
@@ -72,6 +73,8 @@ interface Props {
   onAllNotes?: () => void;
   /** "Browse fonts…" in the font menu: go to /fonts (the note is saved first, as on any navigation). */
   onBrowseFonts?: () => void;
+  /** "Manage styles…" in the Styles menu: go to /styles (the note is saved first). */
+  onManageStyles?: () => void;
 }
 
 /** Shown for an address that names no note of this user: a malformed id, a deleted note or someone else's (same message for all). */
@@ -591,7 +594,9 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           </span>
         </div>
       )}
-      {!locked && editor && <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} onBrowseFonts={props.onBrowseFonts ?? (() => {})} notice={dialogs.notice} />}
+      {!locked && editor && (
+        <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} onBrowseFonts={props.onBrowseFonts ?? (() => {})} onManageStyles={props.onManageStyles ?? (() => {})} notice={dialogs.notice} />
+      )}
       <div className="editor-scroll">
         <EditorContent editor={editor} className="editor-content" />
       </div>
@@ -600,7 +605,21 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   );
 }
 
-function Toolbar({ editor, onImage, uploading, onBrowseFonts, notice }: { editor: Editor; onImage: () => void; uploading: boolean; onBrowseFonts: () => void; notice: (m: string) => void }) {
+function Toolbar({
+  editor,
+  onImage,
+  uploading,
+  onBrowseFonts,
+  onManageStyles,
+  notice,
+}: {
+  editor: Editor;
+  onImage: () => void;
+  uploading: boolean;
+  onBrowseFonts: () => void;
+  onManageStyles: () => void;
+  notice: (m: string) => void;
+}) {
   const dialogs = useDialogs();
   const b = (label: ReactNode, title: string, active: boolean, run: () => void, disabled = false, withText = false) => (
     <button
@@ -642,7 +661,11 @@ function Toolbar({ editor, onImage, uploading, onBrowseFonts, notice }: { editor
   const inCode = editor.isActive('code') || editor.isActive('codeBlock');
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
-      {/* The start follows a familiar word-processor order: font, size, then inline styles and colours. */}
+      {/* The start follows a familiar word-processor order: styles, font, size, then inline styles and colours. */}
+      <div className="tb-group">
+        <StylesMenu editor={editor} notice={notice} onManage={onManageStyles} onBrowseFonts={onBrowseFonts} />
+      </div>
+      <span className="tb-sep" aria-hidden />
       <div className="tb-group">
         <FontPicker editor={editor} disabled={inCode} onBrowse={onBrowseFonts} notice={notice} />
       </div>

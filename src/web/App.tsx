@@ -502,6 +502,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
           onBack={() => void closeNote('push')}
           onAllNotes={allNotes}
           onBrowseFonts={() => void openFonts()}
+          onManageStyles={() => void openPage('styles')}
         />
       ) : notFound ? (
         <NoteNotFound onBack={() => void closeNote('push')} onAllNotes={allNotes} />
