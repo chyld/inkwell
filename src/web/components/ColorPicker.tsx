@@ -1,5 +1,5 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
-import { placementStyle, useMenuPlacement } from './menuPlacement';
+import { useLayoutEffect, type KeyboardEvent, type ReactNode } from 'react';
+import { runKey, usePopoverMenu } from './popoverMenu';
 import type { Editor } from '@tiptap/react';
 import { Eraser } from 'lucide-react';
 
@@ -51,55 +51,30 @@ interface MenuProps {
 
 /** A button with a popover of colour swatches (by name; the theme supplies the value) and Remove/None. */
 export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, removeLabel, removeText = 'Remove', icon, disabled, refocusAfterPick = false }: MenuProps) {
-  const [open, setOpen] = useState(false);
-  const [focusIdx, setFocusIdx] = useState(0);
-  const wrapRef = useRef<HTMLSpanElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const itemsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const popId = useId();
+  const m = usePopoverMenu();
+  const { open, close } = m;
   const attr = kind === 'textColor' ? 'data-text-color' : 'data-highlight';
   const current = currentRaw && colors.includes(currentRaw) ? currentRaw : null;
   const count = colors.length + 1; // the swatches, then Remove
 
-  const place = useMenuPlacement(open, wrapRef, popRef, []);
-  // On opening: focus the colour in use (or the first), keep the popover on screen, close on an outside click.
+  // On opening: focus the colour in use (or the first).
   useLayoutEffect(() => {
     if (!open) return;
-    const start = current ? colors.indexOf(current) : 0;
-    setFocusIdx(start);
-    itemsRef.current[start]?.focus();
+    m.focusItem(current ? colors.indexOf(current) : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) close(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
-
-  function close(refocusButton: boolean) {
-    setOpen(false);
-    if (refocusButton) buttonRef.current?.focus();
-  }
 
   function apply(color: string | null) {
     onPick(color);
     close(refocusAfterPick);
   }
 
-  function move(to: number) {
-    const i = (to + count) % count;
-    setFocusIdx(i);
-    itemsRef.current[i]?.focus();
-  }
-
+  /** The swatches are a grid of COLUMNS with Remove after them; every move wraps. Enter and Space click. */
   function onKeyDown(e: KeyboardEvent) {
-    const i = focusIdx;
+    const i = m.focusIdx;
     const removeIdx = count - 1;
-    const keys: Record<string, () => void> = {
+    const move = (to: number) => m.focusItem((to + count) % count);
+    runKey(e, {
       ArrowRight: () => move(i + 1),
       ArrowLeft: () => move(i - 1),
       ArrowDown: () => move(i === removeIdx ? 0 : Math.min(i + COLUMNS, removeIdx)),
@@ -107,79 +82,24 @@ export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, re
       Home: () => move(0),
       End: () => move(removeIdx),
       Escape: () => close(true),
-    };
-    const k = keys[e.key];
-    if (k) {
-      e.preventDefault();
-      e.stopPropagation();
-      k();
-    }
+    });
   }
 
   const name = current ? `${label}: ${nameOf(current)}` : label;
   return (
-    <span className="color-tool" ref={wrapRef}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className={'tb has-bar' + (open ? ' active' : '')}
-        title={name}
-        aria-label={name}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-controls={open ? popId : undefined}
-        disabled={disabled}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (open ? close(true) : setOpen(true))}
-      >
+    <span className="color-tool" ref={m.wrapRef}>
+      <button {...m.buttonProps} type="button" className={'tb has-bar' + (open ? ' active' : '')} title={name} aria-label={name} aria-haspopup="true" disabled={disabled}>
         {icon}
         {current && <span className={'color-bar' + (kind === 'textColor' ? ' text-bar' : '')} {...{ [attr]: current }} aria-hidden />}
       </button>
       {open && (
-        <div
-          id={popId}
-          ref={popRef}
-          className="color-popover"
-          role="group"
-          aria-label={label}
-          style={placementStyle(place)}
-          onKeyDown={onKeyDown}
-          onBlur={(e) => {
-            if (!wrapRef.current?.contains(e.relatedTarget as Node | null)) close(false);
-          }}
-        >
+        <div {...m.popoverProps} className="color-popover" role="group" aria-label={label} onKeyDown={onKeyDown}>
           {colors.map((c, i) => (
-            <button
-              key={c}
-              ref={(el) => {
-                itemsRef.current[i] = el;
-              }}
-              type="button"
-              className="swatch"
-              aria-label={nameOf(c)}
-              title={nameOf(c)}
-              aria-pressed={c === current}
-              tabIndex={i === focusIdx ? 0 : -1}
-              onMouseDown={(e) => e.preventDefault()}
-              onFocus={() => setFocusIdx(i)}
-              onClick={() => apply(c)}
-            >
+            <button key={c} {...m.itemProps(i)} type="button" className="swatch" aria-label={nameOf(c)} title={nameOf(c)} aria-pressed={c === current} onClick={() => apply(c)}>
               <span className={kind === 'textColor' ? 'swatch-dot' : 'swatch-chip'} {...{ [attr]: c }} />
             </button>
           ))}
-          <button
-            ref={(el) => {
-              itemsRef.current[colors.length] = el;
-            }}
-            type="button"
-            className="swatch swatch-remove"
-            aria-label={removeLabel}
-            title={removeLabel}
-            tabIndex={focusIdx === colors.length ? 0 : -1}
-            onMouseDown={(e) => e.preventDefault()}
-            onFocus={() => setFocusIdx(colors.length)}
-            onClick={() => apply(null)}
-          >
+          <button {...m.itemProps(colors.length)} type="button" className="swatch swatch-remove" aria-label={removeLabel} title={removeLabel} onClick={() => apply(null)}>
             <Eraser /> {removeText}
           </button>
         </div>

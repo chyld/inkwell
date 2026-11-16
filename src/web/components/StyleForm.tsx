@@ -1,12 +1,13 @@
 // The style form (STYLES-SPEC 7): one dialog wherever a style is created or edited. Its controls hold
 // plain values until Save; they look and behave like the toolbar's.
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
-import { Baseline, Bold, Highlighter, Italic, Minus, Plus, Strikethrough, Underline } from 'lucide-react';
+import { Baseline, Bold, Highlighter, Italic, Strikethrough, Underline } from 'lucide-react';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, HIGHLIGHT_COLORS, TEXT_COLORS } from '../../shared/noteRules';
 import { api, ApiError } from '../api';
 import { ColorMenu } from './ColorPicker';
 import { FontMenu } from './FontPicker';
 import { SampleFontsProvider, StyleSample, useSampleFonts, type StyleSettings } from './StyleSample';
+import { parseSize, SizeStepper } from './SizeStepper';
 
 export interface Style extends StyleSettings {
   id: string;
@@ -125,30 +126,19 @@ function StyleFormBody({ initial, id, title, onSaved, onClose, onBrowseFonts }: 
               }}
             />
             <span className="tb-sep" aria-hidden />
-            <div className="tb-group size-group" role="group" aria-label="Font size">
-              <button type="button" className="tb" aria-label="Decrease font size" title="Decrease font size" disabled={v.size <= FONT_SIZE_MIN} onClick={() => setSize(v.size - 1)}>
-                <Minus />
-              </button>
-              <input
-                className="size-input"
-                type="text"
-                inputMode="numeric"
-                aria-label="Font size"
-                title="Font size"
-                maxLength={2}
-                value={sizeText}
-                onChange={(e) => {
-                  // A whole number in range takes effect as it is typed.
-                  setSizeText(e.target.value);
-                  const t = e.target.value.trim();
-                  if (/^[0-9]{1,2}$/.test(t) && Number(t) >= FONT_SIZE_MIN && Number(t) <= FONT_SIZE_MAX) set('size', Number(t));
-                }}
-                onBlur={() => setSizeText(String(v.size))} // anything else: the last good value back
-              />
-              <button type="button" className="tb" aria-label="Increase font size" title="Increase font size" disabled={v.size >= FONT_SIZE_MAX} onClick={() => setSize(v.size + 1)}>
-                <Plus />
-              </button>
-            </div>
+            <SizeStepper
+              text={sizeText}
+              onText={(t) => {
+                // A whole number in range takes effect as it is typed.
+                setSizeText(t);
+                const n = parseSize(t);
+                if (n !== null) set('size', n);
+              }}
+              canDecrease={v.size > FONT_SIZE_MIN}
+              canIncrease={v.size < FONT_SIZE_MAX}
+              onStep={(step) => setSize(v.size + step)}
+              inputProps={{ onBlur: () => setSizeText(String(v.size)) }} // anything else: the last good value back
+            />
             <span className="tb-sep" aria-hidden />
             <div className="tb-group">
               {toggle('bold', 'Bold', <Bold />)}

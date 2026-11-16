@@ -1,11 +1,11 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import { DEFAULT_FONT_FAMILY, fontById, NOTE_FONTS_MAX } from '../../shared/fonts';
 import { fontsInDoc } from '../../shared/noteRules';
 import { api } from '../api';
 import { usePreviews } from '../fonts/previews';
-import { placementStyle, useMenuPlacement } from './menuPlacement';
+import { listKeys, runKey, usePopoverMenu } from './popoverMenu';
 
 export type FontState = { kind: 'none' } | { kind: 'one'; id: string } | { kind: 'mixed' };
 
@@ -72,18 +72,13 @@ interface MenuProps {
 
 /** A font menu: "Inter" first, then the user's collection drawn in their preview faces, then "Browse fonts…". */
 export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = false, refocusAfterChoose = false }: MenuProps) {
-  const [open, setOpen] = useState(false);
   const [collection, setCollection] = useState<string[] | null>(null);
-  const [focusIdx, setFocusIdx] = useState(0);
-  const wrapRef = useRef<HTMLSpanElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const itemsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const popId = useId();
+  const m = usePopoverMenu({ placementDeps: [collection] });
+  const { open, close } = m;
   const fromCollection = (collection ?? []).filter((id) => fontById(id));
   const fonts = listCurrent && state.kind === 'one' && fontById(state.id) && !fromCollection.includes(state.id) ? [...fromCollection, state.id] : fromCollection;
   // Its own source: the toolbar's menu and the style form's can be on screen together.
-  const previewStyle = usePreviews(`menu-${popId}`, fonts, open);
+  const previewStyle = usePreviews(`menu-${m.popId}`, fonts, open);
   // Items: the default font (Inter) first, then the collection, then "Browse fonts…".
   const count = fonts.length + 2;
   const currentIdx = state.kind === 'one' ? (fonts.includes(state.id) ? fonts.indexOf(state.id) + 1 : -1) : state.kind === 'none' ? 0 : -1;
@@ -103,107 +98,34 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
 
   useLayoutEffect(() => {
     if (!open) return;
-    const start = currentIdx >= 0 ? currentIdx : 0;
-    setFocusIdx(start);
-    itemsRef.current[start]?.focus();
+    m.focusItem(currentIdx >= 0 ? currentIdx : 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, collection]);
-  const place = useMenuPlacement(open, wrapRef, popRef, [collection]);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) close(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
-
-  function close(refocusButton: boolean) {
-    setOpen(false);
-    if (refocusButton) buttonRef.current?.focus();
-  }
 
   function choose(id: string | null) {
     const done = onChoose(id);
     close(!done || refocusAfterChoose);
   }
 
-  function move(to: number) {
-    const i = (to + count) % count;
-    setFocusIdx(i);
-    itemsRef.current[i]?.focus();
-    itemsRef.current[i]?.scrollIntoView?.({ block: 'nearest' });
-  }
-
-  function onKeyDown(e: KeyboardEvent) {
-    const keys: Record<string, () => void> = {
-      ArrowDown: () => move(focusIdx + 1),
-      ArrowRight: () => move(focusIdx + 1),
-      ArrowUp: () => move(focusIdx - 1),
-      ArrowLeft: () => move(focusIdx - 1),
-      Home: () => move(0),
-      End: () => move(count - 1),
-      Escape: () => close(true),
-    };
-    const k = keys[e.key];
-    if (k) {
-      e.preventDefault();
-      e.stopPropagation();
-      k();
-    }
-  }
+  // Enter and Space are left to the browser: they click the focused row.
+  const onKeyDown = (e: KeyboardEvent) => void runKey(e, listKeys(m, count));
 
   const label = state.kind === 'one' ? (fontById(state.id)?.family ?? DEFAULT_FONT_FAMILY) : state.kind === 'mixed' ? 'Mixed' : DEFAULT_FONT_FAMILY;
   const name = `Font: ${label}`;
   const item = (i: number, content: ReactNode, onClick: () => void, extra: Record<string, unknown> = {}) => (
-    <button
-      key={i}
-      ref={(el) => {
-        itemsRef.current[i] = el;
-      }}
-      type="button"
-      className="font-item"
-      tabIndex={i === focusIdx ? 0 : -1}
-      onMouseDown={(e) => e.preventDefault()}
-      onFocus={() => setFocusIdx(i)}
-      onClick={onClick}
-      {...extra}
-    >
+    <button key={i} {...m.itemProps(i)} type="button" className="font-item" onClick={onClick} {...extra}>
       {content}
     </button>
   );
 
   return (
-    <span className="color-tool font-tool" ref={wrapRef}>
-      <button
-        ref={buttonRef}
-        type="button"
-        className={'tb font-button' + (open ? ' active' : '')}
-        title={name}
-        aria-label={name}
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-controls={open ? popId : undefined}
-        disabled={disabled}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (open ? close(true) : setOpen(true))}
-      >
+    <span className="color-tool font-tool" ref={m.wrapRef}>
+      <button {...m.buttonProps} type="button" className={'tb font-button' + (open ? ' active' : '')} title={name} aria-label={name} aria-haspopup="true" disabled={disabled}>
         <span className="font-button-label">{label}</span>
         <ChevronDown />
       </button>
       {open && (
-        <div
-          id={popId}
-          ref={popRef}
-          className={'font-popover' + (place?.above ? ' above' : '')}
-          role="group"
-          aria-label="Font"
-          style={placementStyle(place)}
-          onKeyDown={onKeyDown}
-          onBlur={(e) => {
-            if (!wrapRef.current?.contains(e.relatedTarget as Node | null)) close(false);
-          }}
-        >
+        <div {...m.popoverProps} className={'font-popover' + (m.place?.above ? ' above' : '')} role="group" aria-label="Font" onKeyDown={onKeyDown}>
           {/* The list scrolls on its own; its rows keep their height. The footer stays below it, always visible. */}
           <div className="menu-scroll">
             {item(0, <span className="font-default-name">{DEFAULT_FONT_FAMILY}</span>, () => choose(null), {

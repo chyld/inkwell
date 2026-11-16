@@ -1,10 +1,10 @@
 // Text size for selected text: − / size / + in the toolbar. A size equal to the block's default is
 // never stored: the mark is removed instead, so the default is always reachable.
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { Mark, Node as PMNode } from '@tiptap/pm/model';
-import { Minus, Plus } from 'lucide-react';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, defaultSizeOf } from '../../shared/noteRules';
+import { parseSize, SizeStepper } from './SizeStepper';
 
 const clamp = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, n));
 const markSize = (marks: readonly Mark[]) => marks.find((m) => m.type.name === 'fontSize')?.attrs.size as number | undefined;
@@ -73,9 +73,8 @@ export function FontSizeControl({ editor, disabled }: { editor: Editor; disabled
   }, [s.current, editing]);
 
   function commit() {
-    const v = text.trim();
-    if (/^[0-9]{1,2}$/.test(v) && Number(v) >= FONT_SIZE_MIN && Number(v) <= FONT_SIZE_MAX) {
-      const n = Number(v);
+    const n = parseSize(text);
+    if (n !== null) {
       applySize(editor, () => n);
       editor.commands.focus();
     }
@@ -83,38 +82,21 @@ export function FontSizeControl({ editor, disabled }: { editor: Editor; disabled
     setText(String(sizeStateOf(editor).current)); // anything else: the old value back
   }
 
-  const button = (label: string, icon: ReactNode, enabled: boolean, step: number) => (
-    <button
-      type="button"
-      className="tb"
-      aria-label={label}
-      title={label}
-      disabled={disabled || !enabled}
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={() => applySize(editor, (n) => n + step)}
-    >
-      {icon}
-    </button>
-  );
-
   return (
-    <div className="tb-group size-group" role="group" aria-label="Font size">
-      {button('Decrease font size', <Minus />, s.max > FONT_SIZE_MIN, -1)}
-      <input
-        className="size-input"
-        type="text"
-        inputMode="numeric"
-        aria-label="Font size"
-        title="Font size"
-        disabled={disabled}
-        value={text}
-        maxLength={2}
-        onFocus={(e) => {
+    <SizeStepper
+      text={text}
+      onText={setText}
+      canDecrease={s.max > FONT_SIZE_MIN}
+      canIncrease={s.min < FONT_SIZE_MAX}
+      onStep={(step) => applySize(editor, (n) => n + step)}
+      disabled={disabled}
+      keepEditorFocus
+      inputProps={{
+        onFocus: (e) => {
           setEditing(true);
           e.currentTarget.select();
-        }}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
+        },
+        onKeyDown: (e) => {
           if (e.key === 'Enter') {
             e.preventDefault();
             commit();
@@ -124,15 +106,14 @@ export function FontSizeControl({ editor, disabled }: { editor: Editor; disabled
             setEditing(false);
             editor.commands.focus();
           }
-        }}
-        onBlur={() => {
+        },
+        onBlur: () => {
           if (editing) {
             setEditing(false);
             setText(String(sizeStateOf(editor).current));
           }
-        }}
-      />
-      {button('Increase font size', <Plus />, s.min < FONT_SIZE_MAX, 1)}
-    </div>
+        },
+      }}
+    />
   );
 }

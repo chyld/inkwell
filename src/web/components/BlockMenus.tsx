@@ -2,10 +2,10 @@
 // Headings, Lists and Blocks show the icon of what is in use at the cursor (drawn as pressed), or the group's
 // own icon. Rows toggle exactly as the old separate buttons did. Keyboard: arrows, Home/End, Enter/Space,
 // Escape (back to the button), Tab (closes); ArrowDown on the button opens the menu.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+import { useLayoutEffect, type KeyboardEvent, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ChevronDown, Heading, Heading1, Heading2, Heading3, ImagePlus, List, ListOrdered, ListTodo, LoaderCircle, Minus, Pilcrow, Plus, Quote, SquareCode, Table, TextQuote } from 'lucide-react';
-import { placementStyle, useMenuPlacement } from './menuPlacement';
+import { runKey, usePopoverMenu } from './popoverMenu';
 
 export interface MenuRow {
   id: string;
@@ -30,124 +30,81 @@ interface Props {
 }
 
 export function ToolbarMenu({ name, icon, rows, current = null, kind }: Props) {
-  const [open, setOpen] = useState(false);
-  const [focusIdx, setFocusIdx] = useState(0);
-  const wrapRef = useRef<HTMLSpanElement>(null);
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const popRef = useRef<HTMLDivElement>(null);
-  const itemsRef = useRef<(HTMLButtonElement | null)[]>([]);
-  const popId = useId();
+  // Tab closes it (below) rather than a focus-out.
+  const m = usePopoverMenu({ closeOnFocusOut: false });
   const label = current ? `${name}: ${current.label}` : name;
   const enabledIdx = rows.map((r, i) => (r.disabled ? -1 : i)).filter((i) => i >= 0);
 
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!m.open) return;
     const checked = rows.findIndex((r) => r.checked && !r.disabled);
     const start = checked >= 0 ? checked : (enabledIdx[0] ?? 0);
-    setFocusIdx(start);
-    itemsRef.current[start]?.focus();
+    m.focusItem(start);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
-  const place = useMenuPlacement(open, wrapRef, popRef, []);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    return () => document.removeEventListener('mousedown', onDown);
-  }, [open]);
+  }, [m.open]);
 
-  function close(refocus: boolean) {
-    setOpen(false);
-    if (refocus) buttonRef.current?.focus();
-  }
-
+  /** Moves over the enabled rows only, wrapping; ±Infinity: the last or the first. */
   function move(to: number) {
     if (!enabledIdx.length) return;
-    const at = enabledIdx.indexOf(focusIdx);
+    const at = enabledIdx.indexOf(m.focusIdx);
     const next = to === Infinity ? enabledIdx.length - 1 : to === -Infinity ? 0 : (((at < 0 ? 0 : at) + to) % enabledIdx.length + enabledIdx.length) % enabledIdx.length;
-    const i = enabledIdx[next];
-    setFocusIdx(i);
-    itemsRef.current[i]?.focus();
-    itemsRef.current[i]?.scrollIntoView?.({ block: 'nearest' });
+    m.focusItem(enabledIdx[next], true);
   }
 
   function onKeyDown(e: KeyboardEvent) {
-    const keys: Record<string, () => void> = {
-      ArrowDown: () => move(1),
-      ArrowUp: () => move(-1),
-      Home: () => move(-Infinity),
-      End: () => move(Infinity),
-      Escape: () => close(true),
-    };
     if (e.key === 'Tab') {
-      close(false);
+      m.close(false);
       return;
     }
     // Enter and Space choose the focused row here, with the key's default cancelled: left to the browser,
     // the button's click would move the focus to the note and the same Enter would then split the text there.
-    if ((e.key === 'Enter' || e.key === ' ') && rows[focusIdx]) {
+    if ((e.key === 'Enter' || e.key === ' ') && rows[m.focusIdx]) {
       e.preventDefault();
       e.stopPropagation();
-      choose(rows[focusIdx]);
+      choose(rows[m.focusIdx]);
       return;
     }
-    const k = keys[e.key];
-    if (k) {
-      e.preventDefault();
-      e.stopPropagation();
-      k();
-    }
+    runKey(e, { ArrowDown: () => move(1), ArrowUp: () => move(-1), Home: () => move(-Infinity), End: () => move(Infinity), Escape: () => m.close(true) });
   }
 
   function choose(r: MenuRow) {
     if (r.disabled) return;
-    close(false);
+    m.close(false);
     r.run();
   }
 
   const role = kind === 'radio' ? 'menuitemradio' : kind === 'checkbox' ? 'menuitemcheckbox' : 'menuitem';
   return (
-    <span className="color-tool tb-menu-tool" ref={wrapRef}>
+    <span className="color-tool tb-menu-tool" ref={m.wrapRef}>
       <button
-        ref={buttonRef}
+        {...m.buttonProps}
         type="button"
-        className={'tb tb-menu-button' + (current ? ' active' : '') + (open ? ' open' : '')}
+        className={'tb tb-menu-button' + (current ? ' active' : '') + (m.open ? ' open' : '')}
         title={label}
         aria-label={label}
         aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={open ? popId : undefined}
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={() => (open ? close(true) : setOpen(true))}
         onKeyDown={(e) => {
-          if (e.key === 'ArrowDown' && !open) {
+          if (e.key === 'ArrowDown' && !m.open) {
             e.preventDefault();
-            setOpen(true);
+            m.setOpen(true);
           }
         }}
       >
         {current ? current.icon : icon}
         <ChevronDown className="tb-chevron" />
       </button>
-      {open && (
-        <div id={popId} ref={popRef} className={'font-popover tb-menu' + (place?.above ? ' above' : '')} role="menu" aria-label={name} style={placementStyle(place)} onKeyDown={onKeyDown}>
+      {m.open && (
+        <div {...m.popoverProps} className={'font-popover tb-menu' + (m.place?.above ? ' above' : '')} role="menu" aria-label={name} onKeyDown={onKeyDown}>
           <div className="menu-scroll">
             {rows.map((r, i) => (
               <button
                 key={r.id}
-                ref={(el) => {
-                  itemsRef.current[i] = el;
-                }}
+                {...m.itemProps(i)}
                 type="button"
                 role={role}
                 aria-checked={kind === 'action' ? undefined : !!r.checked}
                 disabled={r.disabled}
                 className="font-item tb-menu-item"
-                tabIndex={i === focusIdx ? 0 : -1}
-                onMouseDown={(e) => e.preventDefault()}
-                onFocus={() => setFocusIdx(i)}
                 onClick={() => choose(r)}
               >
                 {r.icon}
