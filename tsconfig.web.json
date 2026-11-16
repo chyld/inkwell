@@ -8,7 +8,8 @@
     "types": [],
     "strict": true,
     "skipLibCheck": true,
-    "noEmit": true
+    "noEmit": true,
+    "resolveJsonModule": true
   },
   "include": ["src/web/**/*.ts", "src/web/**/*.tsx", "src/shared/**/*.ts"]
 }

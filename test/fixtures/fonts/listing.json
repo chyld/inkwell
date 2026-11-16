@@ -1,0 +1,1071 @@
+{
+ "axisRegistry": [],
+ "familyMetadataList": [
+  {
+   "family": "ABeeZee",
+   "displayName": null,
+   "category": "Sans Serif",
+   "stroke": "Sans Serif",
+   "classifications": [],
+   "size": 46514,
+   "subsets": [
+    "menu",
+    "latin",
+    "latin-ext"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": 5,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.182
+    },
+    "400i": {
+     "thickness": 5,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.182
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Anja Meiners"
+   ],
+   "lastModified": "2025-09-08",
+   "dateAdded": "2012-09-30",
+   "popularity": 186,
+   "trending": 1562,
+   "defaultSort": 184,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Abhaya Libre",
+   "displayName": null,
+   "category": "Serif",
+   "stroke": "Serif",
+   "classifications": [],
+   "size": 536189,
+   "subsets": [
+    "menu",
+    "latin",
+    "latin-ext",
+    "sinhala"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.1796875
+    },
+    "500": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.1796875
+    },
+    "600": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.1796875
+    },
+    "700": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.1796875
+    },
+    "800": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.1796875
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Mooniak"
+   ],
+   "lastModified": "2025-09-16",
+   "dateAdded": "2016-08-30",
+   "popularity": 368,
+   "trending": 1076,
+   "defaultSort": 362,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "Sinh",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Allkin",
+   "displayName": null,
+   "category": "Display",
+   "stroke": null,
+   "classifications": [
+    "Display"
+   ],
+   "size": 64860,
+   "subsets": [
+    "menu"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 0.6
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Monotype Imaging Inc."
+   ],
+   "lastModified": "2026-03-11",
+   "dateAdded": "2026-02-18",
+   "popularity": 1906,
+   "trending": 434,
+   "defaultSort": 1388,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Almendra",
+   "displayName": null,
+   "category": "Serif",
+   "stroke": "Serif",
+   "classifications": [
+    "Display"
+   ],
+   "size": 43976,
+   "subsets": [
+    "menu",
+    "latin",
+    "latin-ext"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": 4,
+     "slant": 1,
+     "width": 6,
+     "lineHeight": 1.296
+    },
+    "400i": {
+     "thickness": 4,
+     "slant": 1,
+     "width": 6,
+     "lineHeight": 1.296
+    },
+    "700": {
+     "thickness": 7,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.296
+    },
+    "700i": {
+     "thickness": 7,
+     "slant": 1,
+     "width": 6,
+     "lineHeight": 1.296
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Ana Sanfelippo"
+   ],
+   "lastModified": "2025-09-04",
+   "dateAdded": "2011-12-19",
+   "popularity": 887,
+   "trending": 1893,
+   "defaultSort": 867,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Buda",
+   "displayName": null,
+   "category": "Display",
+   "stroke": "Serif",
+   "classifications": [
+    "Display"
+   ],
+   "size": 106012,
+   "subsets": [
+    "menu",
+    "latin"
+   ],
+   "fonts": {
+    "300": {
+     "thickness": 4,
+     "slant": 1,
+     "width": 6,
+     "lineHeight": 1.25
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Ad\u00e8le Antignac"
+   ],
+   "lastModified": "2025-09-08",
+   "dateAdded": "2010-12-20",
+   "popularity": 1563,
+   "trending": 2178,
+   "defaultSort": 1513,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Caveat",
+   "displayName": null,
+   "category": "Handwriting",
+   "stroke": null,
+   "classifications": [
+    "Handwriting"
+   ],
+   "size": 403648,
+   "subsets": [
+    "menu",
+    "cyrillic",
+    "cyrillic-ext",
+    "latin",
+    "latin-ext"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": 3,
+     "slant": 6,
+     "width": 3,
+     "lineHeight": 1.26
+    },
+    "500": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.26
+    },
+    "600": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.26
+    },
+    "700": {
+     "thickness": 4,
+     "slant": 6,
+     "width": 3,
+     "lineHeight": 1.26
+    }
+   },
+   "axes": [
+    {
+     "tag": "wght",
+     "min": 400.0,
+     "max": 700.0,
+     "defaultValue": 400.0
+    }
+   ],
+   "designers": [
+    "Impallari Type"
+   ],
+   "lastModified": "2025-09-04",
+   "dateAdded": "2015-09-23",
+   "popularity": 104,
+   "trending": 801,
+   "defaultSort": 108,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Courier Prime",
+   "displayName": null,
+   "category": "Monospace",
+   "stroke": "Serif",
+   "classifications": [
+    "Monospace"
+   ],
+   "size": 76224,
+   "subsets": [
+    "menu",
+    "latin",
+    "latin-ext"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.123046875
+    },
+    "400i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.123046875
+    },
+    "700": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.123046875
+    },
+    "700i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.123046875
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Alan Dague-Greene"
+   ],
+   "lastModified": "2025-09-11",
+   "dateAdded": "2019-12-05",
+   "popularity": 231,
+   "trending": 1430,
+   "defaultSort": 229,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Inter",
+   "displayName": null,
+   "category": "Sans Serif",
+   "stroke": "Sans Serif",
+   "classifications": [],
+   "size": 891586,
+   "subsets": [
+    "menu",
+    "cyrillic",
+    "cyrillic-ext",
+    "greek",
+    "greek-ext",
+    "latin",
+    "latin-ext",
+    "vietnamese"
+   ],
+   "fonts": {
+    "100": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "100i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "200": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "200i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "300": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "300i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "400": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "400i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "500": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "500i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "600": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "600i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "700": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "700i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "800": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "800i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "900": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    },
+    "900i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.2099609375
+    }
+   },
+   "axes": [
+    {
+     "tag": "opsz",
+     "min": 14.0,
+     "max": 32.0,
+     "defaultValue": 14.0
+    },
+    {
+     "tag": "wght",
+     "min": 100.0,
+     "max": 900.0,
+     "defaultValue": 400.0
+    }
+   ],
+   "designers": [
+    "Rasmus Andersson"
+   ],
+   "lastModified": "2025-09-10",
+   "dateAdded": "2020-01-24",
+   "popularity": 5,
+   "trending": 1052,
+   "defaultSort": 7,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Lora",
+   "displayName": null,
+   "category": "Serif",
+   "stroke": "Serif",
+   "classifications": [],
+   "size": 216714,
+   "subsets": [
+    "menu",
+    "cyrillic",
+    "cyrillic-ext",
+    "latin",
+    "latin-ext",
+    "math",
+    "symbols",
+    "vietnamese"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": 4,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.28
+    },
+    "400i": {
+     "thickness": 4,
+     "slant": 2,
+     "width": 7,
+     "lineHeight": 1.28
+    },
+    "500": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.28
+    },
+    "500i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.28
+    },
+    "600": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.28
+    },
+    "600i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.28
+    },
+    "700": {
+     "thickness": 6,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.28
+    },
+    "700i": {
+     "thickness": 6,
+     "slant": 3,
+     "width": 7,
+     "lineHeight": 1.28
+    }
+   },
+   "axes": [
+    {
+     "tag": "wght",
+     "min": 400.0,
+     "max": 700.0,
+     "defaultValue": 400.0
+    }
+   ],
+   "designers": [
+    "Cyreal"
+   ],
+   "lastModified": "2025-09-11",
+   "dateAdded": "2011-07-06",
+   "popularity": 39,
+   "trending": 939,
+   "defaultSort": 37,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Molle",
+   "displayName": null,
+   "category": "Handwriting",
+   "stroke": null,
+   "classifications": [
+    "Display",
+    "Handwriting"
+   ],
+   "size": 50964,
+   "subsets": [
+    "menu",
+    "latin",
+    "latin-ext"
+   ],
+   "fonts": {
+    "400i": {
+     "thickness": 6,
+     "slant": 8,
+     "width": 7,
+     "lineHeight": 1.24658203125
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Elena Albertoni"
+   ],
+   "lastModified": "2025-09-04",
+   "dateAdded": "2012-09-18",
+   "popularity": 1661,
+   "trending": 2099,
+   "defaultSort": 1602,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Playfair Display",
+   "displayName": null,
+   "category": "Serif",
+   "stroke": "Serif",
+   "classifications": [
+    "Display"
+   ],
+   "size": 289706,
+   "subsets": [
+    "menu",
+    "cyrillic",
+    "latin",
+    "latin-ext",
+    "vietnamese"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": 4,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.333
+    },
+    "400i": {
+     "thickness": 4,
+     "slant": 5,
+     "width": 7,
+     "lineHeight": 1.333
+    },
+    "500": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.333
+    },
+    "500i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.333
+    },
+    "600": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.333
+    },
+    "600i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.333
+    },
+    "700": {
+     "thickness": 6,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.333
+    },
+    "700i": {
+     "thickness": 6,
+     "slant": 5,
+     "width": 7,
+     "lineHeight": 1.333
+    },
+    "800": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.333
+    },
+    "800i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.333
+    },
+    "900": {
+     "thickness": 7,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.333
+    },
+    "900i": {
+     "thickness": 7,
+     "slant": 5,
+     "width": 7,
+     "lineHeight": 1.333
+    }
+   },
+   "axes": [
+    {
+     "tag": "wght",
+     "min": 400.0,
+     "max": 900.0,
+     "defaultValue": 400.0
+    }
+   ],
+   "designers": [
+    "Claus Eggers S\u00f8rensen"
+   ],
+   "lastModified": "2025-09-11",
+   "dateAdded": "2011-11-16",
+   "popularity": 22,
+   "trending": 641,
+   "defaultSort": 20,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Roboto",
+   "displayName": null,
+   "category": "Sans Serif",
+   "stroke": "Sans Serif",
+   "classifications": [],
+   "size": 509764,
+   "subsets": [
+    "menu",
+    "cyrillic",
+    "cyrillic-ext",
+    "greek",
+    "greek-ext",
+    "latin",
+    "latin-ext",
+    "math",
+    "symbols",
+    "vietnamese"
+   ],
+   "fonts": {
+    "100": {
+     "thickness": 2,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "100i": {
+     "thickness": 2,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "200": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.171875
+    },
+    "200i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.171875
+    },
+    "300": {
+     "thickness": 4,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "300i": {
+     "thickness": 4,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "400": {
+     "thickness": 5,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "400i": {
+     "thickness": 5,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "500": {
+     "thickness": 6,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "500i": {
+     "thickness": 6,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "600": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.171875
+    },
+    "600i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.171875
+    },
+    "700": {
+     "thickness": 6,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "700i": {
+     "thickness": 6,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "800": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.171875
+    },
+    "800i": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.171875
+    },
+    "900": {
+     "thickness": 7,
+     "slant": 1,
+     "width": 7,
+     "lineHeight": 1.171875
+    },
+    "900i": {
+     "thickness": 7,
+     "slant": 4,
+     "width": 7,
+     "lineHeight": 1.171875
+    }
+   },
+   "axes": [
+    {
+     "tag": "wdth",
+     "min": 75.0,
+     "max": 100.0,
+     "defaultValue": 100.0
+    },
+    {
+     "tag": "wght",
+     "min": 100.0,
+     "max": 900.0,
+     "defaultValue": 400.0
+    }
+   ],
+   "designers": [
+    "Christian Robertson",
+    "ParaType",
+    "Font Bureau"
+   ],
+   "lastModified": "2026-02-19",
+   "dateAdded": "2013-01-08",
+   "popularity": 2,
+   "trending": 1426,
+   "defaultSort": 1,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Sunflower",
+   "displayName": null,
+   "category": "Sans Serif",
+   "stroke": "Sans Serif",
+   "classifications": [],
+   "size": 758389,
+   "subsets": [
+    "menu",
+    "korean",
+    "latin"
+   ],
+   "fonts": {
+    "300": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.25
+    },
+    "500": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.25
+    },
+    "700": {
+     "thickness": null,
+     "slant": null,
+     "width": null,
+     "lineHeight": 1.25
+    }
+   },
+   "axes": [],
+   "designers": [
+    "JIKJISOFT"
+   ],
+   "lastModified": "2026-08-10",
+   "dateAdded": "2018-02-27",
+   "popularity": 870,
+   "trending": 274,
+   "defaultSort": 852,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "Hang",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "Titan One",
+   "displayName": null,
+   "category": "Display",
+   "stroke": "Sans Serif",
+   "classifications": [
+    "Display"
+   ],
+   "size": 55712,
+   "subsets": [
+    "menu",
+    "latin",
+    "latin-ext"
+   ],
+   "fonts": {
+    "400": {
+     "thickness": 9,
+     "slant": 1,
+     "width": 8,
+     "lineHeight": 1.145
+    }
+   },
+   "axes": [],
+   "designers": [
+    "Rodrigo Fuenzalida"
+   ],
+   "lastModified": "2025-09-02",
+   "dateAdded": "2012-01-11",
+   "popularity": 288,
+   "trending": 572,
+   "defaultSort": 285,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  },
+  {
+   "family": "UnifrakturCook",
+   "displayName": null,
+   "category": "Display",
+   "stroke": null,
+   "classifications": [
+    "Display",
+    "Handwriting"
+   ],
+   "size": 42688,
+   "subsets": [
+    "menu",
+    "latin"
+   ],
+   "fonts": {
+    "700": {
+     "thickness": 8,
+     "slant": 1,
+     "width": 6,
+     "lineHeight": 1.30859375
+    }
+   },
+   "axes": [],
+   "designers": [
+    "j. 'mach' wust"
+   ],
+   "lastModified": "2025-09-04",
+   "dateAdded": "2010-12-07",
+   "popularity": 952,
+   "trending": 507,
+   "defaultSort": 932,
+   "androidFragment": null,
+   "isNoto": false,
+   "colorCapabilities": [],
+   "primaryScript": "",
+   "primaryLanguage": "",
+   "isOpenSource": true,
+   "isBrandFont": false,
+   "languages": []
+  }
+ ],
+ "promotedScript": null
+}

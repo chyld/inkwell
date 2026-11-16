@@ -12,7 +12,8 @@
     "outDir": "dist",
     "rootDir": "src",
     "sourceMap": false,
-    "declaration": false
+    "declaration": false,
+    "resolveJsonModule": true
   },
-  "include": ["src/server/**/*.ts", "src/shared/**/*.ts", "src/cli/**/*.ts"]
+  "include": ["src/server/**/*.ts", "src/shared/**/*.ts", "src/cli/**/*.ts", "src/tools/**/*.ts"]
 }
