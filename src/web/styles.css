@@ -1664,6 +1664,15 @@ mark[data-highlight] {
   font-size: 96px;
 }
 
+/* a style's sample (STYLES-SPEC 10): the note's rules for the elements it is built from */
+.style-sample {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.style-sample strong {
+  font-weight: 700;
+}
+
 /* modal & notices */
 .modal-backdrop {
   position: fixed;

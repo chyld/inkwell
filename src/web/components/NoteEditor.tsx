@@ -104,7 +104,7 @@ export function NoteEditorPane(props: Props) {
   const [missing, setMissing] = useState(false);
   const [reload, setReload] = useState(0);
   // The fonts of this opening of the note (FONTS-SPEC 8.3): kept across a conflict's reload.
-  const [fontSession] = useState(() => new NoteFontSession((id) => api('GET', `/fonts/faces/${id}`)));
+  const [fontSession] = useState(() => new NoteFontSession());
   useEffect(() => () => fontSession.close(), [fontSession]);
 
   useEffect(() => {
