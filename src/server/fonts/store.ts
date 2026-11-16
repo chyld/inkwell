@@ -123,6 +123,12 @@ export class FontStore {
     return null;
   }
 
+  /** The path of a recorded file without checking the disk (the caller opens it; on failure it calls fileFor). */
+  recordedPath(hash: string): string | null {
+    if (!FONT_HASH_RE.test(hash)) return null;
+    return stmt(this.db, 'SELECT 1 FROM font_files WHERE hash = ?').get(hash) ? this.filePath(hash) : null;
+  }
+
   totalBytes(): number {
     return (stmt(this.db, 'SELECT ifnull(sum(size), 0) AS n FROM font_files').get() as { n: number }).n;
   }
@@ -132,12 +138,92 @@ export class FontStore {
   /**
    * Record one unit whole, evicting least recently used note faces of families that are in no
    * collection and not retired if that makes room. Throws FontStoreFull, changing nothing, if not.
+   *
+   * The common case (the unit fits) does work proportional to this unit: it reads only the files involved and
+   * deletes exactly the files that lose their last reference. Only when eviction may be needed does it build the
+   * cache-wide bookkeeping (planEviction) and sweep rows and the directory afterwards (as start-up does).
    */
   record(fontId: string, unit: Unit, files: DownloadedFile[]): void {
     const distinct = new Map(files.map((f) => [f.hash, f]));
-    const sizes = new Map((stmt(this.db, 'SELECT hash, size FROM font_files').all() as { hash: string; size: number }[]).map((r) => [r.hash, r.size]));
-    const newFiles = [...distinct.values()].filter((f) => !sizes.has(f.hash));
+    const known = new Set(
+      (stmt(this.db, 'SELECT hash FROM font_files WHERE hash IN (SELECT value FROM json_each(?))').all(JSON.stringify([...distinct.keys()])) as { hash: string }[]).map(
+        (r) => r.hash,
+      ),
+    );
+    const newFiles = [...distinct.values()].filter((f) => !known.has(f.hash));
     const newBytes = newFiles.reduce((n, f) => n + f.size, 0);
+    // The files of the older copy of this unit (being replaced) that the new copy does not use.
+    const oldFiles = (
+      unit.kind === 'preview'
+        ? (stmt(this.db, 'SELECT file FROM font_previews WHERE font_id = ?').all(fontId) as { file: string }[])
+        : (stmt(this.db, 'SELECT DISTINCT file FROM font_faces WHERE font_id = ?').all(fontId) as { file: string }[])
+    )
+      .map((r) => r.file)
+      .filter((h) => !distinct.has(h));
+    // Of those, the bytes freed: files nothing else refers to. Conservative: if this says the unit does not fit,
+    // the full computation below decides, exactly as before.
+    const freedOld = oldFiles.reduce((n, h) => (this.otherRefs(h, unit.kind, fontId) === 0 ? n + this.fileSize(h) : n), 0);
+    const fits = this.totalBytes() - freedOld + newBytes <= this.opts.capBytes;
+    const evict = fits ? [] : this.planEviction(fontId, unit, distinct, newBytes);
+
+    // Files first (a row never points at a missing file), then the rows, then unreferenced files go.
+    fs.mkdirSync(this.dir, { recursive: true });
+    for (const f of newFiles) {
+      const dest = this.filePath(f.hash);
+      if (!fs.existsSync(dest)) fs.renameSync(f.tmpPath, dest);
+    }
+    const now = this.opts.now();
+    let unreferenced: string[] = [];
+    this.db
+      .transaction(() => {
+        for (const id of evict) stmt(this.db, 'DELETE FROM font_face_units WHERE font_id = ?').run(id);
+        if (unit.kind === 'preview') stmt(this.db, 'DELETE FROM font_previews WHERE font_id = ?').run(fontId);
+        else stmt(this.db, 'DELETE FROM font_face_units WHERE font_id = ?').run(fontId);
+        const addFile = stmt(this.db, 'INSERT OR IGNORE INTO font_files (hash, size) VALUES (?, ?)');
+        for (const f of distinct.values()) addFile.run(f.hash, f.size);
+        if (unit.kind === 'preview') {
+          stmt(this.db, 'INSERT INTO font_previews (font_id, file, fetched_at, last_used) VALUES (?, ?, ?, ?)').run(fontId, unit.file, now, now);
+        } else {
+          stmt(this.db, 'INSERT INTO font_face_units (font_id, fetched_at, last_used) VALUES (?, ?, ?)').run(fontId, now, now);
+          const add = stmt(this.db, 'INSERT INTO font_faces (font_id, seq, weight, style, unicode_range, file) VALUES (?, ?, ?, ?, ?, ?)');
+          unit.faces.forEach((f, i) => add.run(fontId, i, f.weight, f.style, f.unicodeRange, f.file));
+        }
+        if (fits) {
+          // Only the replaced copy's files can have lost their last reference.
+          unreferenced = (
+            stmt(
+              this.db,
+              'DELETE FROM font_files WHERE hash IN (SELECT value FROM json_each(?)) AND hash NOT IN (SELECT file FROM font_previews) AND hash NOT IN (SELECT file FROM font_faces) RETURNING hash',
+            ).all(JSON.stringify(oldFiles)) as { hash: string }[]
+          ).map((r) => r.hash);
+        } else this.deleteUnreferencedRows();
+      })
+      .immediate();
+    if (fits) for (const h of unreferenced) fs.rmSync(this.filePath(h), { force: true });
+    else this.deleteUnrecordedFiles();
+  }
+
+  /** How many units other than this one (kind and family) refer to a file. */
+  private otherRefs(hash: string, kind: Unit['kind'], fontId: string): number {
+    return (
+      stmt(
+        this.db,
+        `SELECT (SELECT count(*) FROM font_previews WHERE file = @hash AND NOT (@kind = 'preview' AND font_id = @font))
+              + (SELECT count(DISTINCT font_id) FROM font_faces WHERE file = @hash AND NOT (@kind = 'faces' AND font_id = @font)) AS n`,
+      ).get({ hash, kind, font: fontId }) as { n: number }
+    ).n;
+  }
+
+  private fileSize(hash: string): number {
+    return (stmt(this.db, 'SELECT ifnull(max(size), 0) AS n FROM font_files WHERE hash = ?').get(hash) as { n: number }).n;
+  }
+
+  /**
+   * The units to evict so this one fits, from the whole cache's bookkeeping (only run when it may not fit).
+   * Throws FontStoreFull if evicting every candidate is not enough.
+   */
+  private planEviction(fontId: string, unit: Unit, distinct: Map<string, DownloadedFile>, newBytes: number): string[] {
+    const sizes = new Map((stmt(this.db, 'SELECT hash, size FROM font_files').all() as { hash: string; size: number }[]).map((r) => [r.hash, r.size]));
     let total = [...sizes.values()].reduce((n, s) => n + s, 0);
 
     // References each recorded file has; the unit being recorded replaces any older copy of itself.
@@ -174,32 +260,7 @@ export class FontStore {
       }
       if (total + newBytes - freed > this.opts.capBytes) throw new FontStoreFull('The font store is full.');
     }
-
-    // Files first (a row never points at a missing file), then the rows, then unreferenced files go.
-    fs.mkdirSync(this.dir, { recursive: true });
-    for (const f of newFiles) {
-      const dest = this.filePath(f.hash);
-      if (!fs.existsSync(dest)) fs.renameSync(f.tmpPath, dest);
-    }
-    const now = this.opts.now();
-    this.db
-      .transaction(() => {
-        for (const id of evict) stmt(this.db, 'DELETE FROM font_face_units WHERE font_id = ?').run(id);
-        if (unit.kind === 'preview') stmt(this.db, 'DELETE FROM font_previews WHERE font_id = ?').run(fontId);
-        else stmt(this.db, 'DELETE FROM font_face_units WHERE font_id = ?').run(fontId);
-        const addFile = stmt(this.db, 'INSERT OR IGNORE INTO font_files (hash, size) VALUES (?, ?)');
-        for (const f of distinct.values()) addFile.run(f.hash, f.size);
-        if (unit.kind === 'preview') {
-          stmt(this.db, 'INSERT INTO font_previews (font_id, file, fetched_at, last_used) VALUES (?, ?, ?, ?)').run(fontId, unit.file, now, now);
-        } else {
-          stmt(this.db, 'INSERT INTO font_face_units (font_id, fetched_at, last_used) VALUES (?, ?, ?)').run(fontId, now, now);
-          const add = stmt(this.db, 'INSERT INTO font_faces (font_id, seq, weight, style, unicode_range, file) VALUES (?, ?, ?, ?, ?, ?)');
-          unit.faces.forEach((f, i) => add.run(fontId, i, f.weight, f.style, f.unicodeRange, f.file));
-        }
-        this.deleteUnreferencedRows();
-      })
-      .immediate();
-    this.deleteUnrecordedFiles();
+    return evict;
   }
 
   private deleteUnreferencedRows() {

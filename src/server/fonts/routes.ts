@@ -70,19 +70,22 @@ export async function registerFontRoutes(api: FastifyInstance, store: Store, fon
   api.get('/fonts/file/:hash', { config: { identity: true } }, async (req, reply) => {
     const hash = (req.params as { hash?: unknown }).hash;
     if (typeof hash !== 'string' || !FONT_HASH_RE.test(hash)) throw notFound();
-    const p = store.fonts.fileFor(hash); // the only request value in a path: matched and found in the tables
+    const p = store.fonts.recordedPath(hash); // the only request value in a path: matched and found in the tables
     if (!p) throw notFound();
-    let bytes: Buffer;
+    // Opened once, asynchronously, and streamed (it was read whole and synchronously, up to 2 MB per request).
+    let file: fs.promises.FileHandle;
+    let size: number;
     try {
-      bytes = fs.readFileSync(p);
+      file = await fs.promises.open(p, 'r');
+      size = (await file.stat()).size;
     } catch {
-      store.fonts.fileFor(hash); // gone meanwhile: drops the units that refer to it
+      store.fonts.fileFor(hash); // gone: drops the units that refer to it
       throw notFound();
     }
     // Public, identical for every user and named by its content: a browser may keep it.
     reply.header('content-type', 'font/woff2');
-    reply.header('x-content-type-options', 'nosniff');
+    reply.header('content-length', String(size));
     reply.header('cache-control', 'private, max-age=31536000, immutable');
-    return reply.send(bytes);
+    return reply.send(file.createReadStream());
   });
 }

@@ -133,20 +133,15 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
       .header('x-content-type-options', 'nosniff')
       .header('content-security-policy', IMAGE_CSP);
     if (req.headers['if-none-match'] === etag) return reply.status(304).send();
-    const file = store.imagePath(img.user_id, img.id);
-    let stream: fs.ReadStream;
+    // Opened once (no separate access check); a missing file is a 404.
+    let file: fs.promises.FileHandle;
     try {
-      await fs.promises.access(file);
-      stream = fs.createReadStream(file);
+      file = await fs.promises.open(store.imagePath(img.user_id, img.id), 'r');
     } catch {
       throw new AppError(404, 'not_found', 'Not found.');
     }
-    reply
-      .header('content-type', img.mime)
-      .header('content-length', String(img.size))
-      .header('x-content-type-options', 'nosniff')
-      .header('content-security-policy', IMAGE_CSP)
-      .header('content-disposition', 'inline');
-    return reply.send(stream);
+    // nosniff and the CSP are set above (and nosniff for every reply by app.ts).
+    reply.header('content-type', img.mime).header('content-length', String(img.size)).header('content-disposition', 'inline');
+    return reply.send(file.createReadStream());
   });
 }
