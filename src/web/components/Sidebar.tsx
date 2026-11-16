@@ -54,9 +54,11 @@ interface Props {
   onView: (v: View) => void;
   onFoldersChanged: () => void;
   onSignOut: () => void;
+  collapsed: boolean;
+  onCollapse: () => void;
 }
 
-export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onSignOut }: Props) {
+export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onSignOut, collapsed, onCollapse }: Props) {
   const dialogs = useDialogs();
   const inbox = folders.find((f) => f.isInbox);
   const tree = folders.filter((f) => !f.isInbox);
@@ -82,7 +84,20 @@ export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onS
   const pct = Math.min(100, (me.storageUsed / me.storageLimit) * 100);
 
   return (
-    <nav className="sidebar" aria-label="Folders and views">
+    <nav id="sidebar" className={'sidebar' + (collapsed ? ' collapsed' : '')} aria-label="Folders and views">
+      <div className="sidebar-top desktop-only">
+        <button
+          id="sidebar-hide"
+          className="icon-button collapse-button"
+          aria-expanded={true}
+          aria-controls="sidebar"
+          aria-label="Hide folders and tags"
+          title="Hide folders and tags"
+          onClick={onCollapse}
+        >
+          «
+        </button>
+      </div>
       <div className="sidebar-scroll">
         <ViewButton label="All notes" icon="🗒️" active={view.kind === 'all'} onClick={() => onView({ kind: 'all' })} />
         {inbox && <ViewButton label="Inbox" icon="📥" count={inbox.noteCount} active={view.kind === 'inbox'} onClick={() => onView({ kind: 'inbox' })} />}

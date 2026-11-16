@@ -17,15 +17,28 @@ interface Props {
   onNewNote: () => void;
   onEmptyTrash: () => void;
   onBack: () => void;
+  collapsed: boolean;
+  onCollapse: () => void;
 }
 
 export function NoteList(p: Props) {
   const shortcut = isMac() ? '⌘⌥N' : 'Ctrl+Alt+N';
   return (
-    <section className="note-list" aria-label="Notes">
+    <section id="note-list" className={'note-list' + (p.collapsed ? ' collapsed' : '')} aria-label="Notes">
       <header className="list-header">
         <button className="icon-button mobile-only" onClick={p.onBack} aria-label="Back to folders">
           ‹
+        </button>
+        <button
+          id="list-hide"
+          className="icon-button collapse-button desktop-only"
+          aria-expanded={true}
+          aria-controls="note-list"
+          aria-label="Hide note list"
+          title="Hide note list"
+          onClick={p.onCollapse}
+        >
+          «
         </button>
         <h2 title={p.heading}>{p.heading}</h2>
         {!p.isTrash && (

@@ -11,6 +11,7 @@ import { signOutFlow } from './signout';
 import { emptyTrashFlow } from './trash';
 import { cancelUploads, hasPendingUploads } from './components/images';
 import { NoteSaver } from './saver';
+import { loadLayout, saveLayout, type Layout } from './layout';
 import { currentAuthEpoch, getExpectedUser, newAuthEpoch, setExpectedUser } from './api';
 
 // The user this tab signed in as. It is kept, also across reloads of the tab, until a sign-in or
@@ -109,6 +110,20 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const [selected, setSelected] = useState<string | null>(null);
   const [fresh, setFresh] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>('list');
+  // Collapsed panels (wide screens only; on a narrow screen each panel is a screen of its own).
+  const [layout, setLayout] = useState<Layout>(loadLayout);
+  const focusAfterToggle = useRef<string | null>(null);
+  function togglePanel(which: keyof Layout) {
+    const next = { ...layout, [which]: !layout[which] };
+    setLayout(next);
+    saveLayout(next);
+    // The button that was pressed goes away; keep the focus on its counterpart.
+    focusAfterToggle.current = `${which}-${next[which] ? 'show' : 'hide'}`;
+  }
+  useEffect(() => {
+    if (focusAfterToggle.current) document.getElementById(focusAfterToggle.current)?.focus();
+    focusAfterToggle.current = null;
+  }, [layout]);
   const listSeq = useRef(0);
 
   const refreshFolders = useCallback(() => {
@@ -343,9 +358,23 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
               : (findFolder(folders, view.id)?.name ?? 'Folder');
 
   return (
-    <div className={`app screen-${screen}`}>
-      <Sidebar me={me} folders={folders} tags={tags} view={view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} />
+    <div className={`app screen-${screen}${layout.sidebar ? ' sidebar-collapsed' : ''}${layout.list ? ' list-collapsed' : ''}`}>
+      {layout.sidebar && <PanelStrip id="sidebar-show" controls="sidebar" label="Show folders and tags" text="Folders" onClick={() => togglePanel('sidebar')} />}
+      <Sidebar
+        me={me}
+        folders={folders}
+        tags={tags}
+        view={view}
+        onView={changeView}
+        onFoldersChanged={refreshFolders}
+        onSignOut={signOut}
+        collapsed={layout.sidebar}
+        onCollapse={() => togglePanel('sidebar')}
+      />
+      {layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
       <NoteList
+        collapsed={layout.list}
+        onCollapse={() => togglePanel('list')}
         heading={heading}
         items={items}
         loading={loading}
@@ -384,5 +413,19 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
         </section>
       )}
     </div>
+  );
+}
+
+/** The slim strip a collapsed panel leaves behind (wide screens only): one button that brings the panel back. */
+function PanelStrip({ id, controls, label, text, onClick }: { id: string; controls: string; label: string; text: string; onClick: () => void }) {
+  return (
+    <button id={id} className="panel-strip" aria-expanded={false} aria-controls={controls} aria-label={label} title={label} onClick={onClick}>
+      <span className="panel-strip-icon" aria-hidden>
+        »
+      </span>
+      <span className="panel-strip-text" aria-hidden>
+        {text}
+      </span>
+    </button>
   );
 }
