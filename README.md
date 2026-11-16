@@ -7,6 +7,14 @@ tables, resizable images, underline, text colours, highlights, fonts, text sizes
 text styles), organised in nested folders and with tags, and found with
 full-text search. Deleted notes go to Trash until you empty it.
 
+The screen ('Teal rail and paper'): a narrow teal **rail** of icons on the left
+(All notes, Inbox, Folders, Tags; Fonts, Styles, Trash and your account; on a
+phone it is a bar along the bottom), the **list** of notes as white cards, and
+the **editor**: a slim line with the folder, tags, dates and save status, the
+formatting toolbar as one dark pill, and the note on a sheet of paper with its
+title at the top. Folders and Tags open a panel over the list; the account
+button shows your storage and Sign out. Light and dark follow the device.
+
 An AI agent (Claude Code, Codex, Grok, Muse, …) can **add** notes to one user's
 Inbox through an MCP server at `https://<host>/mcp`, using a token you create.
 An agent cannot read, list, search, change or delete anything.
@@ -610,7 +618,7 @@ the specification.
 ## 12. Fonts
 
 Each person can browse the Google Fonts catalogue at **`/fonts`** (the "Fonts"
-entry in the sidebar), search it, filter it by category, and add up to 50 fonts
+button on the rail), search it, filter it by category, and add up to 50 fonts
 to their own collection. In a note, the toolbar's font menu lists that
 collection; choose a font to apply it to the selected text, or "Inter" (the
 app's default font, first in the menu) to remove it. Collections are private. Latin text only, in regular and bold,
@@ -700,7 +708,7 @@ User-Agent, replace the eight files and the `unicode-range` values, and rebuild.
 
 A style is a named set of text formatting: font, size, bold, italic,
 underline, strikethrough, text colour and highlight. Each person keeps up to
-50 of their own at **`/styles`** (the "Styles" entry in the sidebar), where
+50 of their own at **`/styles`** (the "Styles" button on the rail), where
 they are shown as cards and can be created, edited and deleted. In a note, the
 toolbar's first button, **Styles**, lists them: choosing one sets exactly those
 eight things on the selected text (or, with no selection, on what is typed
