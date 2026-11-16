@@ -11,6 +11,12 @@ import { fontsInDoc } from '../shared/noteRules';
  */
 export function limitPastedFonts(slice: Slice, editor: Editor): Slice {
   const used = fontsInDoc(editor.state.doc);
+  // Most pastes stay within the limit: then the slice is returned as it is, without rebuilding it.
+  const pasted = new Set<string>();
+  slice.content.descendants((n) => {
+    for (const m of n.marks) if (m.type.name === 'fontFamily' && !used.has(m.attrs.font as string)) pasted.add(m.attrs.font as string);
+  });
+  if (used.size + pasted.size <= NOTE_FONTS_MAX) return slice;
   const added = new Set<string>();
   let dropped = false;
   const keep = (id: string) => {
@@ -39,6 +45,13 @@ export function limitPastedFonts(slice: Slice, editor: Editor): Slice {
 
 /** Convert header cells outside a table's first row into normal cells (pasted tables). */
 export function fixPastedTables(slice: Slice, editor: Editor): Slice {
+  // Only a slice with a header cell below a table's first row is rebuilt; any other is returned as it is.
+  let headerBelow = false;
+  slice.content.descendants((node) => {
+    if (node.type.name === 'table') node.forEach((row, _o, i) => i > 0 && row.forEach((cell) => void (headerBelow ||= cell.type.name === 'tableHeader')));
+    return !headerBelow;
+  });
+  if (!headerBelow) return slice;
   const schema = editor.schema;
   const mapNode = (node: PMNode): PMNode => {
     if (node.type.name === 'table') {
