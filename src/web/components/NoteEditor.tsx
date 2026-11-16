@@ -45,6 +45,7 @@ import { ColorPicker } from './ColorPicker';
 import { FontPicker } from './FontPicker';
 import { FontSizeControl } from './FontSizeControl';
 import { StylesMenu } from './StylesMenu';
+import { ImageResizeKeys, ResizableImage } from '../ImageView';
 import { NoteFontSession } from '../fonts/runtime';
 import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
@@ -303,7 +304,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   lockedRef.current = locked;
 
   const editor = useEditor({
-    extensions: noteExtensions,
+    extensions: EDITOR_EXTENSIONS,
     content: note.body,
     editable: !trashed,
     shouldRerenderOnTransaction: true,
@@ -604,6 +605,9 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     </section>
   );
 }
+
+// The note schema with the web-only image resize view (same node, same attributes) and its Tab key.
+const EDITOR_EXTENSIONS = [...noteExtensions.map((e) => (e.name === 'image' ? ResizableImage : e)), ImageResizeKeys];
 
 function Toolbar({
   editor,

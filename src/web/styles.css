@@ -1002,6 +1002,91 @@ mark {
 .prose img.ProseMirror-selectednode {
   outline: 3px solid var(--accent);
 }
+/* The editor's image view: a frame as wide as the image (never wider than the column) holding the handles.
+   A stored size is the img's width and height attributes; max-width and height: auto scale it down. */
+.prose .image-view {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0.6em 0;
+}
+.prose .image-view > img {
+  margin: 0;
+}
+.prose .image-view.ProseMirror-selectednode {
+  outline: none;
+}
+.prose .image-view.ProseMirror-selectednode > img {
+  outline: 3px solid var(--accent);
+}
+.image-handle {
+  position: absolute;
+  z-index: 2;
+  width: 14px;
+  height: 14px;
+  margin: -7px;
+  border: 2px solid var(--bg);
+  border-radius: 3px;
+  background: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  touch-action: none; /* the page does not scroll while a handle is dragged */
+  user-select: none;
+}
+.image-handle[data-corner='top-left'] {
+  top: 0;
+  left: 0;
+  cursor: nwse-resize;
+}
+.image-handle[data-corner='top-right'] {
+  top: 0;
+  right: 0;
+  cursor: nesw-resize;
+}
+.image-handle[data-corner='bottom-left'] {
+  bottom: 0;
+  left: 0;
+  cursor: nesw-resize;
+}
+.image-handle[data-corner='bottom-right'] {
+  bottom: 0;
+  right: 0;
+  cursor: nwse-resize;
+}
+.image-handle:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .image-handle {
+    width: 22px;
+    height: 22px;
+    margin: -11px;
+  }
+}
+/* Read-only notes (the Trash, a pending draft) never show handles. */
+.ProseMirror[contenteditable='false'] .image-handle,
+.ProseMirror[contenteditable='false'] .image-size {
+  display: none;
+}
+.image-view.resizing {
+  cursor: nwse-resize;
+}
+.image-size {
+  display: none;
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--text);
+  color: var(--bg);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+.image-view.show-size .image-size {
+  display: block;
+}
 .prose table {
   border-collapse: collapse;
   table-layout: fixed;
@@ -1407,7 +1492,8 @@ mark[data-highlight] {
 .fonts-count,
 .fonts-collection-count,
 .size-input,
-.styles-count {
+.styles-count,
+.image-size {
   font-variant-numeric: tabular-nums;
 }
 

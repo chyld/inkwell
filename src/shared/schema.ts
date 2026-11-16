@@ -56,7 +56,23 @@ function noMergeCell<T extends typeof TableCell | typeof TableHeader>(cell: T): 
   }) as T;
 }
 
-const SafeImage = Image.extend({
+/** A pasted `width`/`height` attribute: a whole number of pixels the validator accepts, otherwise none. */
+export function parseImageDimension(v: string | null): number | null {
+  if (v === null || !/^\s*\d{1,6}\s*$/.test(v)) return null;
+  const n = Number(v);
+  return n > 0 && n <= 100000 ? n : null;
+}
+
+// Width and height are stored as numbers and rendered as the img element's width and height attributes
+// (never an inline style); CSS keeps max-width: 100% and height: auto. The web editor adds a resize node view.
+export const SafeImage = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      width: { default: null, parseHTML: (el: AttrSource) => parseImageDimension(el.getAttribute('width')) },
+      height: { default: null, parseHTML: (el: AttrSource) => parseImageDimension(el.getAttribute('height')) },
+    };
+  },
   parseHTML() {
     return [
       {
