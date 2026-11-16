@@ -16,6 +16,9 @@
   --code-bg: #eef0f3;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
   --radius: 8px;
+  --backdrop: rgba(0, 0, 0, 0.35);
+  --icon-size: 16px;
+  --icon-stroke: 1.75;
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, 'Noto Sans', sans-serif;
   font-size: 15px;
   color: var(--text);
@@ -105,9 +108,37 @@ button.wide {
   color: var(--accent);
 }
 .icon-button {
-  font-size: 1.1em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
   line-height: 1;
   border-radius: 6px;
+}
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+/* icons (lucide): one size and stroke everywhere, coloured by the surrounding text */
+svg.lucide {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  stroke-width: var(--icon-stroke);
+  flex: none;
+}
+.spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation: none;
+  }
 }
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -232,10 +263,6 @@ mark {
 .panel-strip:focus-visible {
   outline-offset: -2px;
 }
-.panel-strip-icon {
-  font-size: 1.1em;
-  line-height: 1;
-}
 .panel-strip-text {
   writing-mode: vertical-rl;
   min-height: 0;
@@ -276,8 +303,20 @@ mark {
 .folder-row.active {
   background: var(--bg-active);
 }
-.view-button .label {
+.view-button .icon {
+  display: inline-flex;
+  color: var(--text-soft);
+}
+.view-button.active .icon {
+  color: var(--text);
+}
+.view-button .label,
+.folder-name .label {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .count {
   color: var(--text-soft);
@@ -331,10 +370,13 @@ mark {
   background: none !important;
 }
 .twisty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: none;
-  padding: 2px 4px;
-  width: 20px;
+  padding: 2px;
+  width: 22px;
   color: var(--text-soft);
 }
 .folder-menu-button {
@@ -397,10 +439,16 @@ mark {
   margin-left: 4px;
 }
 .chip-x {
+  display: inline-flex;
+  align-items: center;
   border: none;
   background: none;
-  padding: 0 0 0 4px;
+  padding: 0 0 0 2px;
   color: var(--text-soft);
+}
+.chip-x:hover:not(:disabled) {
+  background: none;
+  color: var(--text);
 }
 .sidebar-footer {
   border-top: 1px solid var(--border);
@@ -448,6 +496,11 @@ mark {
   align-items: center;
   gap: 8px;
   padding: 12px 12px 8px;
+}
+.list-header button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 .list-header h2 {
   flex: 1;
@@ -560,37 +613,38 @@ mark {
 .editor-header {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 6px 12px 8px 28px;
+  gap: 1px;
+  padding: 3px 8px 3px 16px;
   border-bottom: 1px solid var(--border);
 }
-.editor-meta {
+.editor-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 32px;
-  margin-left: -8px; /* the folder button's own padding lines up with the title */
-}
-.editor-location {
-  flex: 1 1 auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  gap: 6px;
   min-width: 0;
-  font-size: 0.88rem;
+}
+.folder-button,
+.editor-trashed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 35%;
+  padding: 3px 6px;
+  border: none;
+  background: none;
+  font-size: 0.82rem;
   color: var(--text-soft);
-  overflow: hidden;
   white-space: nowrap;
 }
-.editor-trashed {
-  padding: 0 8px; /* lines up with the title, like the folder button's text */
+.folder-button-label,
+.editor-trashed span {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.editor-location .link-button {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text-soft);
+.editor-trashed {
+  max-width: 50%;
 }
 .save-status {
   font-size: 0.82rem;
@@ -623,8 +677,8 @@ mark {
 .toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
-  padding: 6px 10px;
+  gap: 2px 8px;
+  padding: 3px 8px;
   border-bottom: 1px solid var(--border);
 }
 .tb-group {
@@ -632,11 +686,18 @@ mark {
   gap: 2px;
 }
 .tb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   border: 1px solid transparent;
   background: none;
-  padding: 4px 8px;
-  min-width: 30px;
-  font-size: 0.86rem;
+  padding: 4px 5px;
+  min-width: 28px;
+  font-size: 0.8rem;
+}
+.tb.with-text {
+  padding: 3px 7px;
 }
 .tb.active {
   background: var(--bg-active);
@@ -646,7 +707,7 @@ mark {
   flex-basis: 100%;
   flex-wrap: wrap;
   border-top: 1px dashed var(--border);
-  padding-top: 4px;
+  padding-top: 2px;
 }
 .editor-scroll {
   flex: 1;
@@ -656,9 +717,12 @@ mark {
   padding: 18px 28px 60px;
 }
 .title-input {
+  flex: 1 1 160px;
+  min-width: 120px;
   border: none !important;
-  padding: 0 !important;
-  font-size: 1.45rem;
+  border-radius: 4px !important;
+  padding: 2px 4px !important;
+  font-size: 1.15rem;
   font-weight: 700;
   outline: none;
   background: transparent !important;
@@ -666,18 +730,32 @@ mark {
 .title-input:focus-visible {
   outline: none;
 }
+.title-input:focus:not([readonly]) {
+  background: var(--bg-soft) !important;
+}
+.editor-tags {
+  min-height: 22px;
+  padding-left: 6px;
+}
 .tag-editor {
+  flex: 1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  min-height: 26px;
+  gap: 4px;
+  min-width: 0;
+}
+.tag-editor .tag-chip {
+  font-size: 0.75rem;
+  padding: 0 4px 0 7px;
+  line-height: 18px;
 }
 .tag-input {
-  width: 140px !important;
+  width: 120px !important;
   border: none !important;
-  padding: 2px 4px !important;
-  font-size: 0.85rem;
+  padding: 0 4px !important;
+  font-size: 0.8rem;
+  line-height: 20px;
   background: transparent !important;
 }
 .editor-dates {
@@ -826,7 +904,7 @@ mark {
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--backdrop);
   display: grid;
   place-items: center;
   z-index: 50;
@@ -865,7 +943,9 @@ mark {
   max-height: 50vh;
 }
 .picker-row {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   width: 100%;
   text-align: left;
   border: none;
@@ -932,31 +1012,15 @@ mark {
     padding: 14px 16px 60px;
   }
   .editor-header {
-    padding: 4px 8px 6px 16px;
+    padding: 3px 6px 3px 8px;
   }
-  .editor-meta {
+  .editor-row {
     flex-wrap: wrap;
-    row-gap: 0;
   }
-  /* The dates get a line of their own under the folder row. */
-  .editor-dates {
-    order: 1;
-    flex-basis: 100%;
+  .editor-tags {
     padding-left: 8px;
-  }
-  .title-input {
-    font-size: 1.3rem;
   }
   .folder-menu-button {
     opacity: 1;
   }
-}
-.tb[aria-label='Bold'] {
-  font-weight: 700;
-}
-.tb[aria-label='Italic'] {
-  font-style: italic;
-}
-.tb[aria-label='Strikethrough'] {
-  text-decoration: line-through;
 }

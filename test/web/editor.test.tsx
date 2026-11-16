@@ -299,3 +299,24 @@ describe('editor layout: note details above the toolbar, only the body below', (
     expect(scroll.querySelector('.editor-content')).toBeTruthy();
   });
 });
+
+describe('compact editor header', () => {
+  it('has two rows: folder, title, dates, status and Move to Trash, then the tags', async () => {
+    const v = await open(props(), serverNote({ tags: ['work'], origin: { type: 'agent', name: 'Claude' } }));
+    const rows = [...v.container.querySelectorAll('.editor-header > .editor-row')];
+    expect(rows.length).toBe(2);
+    const [first, second] = rows;
+    const order = [...first.querySelectorAll('[aria-label="Move to…"], #note-title, .editor-dates, .save-status, [aria-label="Move to Trash"]')].map(
+      (e) => e.getAttribute('aria-label') ?? e.className.split(' ')[0],
+    );
+    expect(order).toEqual(['Move to…', 'Title', 'editor-dates', 'save-status', 'Move to Trash']);
+    expect(second.querySelector('.tag-editor')?.textContent).toContain('#work');
+    expect(second.querySelector('input[aria-label="Add tag"]')).toBeTruthy();
+    expect(second.querySelector('.agent-badge')?.textContent).toBe('by Claude');
+  });
+
+  it('a read-only note with no tags has no empty tags row', async () => {
+    const v = await open(props(), serverNote({ trashedAt: '2026-01-03T00:00:00Z' }));
+    expect(v.container.querySelectorAll('.editor-header > .editor-row').length).toBe(1);
+  });
+});

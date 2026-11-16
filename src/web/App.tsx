@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { PanelLeftOpen } from 'lucide-react';
 import { api, ApiError, setUnauthorizedHandler, type FolderNode, type Me, type NoteItem, type TagCount } from './api';
 import { localDrafts } from './drafts';
 import { DialogProvider, useDialogs } from './components/Dialogs';
@@ -420,9 +421,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
 function PanelStrip({ id, controls, label, text, onClick }: { id: string; controls: string; label: string; text: string; onClick: () => void }) {
   return (
     <button id={id} className="panel-strip" aria-expanded={false} aria-controls={controls} aria-label={label} title={label} onClick={onClick}>
-      <span className="panel-strip-icon" aria-hidden>
-        »
-      </span>
+      <PanelLeftOpen className="panel-strip-icon" />
       <span className="panel-strip-text" aria-hidden>
         {text}
       </span>

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import { ChevronDown, ChevronRight, Ellipsis, File, Folder, Inbox, Notebook, PanelLeftClose, Plus, Trash2 } from 'lucide-react';
 import { api, ApiError, type FolderNode, type Me, type TagCount } from '../api';
 import { formatBytes } from '../util';
 import { useDialogs } from './Dialogs';
@@ -95,20 +97,20 @@ export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onS
           title="Hide folders and tags"
           onClick={onCollapse}
         >
-          «
+          <PanelLeftClose />
         </button>
       </div>
       <div className="sidebar-scroll">
-        <ViewButton label="All notes" icon="🗒️" active={view.kind === 'all'} onClick={() => onView({ kind: 'all' })} />
-        {inbox && <ViewButton label="Inbox" icon="📥" count={inbox.noteCount} active={view.kind === 'inbox'} onClick={() => onView({ kind: 'inbox' })} />}
+        <ViewButton label="All notes" icon={<Notebook />} active={view.kind === 'all'} onClick={() => onView({ kind: 'all' })} />
+        {inbox && <ViewButton label="Inbox" icon={<Inbox />} count={inbox.noteCount} active={view.kind === 'inbox'} onClick={() => onView({ kind: 'inbox' })} />}
         <div className="sidebar-heading">
           <span>Folders</span>
           <button className="icon-button" title="New folder" aria-label="New folder" onClick={() => newFolder(null)}>
-            +
+            <Plus />
           </button>
         </div>
         <FolderTree folders={tree} all={folders} depth={0} view={view} onView={onView} run={run} newFolder={newFolder} />
-        <ViewButton label="Unfiled" icon="📄" active={view.kind === 'unfiled'} onClick={() => onView({ kind: 'unfiled' })} />
+        <ViewButton label="Unfiled" icon={<File />} active={view.kind === 'unfiled'} onClick={() => onView({ kind: 'unfiled' })} />
         <div className="sidebar-heading">
           <span>Tags</span>
         </div>
@@ -125,7 +127,7 @@ export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onS
           ))}
         </div>
         <div className="sidebar-gap" />
-        <ViewButton label="Trash" icon="🗑️" active={view.kind === 'trash'} onClick={() => onView({ kind: 'trash' })} />
+        <ViewButton label="Trash" icon={<Trash2 />} active={view.kind === 'trash'} onClick={() => onView({ kind: 'trash' })} />
       </div>
       <div className="sidebar-footer">
         <div className="storage" title={`${formatBytes(me.storageUsed)} of ${formatBytes(me.storageLimit)} used`}>
@@ -149,7 +151,7 @@ export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onS
   );
 }
 
-function ViewButton({ label, icon, count, active, onClick }: { label: string; icon: string; count?: number; active: boolean; onClick: () => void }) {
+function ViewButton({ label, icon, count, active, onClick }: { label: string; icon: ReactNode; count?: number; active: boolean; onClick: () => void }) {
   return (
     <button className={'view-button' + (active ? ' active' : '')} onClick={onClick} aria-current={active ? 'page' : undefined}>
       <span className="icon" aria-hidden>
@@ -255,16 +257,23 @@ function FolderItem({
   return (
     <li role="treeitem" aria-expanded={folder.children.length ? open : undefined} aria-selected={active}>
       <div className={'folder-row' + (active ? ' active' : '')} style={{ paddingLeft: 6 + depth * 14 }}>
-        <button className="twisty" aria-label={open ? 'Collapse' : 'Expand'} onClick={() => setOpen(!open)} style={{ visibility: folder.children.length ? 'visible' : 'hidden' }}>
-          {open ? '▾' : '▸'}
+        <button
+          className="twisty"
+          aria-label={open ? 'Collapse' : 'Expand'}
+          title={open ? 'Collapse' : 'Expand'}
+          onClick={() => setOpen(!open)}
+          style={{ visibility: folder.children.length ? 'visible' : 'hidden' }}
+        >
+          {open ? <ChevronDown /> : <ChevronRight />}
         </button>
         <button className="folder-name" onClick={() => onView({ kind: 'folder', id: folder.id })}>
-          <span aria-hidden>📁</span> {folder.name}
+          <Folder className="icon" />
+          <span className="label">{folder.name}</span>
           {folder.noteCount > 0 && <span className="count">{folder.noteCount}</span>}
         </button>
         <div className="menu-anchor" ref={menuRef}>
-          <button className="icon-button folder-menu-button" aria-label={`Actions for ${folder.name}`} aria-haspopup="menu" onClick={() => setMenu(!menu)}>
-            ⋯
+          <button className="icon-button folder-menu-button" aria-label={`Actions for ${folder.name}`} title="Folder actions" aria-haspopup="menu" onClick={() => setMenu(!menu)}>
+            <Ellipsis />
           </button>
           {menu && (
             <div className="menu" role="menu">

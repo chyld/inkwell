@@ -1,4 +1,37 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  BetweenHorizontalEnd,
+  BetweenHorizontalStart,
+  BetweenVerticalEnd,
+  BetweenVerticalStart,
+  Bold,
+  ChevronDown,
+  ChevronLeft,
+  Code,
+  Folder,
+  Grid2x2X,
+  Heading1,
+  Heading2,
+  Heading3,
+  ImagePlus,
+  Italic,
+  Link,
+  List,
+  ListOrdered,
+  ListTodo,
+  LoaderCircle,
+  Minus,
+  PanelTop,
+  Redo2,
+  SquareCode,
+  SquareMinus,
+  Strikethrough,
+  Table,
+  Quote,
+  Trash2,
+  Undo2,
+  X,
+} from 'lucide-react';
 import { EditorContent, useEditor, type Editor } from '@tiptap/react';
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model';
 import { api, ApiError, NetworkError, type FolderNode, type Me, type Note, type NoteItem, type TagCount } from '../api';
@@ -48,8 +81,8 @@ export function NoteEditorPane(props: Props) {
   if (error)
     return (
       <section className="editor-pane empty">
-        <button className="icon-button mobile-only back" onClick={props.onBack} aria-label="Back to list">
-          ‹
+        <button className="icon-button mobile-only back" onClick={props.onBack} aria-label="Back to list" title="Back to list">
+          <ChevronLeft />
         </button>
         <p>{error}</p>
       </section>
@@ -328,26 +361,50 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 
   const created = new Date(note.createdAt);
   const updated = new Date(updatedAt);
+  const sameYear = created.getFullYear() === new Date().getFullYear();
+  const showTagRow = !locked || tags.length > 0 || note.origin.type === 'agent';
 
   return (
     <section className="editor-pane" aria-label="Editor">
-      {/* Everything about the note sits above the toolbar; below it there is only the body. */}
+      {/* Everything about the note sits above the toolbar, in two tight rows; below it there is only the body. */}
       <header className="editor-header">
-        <div className="editor-meta">
-          <button className="icon-button mobile-only" onClick={props.onBack} aria-label="Back to list">
-            ‹
+        <div className="editor-row">
+          <button className="icon-button mobile-only" onClick={props.onBack} aria-label="Back to list" title="Back to list">
+            <ChevronLeft />
           </button>
-          <div className="editor-location">
-            {!trashed && (
-              <button className="link-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
-                📁 {location} ▾
-              </button>
-            )}
-            {trashed && <span className="editor-trashed">In Trash · was in {location}</span>}
-            {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
-          </div>
+          {!trashed && (
+            <button className="folder-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
+              <Folder />
+              <span className="folder-button-label">{location}</span>
+              <ChevronDown />
+            </button>
+          )}
+          {trashed && (
+            <span className="editor-trashed">
+              <Trash2 />
+              <span>In Trash · was in {location}</span>
+            </span>
+          )}
+          <input
+            id="note-title"
+            className="title-input"
+            placeholder="Untitled"
+            value={title}
+            maxLength={200}
+            readOnly={locked}
+            onChange={(e) => onTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                editor?.commands.focus('start');
+              }
+            }}
+            aria-label="Title"
+          />
           <span className="editor-dates" title={`Created ${created.toLocaleString()} · Updated ${updated.toLocaleString()}`}>
-            Created <time dateTime={note.createdAt}>{created.toLocaleDateString()}</time> · Updated <time dateTime={updatedAt}>{relativeTime(updatedAt)}</time>
+            Created{' '}
+            <time dateTime={note.createdAt}>{created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' })}</time> · Updated{' '}
+            <time dateTime={updatedAt}>{relativeTime(updatedAt)}</time>
           </span>
           {!trashed && (
             <span className={`save-status ${status}`} role="status" aria-live="polite" title={statusMsg ?? undefined}>
@@ -356,27 +413,16 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           )}
           {!trashed && (
             <button className="icon-button" onClick={trash} title="Move to Trash" aria-label="Move to Trash">
-              🗑️
+              <Trash2 />
             </button>
           )}
         </div>
-        <input
-          id="note-title"
-          className="title-input"
-          placeholder="Untitled"
-          value={title}
-          maxLength={200}
-          readOnly={locked}
-          onChange={(e) => onTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              editor?.commands.focus('start');
-            }
-          }}
-          aria-label="Title"
-        />
-        <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />
+        {showTagRow && (
+          <div className="editor-row editor-tags">
+            {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
+            <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />
+          </div>
+        )}
       </header>
       {statusMsg && status === 'unsaved' && !conflict && (
         <div className="banner warn">
@@ -438,10 +484,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 
 function Toolbar({ editor, onImage, uploading }: { editor: Editor; onImage: () => void; uploading: boolean }) {
   const dialogs = useDialogs();
-  const b = (label: string, title: string, active: boolean, run: () => void, disabled = false) => (
+  const b = (label: ReactNode, title: string, active: boolean, run: () => void, disabled = false, withText = false) => (
     <button
       type="button"
-      className={'tb' + (active ? ' active' : '')}
+      className={'tb' + (active ? ' active' : '') + (withText ? ' with-text' : '')}
       title={title}
       aria-label={title}
       aria-pressed={active}
@@ -477,43 +523,43 @@ function Toolbar({ editor, onImage, uploading }: { editor: Editor; onImage: () =
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
       <div className="tb-group">
-        {b('B', 'Bold', editor.isActive('bold'), () => chain().toggleBold().run())}
-        {b('I', 'Italic', editor.isActive('italic'), () => chain().toggleItalic().run())}
-        {b('S', 'Strikethrough', editor.isActive('strike'), () => chain().toggleStrike().run())}
-        {b('</>', 'Inline code', editor.isActive('code'), () => chain().toggleCode().run())}
-        {b('🔗', 'Link', editor.isActive('link'), link)}
+        {b(<Bold />, 'Bold', editor.isActive('bold'), () => chain().toggleBold().run())}
+        {b(<Italic />, 'Italic', editor.isActive('italic'), () => chain().toggleItalic().run())}
+        {b(<Strikethrough />, 'Strikethrough', editor.isActive('strike'), () => chain().toggleStrike().run())}
+        {b(<Code />, 'Inline code', editor.isActive('code'), () => chain().toggleCode().run())}
+        {b(<Link />, 'Link', editor.isActive('link'), link)}
       </div>
       <div className="tb-group">
-        {b('H1', 'Heading 1', editor.isActive('heading', { level: 1 }), () => chain().toggleHeading({ level: 1 }).run())}
-        {b('H2', 'Heading 2', editor.isActive('heading', { level: 2 }), () => chain().toggleHeading({ level: 2 }).run())}
-        {b('H3', 'Heading 3', editor.isActive('heading', { level: 3 }), () => chain().toggleHeading({ level: 3 }).run())}
+        {b(<Heading1 />, 'Heading 1', editor.isActive('heading', { level: 1 }), () => chain().toggleHeading({ level: 1 }).run())}
+        {b(<Heading2 />, 'Heading 2', editor.isActive('heading', { level: 2 }), () => chain().toggleHeading({ level: 2 }).run())}
+        {b(<Heading3 />, 'Heading 3', editor.isActive('heading', { level: 3 }), () => chain().toggleHeading({ level: 3 }).run())}
       </div>
       <div className="tb-group">
-        {b('•', 'Bullet list', editor.isActive('bulletList'), () => chain().toggleBulletList().run())}
-        {b('1.', 'Numbered list', editor.isActive('orderedList'), () => chain().toggleOrderedList().run())}
-        {b('☑', 'Task list', editor.isActive('taskList'), () => chain().toggleTaskList().run())}
-        {b('❝', 'Quote', editor.isActive('blockquote'), () => chain().toggleBlockquote().run())}
-        {b('{ }', 'Code block', editor.isActive('codeBlock'), () => chain().toggleCodeBlock().run())}
-        {b('―', 'Horizontal rule', false, () => chain().setHorizontalRule().run())}
+        {b(<List />, 'Bullet list', editor.isActive('bulletList'), () => chain().toggleBulletList().run())}
+        {b(<ListOrdered />, 'Numbered list', editor.isActive('orderedList'), () => chain().toggleOrderedList().run())}
+        {b(<ListTodo />, 'Task list', editor.isActive('taskList'), () => chain().toggleTaskList().run())}
+        {b(<Quote />, 'Quote', editor.isActive('blockquote'), () => chain().toggleBlockquote().run())}
+        {b(<SquareCode />, 'Code block', editor.isActive('codeBlock'), () => chain().toggleCodeBlock().run())}
+        {b(<Minus />, 'Horizontal rule', false, () => chain().setHorizontalRule().run())}
       </div>
       <div className="tb-group">
-        {b('▦', 'Insert table', false, () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), inTable)}
-        {b(uploading ? '…' : '🖼', 'Insert image', false, onImage, uploading)}
+        {b(<Table />, 'Insert table', false, () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), inTable)}
+        {b(uploading ? <LoaderCircle className="spin" /> : <ImagePlus />, 'Insert image', false, onImage, uploading)}
       </div>
       <div className="tb-group">
-        {b('↶', 'Undo', false, () => chain().undo().run(), !editor.can().undo())}
-        {b('↷', 'Redo', false, () => chain().redo().run(), !editor.can().redo())}
+        {b(<Undo2 />, 'Undo', false, () => chain().undo().run(), !editor.can().undo())}
+        {b(<Redo2 />, 'Redo', false, () => chain().redo().run(), !editor.can().redo())}
       </div>
       {inTable && (
         <div className="tb-group table-tools" aria-label="Table">
-          {b('+Row↑', 'Add row above', false, () => chain().addRowBefore().run())}
-          {b('+Row↓', 'Add row below', false, () => chain().addRowAfter().run())}
-          {b('−Row', 'Delete row', false, () => chain().deleteRow().run())}
-          {b('+Col←', 'Add column left', false, () => chain().addColumnBefore().run())}
-          {b('+Col→', 'Add column right', false, () => chain().addColumnAfter().run())}
-          {b('−Col', 'Delete column', false, () => chain().deleteColumn().run())}
-          {b('Header', 'Toggle header row', false, () => chain().toggleHeaderRow().run())}
-          {b('✕Table', 'Delete table', false, () => chain().deleteTable().run())}
+          {b(<><BetweenHorizontalStart /> Row above</>, 'Add row above', false, () => chain().addRowBefore().run(), false, true)}
+          {b(<><BetweenHorizontalEnd /> Row below</>, 'Add row below', false, () => chain().addRowAfter().run(), false, true)}
+          {b(<><SquareMinus /> Delete row</>, 'Delete row', false, () => chain().deleteRow().run(), false, true)}
+          {b(<><BetweenVerticalStart /> Column left</>, 'Add column left', false, () => chain().addColumnBefore().run(), false, true)}
+          {b(<><BetweenVerticalEnd /> Column right</>, 'Add column right', false, () => chain().addColumnAfter().run(), false, true)}
+          {b(<><SquareMinus /> Delete column</>, 'Delete column', false, () => chain().deleteColumn().run(), false, true)}
+          {b(<><PanelTop /> Header row</>, 'Toggle header row', false, () => chain().toggleHeaderRow().run(), false, true)}
+          {b(<><Grid2x2X /> Delete table</>, 'Delete table', false, () => chain().deleteTable().run(), false, true)}
         </div>
       )}
     </div>
@@ -544,8 +590,8 @@ function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[]; allT
         <span key={t} className="tag-chip">
           #{t}
           {!readOnly && (
-            <button className="chip-x" aria-label={`Remove tag ${t}`} onClick={() => onChange(tags.filter((x) => x !== t))}>
-              ×
+            <button className="chip-x" aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => onChange(tags.filter((x) => x !== t))}>
+              <X />
             </button>
           )}
         </span>

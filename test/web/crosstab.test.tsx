@@ -94,7 +94,7 @@ describe('a stale tab after another tab signed in as someone else', () => {
     await act(async () => {
       editorOf(view!.container).commands.insertContent(' typed');
     });
-    await click(button(view!.container, '+ New note'));
+    await click(button(view!.container, 'New note'));
     await waitFor(() => !!button(view!.container, 'Sign in'), 5000, 'sign-in page');
     await settle();
     await settle();

@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { File, Folder, FolderRoot, Inbox, X } from 'lucide-react';
 import type { FolderNode } from '../api';
 
 type Pending =
@@ -62,8 +63,8 @@ export function DialogProvider({ children }: { children: ReactNode }) {
         {notices.map((n) => (
           <div key={n.id} className="notice">
             {n.text}
-            <button className="link-button" onClick={() => setNotices((x) => x.filter((y) => y.id !== n.id))} aria-label="Dismiss">
-              ×
+            <button className="link-button" onClick={() => setNotices((x) => x.filter((y) => y.id !== n.id))} aria-label="Dismiss" title="Dismiss">
+              <X />
             </button>
           </div>
         ))}
@@ -165,7 +166,8 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
                     close();
                   }}
                 >
-                  {pending.rootLabel}
+                  {pending.rootLabel === 'Unfiled' ? <File /> : <FolderRoot />}
+                  <span>{pending.rootLabel}</span>
                 </button>
               )}
               <PickerTree
@@ -212,8 +214,8 @@ function PickerTree({
             disabled={disabled(f)}
             onClick={() => pick(f.id)}
           >
-            {f.isInbox ? '📥 ' : '📁 '}
-            {f.name}
+            {f.isInbox ? <Inbox /> : <Folder />}
+            <span>{f.name}</span>
           </button>
           {f.children.length > 0 && <PickerTree folders={f.children} depth={depth + 1} disabled={disabled} current={current} pick={pick} />}
         </div>

@@ -1,4 +1,5 @@
 import type { NoteItem } from '../api';
+import { ChevronLeft, PanelLeftClose, Plus } from 'lucide-react';
 import { highlightPieces, isMac, relativeTime } from '../util';
 
 interface Props {
@@ -26,8 +27,8 @@ export function NoteList(p: Props) {
   return (
     <section id="note-list" className={'note-list' + (p.collapsed ? ' collapsed' : '')} aria-label="Notes">
       <header className="list-header">
-        <button className="icon-button mobile-only" onClick={p.onBack} aria-label="Back to folders">
-          ‹
+        <button className="icon-button mobile-only" onClick={p.onBack} aria-label="Back to folders" title="Back to folders">
+          <ChevronLeft />
         </button>
         <button
           id="list-hide"
@@ -38,12 +39,12 @@ export function NoteList(p: Props) {
           title="Hide note list"
           onClick={p.onCollapse}
         >
-          «
+          <PanelLeftClose />
         </button>
         <h2 title={p.heading}>{p.heading}</h2>
         {!p.isTrash && (
           <button className="primary" onClick={p.onNewNote} title={`New note (${shortcut})`}>
-            + New note
+            <Plus /> New note
           </button>
         )}
         {p.isTrash && p.items.length > 0 && !p.searching && (
