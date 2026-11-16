@@ -18,7 +18,8 @@ RUN npm run build \
  && test -s dist/shared/font-catalogue.json \
  && grep -q '"titan-one"' dist/shared/font-catalogue.json \
  && grep -lq 'Titan One' dist/web/assets/*.js \
- && npm prune --omit=dev --no-audit --no-fund
+ && npm prune --omit=dev --no-audit --no-fund \
+ && node src/tools/slim-node-modules.mjs node_modules
 
 # ---- runtime ----
 FROM node:26-trixie-slim
@@ -27,6 +28,8 @@ ENV NODE_ENV=production \
     PORT=3000
 WORKDIR /app
 COPY --from=build /src/package.json ./
+# Production dependencies only, without source maps, build sources or other platforms' binaries
+# (src/tools/slim-node-modules.mjs).
 COPY --from=build /src/node_modules ./node_modules
 COPY --from=build /src/dist ./dist
 # The `notes` command (SPEC 9), and /data owned by the non-root user so a new
