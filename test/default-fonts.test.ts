@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { fallbackFamily } from '../src/shared/fonts.js';
+import { DEFAULT_FONT_FAMILY, DEFAULT_MONO_FAMILY, fallbackFamily } from '../src/shared/fonts.js';
 import { PAGE_CSP } from '../src/server/app.js';
 import { makeEnv, type Env } from './helpers.js';
 
@@ -46,6 +46,17 @@ describe('default fonts', () => {
     expect(css.match(/font-family: (?!var\(--font-|'Inter'|'JetBrains Mono')/g)).toBeNull();
   });
 
+  it("the editor's default-font name and the stylesheet cannot drift apart", () => {
+    expect(css).toContain(`--font-sans: '${DEFAULT_FONT_FAMILY}', `);
+    expect(css).toContain(`--font-mono: '${DEFAULT_MONO_FAMILY}', `);
+    expect(new Set(faces.map((f) => f.family))).toEqual(new Set([`'${DEFAULT_FONT_FAMILY}'`, `'${DEFAULT_MONO_FAMILY}'`]));
+    // In the font menu the default entry and "Browse fonts…" are not dimmed or smaller than the collection's names.
+    for (const sel of ['.font-default', '.font-default-name', '.font-browse']) {
+      const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter((m) => m[1].split(',').some((x) => x.trim() === sel)).map((m) => m[2]);
+      for (const r of rules) expect(r, sel).not.toMatch(/(^|[^-])color:|font-size:|opacity:/);
+    }
+  });
+
   it('only the upright Latin Inter file is preloaded', () => {
     const preloads = [...html.matchAll(/<link rel="preload"[^>]*>/g)].map((m) => m[0]);
     expect(preloads).toEqual(['<link rel="preload" href="./fonts/default/inter-latin-upright.woff2" as="font" type="font/woff2" crossorigin />']);
@@ -54,7 +65,7 @@ describe('default fonts', () => {
   it('tabular figures where numbers line up, not in prose', () => {
     const rule = /([^{}]+)\{\s*font-variant-numeric: tabular-nums;\s*\}/.exec(css)!;
     const selectors = rule[1].replace(/\/\*[\s\S]*?\*\//g, '').split(',').map((x) => x.trim());
-    expect(selectors).toEqual(['.prose table', '.count', '.note-item time', '.editor-dates', '.storage', '.fonts-count', '.fonts-collection-count']);
+    expect(selectors).toEqual(['.prose table', '.count', '.note-item time', '.editor-dates', '.storage', '.fonts-count', '.fonts-collection-count', '.size-input']);
     expect(css.match(/tabular-nums/g)!.length).toBe(1);
   });
 

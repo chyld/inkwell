@@ -73,7 +73,8 @@ describe('versions and conflicts', () => {
       { type: 'doc', content: [{ type: 'script', text: 'x' }] },
       { type: 'doc', content: [{ type: 'paragraph', attrs: { onclick: 'x' } }] },
       { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'link', attrs: { href: 'javascript:alert(1)' } }] }] }] },
-      { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'underline' }] }] }] },
+      // A mark the schema does not have (underline was here until the owner added it).
+      { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x', marks: [{ type: 'subscript' }] }] }] },
       { type: 'doc', content: [{ type: 'image', attrs: { src: 'https://example.com/x.png' } }] },
       { type: 'doc', content: [{ type: 'image', attrs: { src: 'data:image/png;base64,AAAA' } }] },
       { type: 'doc', content: [{ type: 'heading', attrs: { level: 4 }, content: [{ type: 'text', text: 'x' }] }] },

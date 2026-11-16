@@ -1,7 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
-import { fontById, NOTE_FONTS_MAX } from '../../shared/fonts';
+import { DEFAULT_FONT_FAMILY, fontById, NOTE_FONTS_MAX } from '../../shared/fonts';
 import { fontsInDoc } from '../../shared/schema';
 import { api } from '../api';
 import { usePreviews } from '../fonts/previews';
@@ -49,8 +49,9 @@ export function FontPicker({ editor, disabled, onBrowse, notice }: Props) {
   const state = fontStateOf(editor);
   const fonts = (collection ?? []).filter((id) => fontById(id));
   const previewStyle = usePreviews('menu', fonts, open);
-  const count = fonts.length + 2; // the fonts, "Default font", "Browse fonts…"
-  const currentIdx = state.kind === 'one' ? fonts.indexOf(state.id) : state.kind === 'none' ? fonts.length : -1;
+  // Items: the default font (Inter) first, then the collection, then "Browse fonts…".
+  const count = fonts.length + 2;
+  const currentIdx = state.kind === 'one' ? (fonts.includes(state.id) ? fonts.indexOf(state.id) + 1 : -1) : state.kind === 'none' ? 0 : -1;
 
   // The collection, fresh each time the menu opens.
   useEffect(() => {
@@ -126,8 +127,8 @@ export function FontPicker({ editor, disabled, onBrowse, notice }: Props) {
     }
   }
 
-  const label = state.kind === 'one' ? (fontById(state.id)?.family ?? 'Font') : state.kind === 'mixed' ? 'Mixed' : 'Font';
-  const name = state.kind === 'none' ? 'Font' : `Font: ${label}`;
+  const label = state.kind === 'one' ? (fontById(state.id)?.family ?? DEFAULT_FONT_FAMILY) : state.kind === 'mixed' ? 'Mixed' : DEFAULT_FONT_FAMILY;
+  const name = `Font: ${label}`;
   const item = (i: number, content: ReactNode, onClick: () => void, extra: Record<string, unknown> = {}) => (
     <button
       key={i}
@@ -177,14 +178,18 @@ export function FontPicker({ editor, disabled, onBrowse, notice }: Props) {
             if (!wrapRef.current?.contains(e.relatedTarget as Node | null)) close(false);
           }}
         >
+          {item(0, <span className="font-default-name">{DEFAULT_FONT_FAMILY}</span>, () => choose(null), {
+            'aria-pressed': state.kind === 'none',
+            'aria-label': `${DEFAULT_FONT_FAMILY} (default)`,
+            className: 'font-item font-default',
+          })}
           {collection !== null && fonts.length === 0 && <p className="font-empty">No fonts yet</p>}
           {fonts.map((id, i) =>
-            item(i, <span style={previewStyle(id)}>{fontById(id)!.family}</span>, () => choose(id), {
+            item(i + 1, <span style={previewStyle(id)}>{fontById(id)!.family}</span>, () => choose(id), {
               'aria-pressed': state.kind === 'one' && state.id === id,
               'data-font-id': id,
             }),
           )}
-          {item(fonts.length, 'Default font', () => choose(null), { 'aria-pressed': state.kind === 'none', className: 'font-item font-default' })}
           {item(fonts.length + 1, 'Browse fonts…', () => {
             close(false);
             onBrowse();

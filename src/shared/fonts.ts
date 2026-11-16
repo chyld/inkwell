@@ -25,6 +25,14 @@ export const COLLECTION_MAX = 50;
 export const NOTE_FONTS_MAX = 50;
 
 export const FONT_CATALOGUE: readonly FontEntry[] = data as FontEntry[];
+
+/**
+ * The app's own text font: the name shown for "no font" in the editor and the first family of the
+ * stylesheet's default stack (--font-sans) and of its @font-face rules; a test keeps them equal.
+ */
+export const DEFAULT_FONT_FAMILY = 'Inter';
+/** The app's own code font (--font-mono). */
+export const DEFAULT_MONO_FAMILY = 'JetBrains Mono';
 const BY_ID = new Map(FONT_CATALOGUE.map((f) => [f.id, f]));
 
 /** The entry for an id, retired ones included, or undefined. Only ids that match the pattern are looked up. */
@@ -47,10 +55,10 @@ export function fallbackFamily(category: FontCategory): string {
     case 'serif':
       return 'serif';
     case 'monospace':
-      return '"JetBrains Mono", monospace';
+      return `"${DEFAULT_MONO_FAMILY}", monospace`;
     case 'handwriting':
       return 'cursive';
     default:
-      return '"Inter", sans-serif'; // sans-serif and display
+      return `"${DEFAULT_FONT_FAMILY}", sans-serif`; // sans-serif and display
   }
 }

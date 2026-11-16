@@ -93,8 +93,10 @@ function colorMark(name: string, tag: 'span' | 'mark', attr: string, allowed: re
       };
     },
     parseHTML() {
-      // Not consuming: one element may carry a colour and a font (FONTS-SPEC 8.1), and keeps both.
-      return [{ tag: `${tag}[${attr}]`, consuming: false, getAttrs: (el) => (ok((el as AttrSource).getAttribute(attr)) ? null : false) }];
+      // Not consuming: one element may carry several of our attributes (a colour, a font, a size) and
+      // keeps every mark. The text colour is read from any element; a highlight only from <mark>.
+      const selector = tag === 'mark' ? `mark[${attr}]` : `[${attr}]`;
+      return [{ tag: selector, consuming: false, getAttrs: (el) => (ok((el as AttrSource).getAttribute(attr)) ? null : false) }];
     },
     renderHTML({ HTMLAttributes }) {
       return [tag, HTMLAttributes, 0];
@@ -121,7 +123,56 @@ export const FontFamilyMark = Mark.create({
     };
   },
   parseHTML() {
-    return [{ tag: 'span[data-font]', consuming: false, getAttrs: (el) => (isFontId((el as AttrSource).getAttribute('data-font')) ? null : false) }];
+    return [{ tag: '[data-font]', consuming: false, getAttrs: (el) => (isFontId((el as AttrSource).getAttribute('data-font')) ? null : false) }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', HTMLAttributes, 0];
+  },
+});
+
+// ---- text size ---------------------------------------------------------------
+// One attribute, `size`: a whole number of pixels from 8 to 96. Rendered as <span data-font-size="18">:
+// no inline style; the stylesheet has a rule for each value. Never inside code.
+export const FONT_SIZE_MIN = 8;
+export const FONT_SIZE_MAX = 96;
+/** Body text in a note, and the default size of each heading level (the stylesheet matches these). */
+export const TEXT_SIZE_DEFAULT = 16;
+export const HEADING_SIZES: Record<number, number> = { 1: 26, 2: 21, 3: 18 };
+
+export function isFontSize(v: unknown): v is number {
+  return typeof v === 'number' && Number.isInteger(v) && v >= FONT_SIZE_MIN && v <= FONT_SIZE_MAX;
+}
+
+/** The size text has in a block when it carries no size mark. */
+export function defaultSizeOf(block: { type: { name: string }; attrs: Record<string, unknown> }): number {
+  return block.type.name === 'heading' ? (HEADING_SIZES[block.attrs.level as number] ?? TEXT_SIZE_DEFAULT) : TEXT_SIZE_DEFAULT;
+}
+
+export const FontSizeMark = Mark.create({
+  name: 'fontSize',
+  addAttributes() {
+    return {
+      size: {
+        default: null,
+        parseHTML: (el: AttrSource) => {
+          const raw = el.getAttribute('data-font-size') ?? '';
+          return /^[0-9]{1,2}$/.test(raw) ? Number(raw) : null;
+        },
+        renderHTML: (attrs: Record<string, unknown>) => (isFontSize(attrs.size) ? { 'data-font-size': String(attrs.size) } : {}),
+      },
+    };
+  },
+  parseHTML() {
+    return [
+      {
+        tag: '[data-font-size]',
+        consuming: false,
+        getAttrs: (el) => {
+          const raw = (el as AttrSource).getAttribute('data-font-size') ?? '';
+          return /^[0-9]{1,2}$/.test(raw) && isFontSize(Number(raw)) ? null : false;
+        },
+      },
+    ];
   },
   renderHTML({ HTMLAttributes }) {
     return ['span', HTMLAttributes, 0];
@@ -141,7 +192,6 @@ export function fontsInDoc(doc: PMNode): Set<string> {
 export const noteExtensions: AnyExtension[] = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
-    underline: false,
     link: {
       openOnClick: false,
       autolink: true,
@@ -162,6 +212,7 @@ export const noteExtensions: AnyExtension[] = [
   TextColorMark,
   HighlightMark,
   FontFamilyMark,
+  FontSizeMark,
 ];
 
 let cachedSchema: Schema | null = null;
@@ -216,6 +267,7 @@ const NODE_ATTRS: Record<string, Record<string, AttrCheck>> = {
 const MARK_ATTRS: Record<string, Record<string, AttrCheck>> = {
   bold: {},
   italic: {},
+  underline: {},
   strike: {},
   code: {},
   link: {
@@ -228,6 +280,7 @@ const MARK_ATTRS: Record<string, Record<string, AttrCheck>> = {
   textColor: { color: (v) => typeof v === 'string' && (TEXT_COLORS as readonly string[]).includes(v) },
   highlight: { color: (v) => typeof v === 'string' && (HIGHLIGHT_COLORS as readonly string[]).includes(v) },
   fontFamily: { font: (v) => isFontId(v) },
+  fontSize: { size: (v) => isFontSize(v) },
 };
 
 export class NoteValidationError extends Error {}
@@ -274,6 +327,7 @@ function walk(node: unknown, depth: number, imageIds: Set<string>) {
       if (mm.type === 'link' && mm.attrs === undefined) fail('link: href is required');
       if ((mm.type === 'textColor' || mm.type === 'highlight') && (mm.attrs as { color?: unknown } | undefined)?.color === undefined) fail(`${mm.type}: color is required`);
       if (mm.type === 'fontFamily' && (mm.attrs as { font?: unknown } | undefined)?.font === undefined) fail('fontFamily: font is required');
+      if (mm.type === 'fontSize' && (mm.attrs as { size?: unknown } | undefined)?.size === undefined) fail('fontSize: size is required');
     }
   }
   if (n.content !== undefined) {

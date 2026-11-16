@@ -3,7 +3,7 @@
 A private, self-hosted note-taking app for a handful of people (fewer than 10).
 Each person has their own notes and nobody can see anyone else's. Notes are
 written in a rich-text editor (headings, lists, task lists, code, quotes, links,
-tables, images, text colours and highlights), organised in nested folders and with tags, and found with
+tables, images, underline, text colours, highlights, fonts and text sizes), organised in nested folders and with tags, and found with
 full-text search. Deleted notes go to Trash until you empty it.
 
 An AI agent (Claude Code, Codex, Grok, Muse, …) can **add** notes to one user's
@@ -591,8 +591,8 @@ the specification.
 Each person can browse the Google Fonts catalogue at **`/fonts`** (the "Fonts"
 entry in the sidebar), search it, filter it by category, and add up to 50 fonts
 to their own collection. In a note, the toolbar's font menu lists that
-collection; choose a font to apply it to the selected text, or "Default font" to
-remove it. Collections are private. Latin text only, in regular and bold,
+collection; choose a font to apply it to the selected text, or "Inter" (the
+app's default font, first in the menu) to remove it. Collections are private. Latin text only, in regular and bold,
 upright and italic.
 
 **Outbound access.** Browsers never contact Google: the app fetches font files

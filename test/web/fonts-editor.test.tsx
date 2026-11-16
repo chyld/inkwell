@@ -65,7 +65,7 @@ describe('paste', () => {
       f.retired = false;
     }
     expect(marksOf('<p><span data-font="titan-one" data-text-color="ruby">a</span></p>').marks).toEqual(['font:titan-one', 'textColor:ruby']);
-    expect(marksOf('<p><mark data-highlight="topaz" data-font="lora">a</mark></p>').marks).toEqual(['highlight:topaz']); // data-font is read on <span> only
+    expect(marksOf('<p><mark data-highlight="topaz" data-font="lora">a</mark></p>').marks).toEqual(['font:lora', 'highlight:topaz']); // several of our attributes on one element: all kept
     expect(marksOf('<p><code><span data-font="titan-one">a</span></code></p>').marks).toEqual(['code']);
     expect(marksOf('<pre><code><span data-font="titan-one">a</span></code></pre>').marks).toEqual([]);
   });
@@ -155,10 +155,14 @@ describe('applying a font (criteria 5 and 3)', () => {
   it('to selected text: saved as data-font, survives a reload, the face is registered with the stated arguments and the rule written', async () => {
     await open(docOf(text('hello world')));
     await select(1, 6);
-    expect(fontButton().textContent).toBe('Font');
+    expect(fontButton().textContent).toBe('Inter'); // the default font, by name
+    expect(fontButton().getAttribute('aria-label')).toBe('Font: Inter');
     await click(fontButton());
     await waitFor(() => menuItems().length === 4, 2000, 'menu with the collection');
-    expect(menuItems().map((b) => b.textContent)).toEqual(['Titan One', 'Lora', 'Default font', 'Browse fonts…']);
+    expect(menuItems().map((b) => b.textContent)).toEqual(['Inter', 'Titan One', 'Lora', 'Browse fonts…']);
+    expect(menuItems()[0].getAttribute('aria-label')).toBe('Inter (default)');
+    expect(menuItems()[0].getAttribute('aria-pressed')).toBe('true');
+    expect(menuItems()[0].querySelector('.font-default-name')?.textContent).toBe('Inter'); // drawn in the default font
     await click(button(view!.container, 'Titan One'));
     expect(view!.container.querySelector('.ProseMirror span[data-font="titan-one"]')?.textContent).toBe('hello');
     expect(view!.container.querySelector('.ProseMirror span[data-font]')?.getAttribute('style')).toBeNull();
@@ -179,7 +183,7 @@ describe('applying a font (criteria 5 and 3)', () => {
     expect(view!.container.querySelector('.ProseMirror span[data-font="titan-one"]')?.textContent).toBe('hello');
   });
 
-  it('"Default font" removes only the font, keeping bold, colour and highlight, and is offered with an empty collection', async () => {
+  it('the default entry ("Inter") removes only the font, keeping bold, colour and highlight, and is offered with an empty collection', async () => {
     collection = [];
     await open(docOf(text('rich', [{ type: 'bold' }, { type: 'textColor', attrs: { color: 'ruby' } }, { type: 'highlight', attrs: { color: 'topaz' } }, fontMark('lora')]), text(' tail')));
     await select(1, 5);
@@ -187,8 +191,9 @@ describe('applying a font (criteria 5 and 3)', () => {
     await click(fontButton());
     await waitFor(() => !!view!.container.querySelector('.font-empty'), 2000, 'empty collection');
     expect(view!.container.querySelector('.font-empty')?.textContent).toBe('No fonts yet');
-    expect(menuItems().map((b) => b.textContent)).toEqual(['Default font', 'Browse fonts…']);
-    await click(button(view!.container, 'Default font'));
+    expect(menuItems().map((b) => b.textContent)).toEqual(['Inter', 'Browse fonts…']);
+    expect(view!.container.querySelector('.font-popover')!.firstElementChild!.textContent).toBe('Inter'); // first, above "No fonts yet"
+    await click(button(view!.container, 'Inter (default)'));
     const marks = editorOf(view!.container).getJSON().content[0].content[0].marks.map((m: { type: string }) => m.type);
     expect(marks.sort()).toEqual(['bold', 'highlight', 'textColor']);
   });
@@ -208,11 +213,11 @@ describe('applying a font (criteria 5 and 3)', () => {
     expect(requests.filter((r) => r.path.startsWith('/api/fonts/preview/')).map((r) => r.path).sort()).toEqual(['/api/fonts/preview/lora', '/api/fonts/preview/titan-one']);
     expect(FakeFontFace.made.filter((f) => f.family.startsWith('preview-')).every((f) => f.loadCalls === 1)).toBe(true);
     expect(registeredFamilies().some((f) => f === 'Titan One' || f === 'Lora')).toBe(false); // never the real family name
-    await waitFor(() => menuItems()[0].querySelector('span')?.getAttribute('style')?.includes('preview-titan-one') === true, 2000, 'name drawn in its preview');
-    // Keyboard: focus starts on "Default font" (no font at the cursor), arrows move, Escape returns to the button.
-    expect(document.activeElement?.textContent).toBe('Default font');
+    await waitFor(() => menuItems()[1].querySelector('span')?.getAttribute('style')?.includes('preview-titan-one') === true, 2000, 'name drawn in its preview');
+    // Keyboard: focus starts on "Inter" (no font at the cursor), arrows move, Escape returns to the button.
+    expect(document.activeElement?.textContent).toBe('Inter');
     await act(async () => {
-      (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+      (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     });
     expect(document.activeElement?.textContent).toBe('Titan One');
     await act(async () => {
@@ -397,7 +402,7 @@ describe('"Mixed" and no selection (criterion 23)', () => {
     await select(5, 9); // lora + plain
     expect(fontButton().textContent).toBe('Mixed');
     await select(8, 9);
-    expect(fontButton().textContent).toBe('Font');
+    expect(fontButton().textContent).toBe('Inter');
   });
 
   it('with no selection, choosing a font and "Default font" behave as the text colour menu does', async () => {
@@ -415,8 +420,8 @@ describe('"Mixed" and no selection (criterion 23)', () => {
     await select(3, 3);
     expect(fontButton().textContent).toBe('Lora');
     await click(fontButton());
-    await waitFor(() => !!button(view!.container, 'Default font'), 2000, 'menu');
-    await click(button(view!.container, 'Default font'));
+    await waitFor(() => !!button(view!.container, 'Inter (default)'), 2000, 'menu');
+    await click(button(view!.container, 'Inter (default)'));
     expect(view!.container.querySelector('.ProseMirror span[data-font="lora"]')).toBeNull();
   });
 });

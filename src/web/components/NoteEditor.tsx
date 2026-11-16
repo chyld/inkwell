@@ -31,6 +31,7 @@ import {
   Table,
   Quote,
   Trash2,
+  Underline,
   Undo2,
   X,
 } from 'lucide-react';
@@ -42,6 +43,7 @@ import { NoteSaver, type SaveStatus } from '../saver';
 import { noteExtensions, isAllowedHref, normalizeTag, fontsInDoc, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
 import { ColorPicker } from './ColorPicker';
 import { FontPicker } from './FontPicker';
+import { FontSizeControl } from './FontSizeControl';
 import { NoteFontSession } from '../fonts/runtime';
 import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
@@ -640,15 +642,20 @@ function Toolbar({ editor, onImage, uploading, onBrowseFonts, notice }: { editor
   const inCode = editor.isActive('code') || editor.isActive('codeBlock');
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
+      {/* The start follows a familiar word-processor order: font, size, then inline styles and colours. */}
+      <div className="tb-group">
+        <FontPicker editor={editor} disabled={inCode} onBrowse={onBrowseFonts} notice={notice} />
+      </div>
+      <span className="tb-sep" aria-hidden />
+      <FontSizeControl editor={editor} disabled={inCode} />
+      <span className="tb-sep" aria-hidden />
       <div className="tb-group">
         {b(<Bold />, 'Bold', editor.isActive('bold'), () => chain().toggleBold().run())}
         {b(<Italic />, 'Italic', editor.isActive('italic'), () => chain().toggleItalic().run())}
+        {b(<Underline />, 'Underline', editor.isActive('underline'), () => chain().toggleUnderline().run())}
         {b(<Strikethrough />, 'Strikethrough', editor.isActive('strike'), () => chain().toggleStrike().run())}
         {b(<Code />, 'Inline code', editor.isActive('code'), () => chain().toggleCode().run())}
         {b(<Link />, 'Link', editor.isActive('link'), link)}
-      </div>
-      <div className="tb-group">
-        <FontPicker editor={editor} disabled={inCode} onBrowse={onBrowseFonts} notice={notice} />
       </div>
       <div className="tb-group">
         <ColorPicker editor={editor} mark="textColor" colors={TEXT_COLORS} label="Text colour" removeLabel="Remove text colour" icon={<Baseline />} disabled={inCode} />

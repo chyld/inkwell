@@ -66,11 +66,16 @@ describe('schema: the fontFamily mark', () => {
   });
 });
 
-describe('agents cannot produce a fontFamily mark (criterion 17)', () => {
-  it('the Markdown converter keeps raw HTML as text and has no font syntax', () => {
-    const d = markdownToDoc('Hello <span data-font="titan-one">titan</span> and <font face="Lora">lora</font> and <span style="font-family: Lora">x</span>');
-    expect(JSON.stringify(d)).not.toContain('fontFamily');
-    expect(JSON.stringify(d)).toContain('data-font');
+describe('agents cannot produce a fontFamily, fontSize or underline mark (criterion 17)', () => {
+  it('the Markdown converter keeps raw HTML as text and has no font, size or underline syntax', () => {
+    const d = markdownToDoc(
+      'Hello <span data-font="titan-one">titan</span> and <font face="Lora">lora</font> and <span style="font-family: Lora">x</span> ' +
+        'and <span data-font-size="40">big</span> and <font size="7">huge</font> and <span style="font-size: 30px">y</span> and <u>under</u> and <ins>ins</ins>',
+    );
+    const json = JSON.stringify(d);
+    for (const mark of ['fontFamily', 'fontSize', 'underline']) expect(json).not.toContain(`"${mark}"`);
+    expect(json).toContain('data-font');
+    expect(json).toContain('<u>under</u>'); // raw <u> stays literal text
   });
 
   describe('through the create_note tool', () => {
@@ -85,9 +90,9 @@ describe('agents cannot produce a fontFamily mark (criterion 17)', () => {
     it('a note created with HTML that names a font has no mark', async () => {
       const mcp = await McpTestClient.connect(env, 'alice');
       try {
-        const id = await mcp.createNote('Fonts by agent', '<span data-font="titan-one">x</span> **bold** <font face="Lora">y</font>');
+        const id = await mcp.createNote('Fonts by agent', '<span data-font="titan-one">x</span> **bold** <font face="Lora">y</font> <span data-font-size="40">z</span> <u>u</u>');
         const note = (await alice.get(`/api/notes/${id}`)).json();
-        expect(JSON.stringify(note.body)).not.toContain('fontFamily');
+        for (const mark of ['fontFamily', 'fontSize', 'underline']) expect(JSON.stringify(note.body)).not.toContain(`"${mark}"`);
       } finally {
         await mcp.close();
       }
