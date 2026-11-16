@@ -240,6 +240,9 @@ describe('the /styles page (criterion 14)', () => {
     expect(empty.querySelector('h3')!.textContent).toBe('No styles yet');
     expect([...empty.querySelectorAll('p')].map((p) => p.textContent)).toEqual(['A style is a saved set of text formatting you can apply with one click.', 'You can also select text in a note and choose Save selection as style.']);
     expect(button(empty, /New style/)).toBeTruthy();
+    expect(button(view!.container.querySelector('.styles-header')!, /New style/)).toBeTruthy(); // in the header too
+    await click(button(empty, /New style/));
+    await waitFor(() => !!dialog(), 2000, 'form from the empty state');
     expect(view!.container.querySelector('.styles-count')!.textContent).toBe('0 of 50');
   });
 

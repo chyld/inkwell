@@ -47,7 +47,8 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
   }, [open]);
 
   useLayoutEffect(() => {
-    if (!open) return;
+    // Focus goes into the menu once the styles have loaded, so a quick Enter cannot pick the wrong entry.
+    if (!open || styles === null) return;
     setFocusIdx(0);
     itemsRef.current[0]?.focus();
     const r = popRef.current?.getBoundingClientRect();

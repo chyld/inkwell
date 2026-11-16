@@ -88,7 +88,7 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
           <p className="styles-count" role="status" aria-live="polite">
             {styles === null ? '' : `${list.length} of ${STYLES_MAX}`}
           </p>
-          {list.length > 0 && newButton}
+          {newButton}
           {full && <span className="styles-full">{STYLES_FULL}</span>}
         </header>
         {styles !== null && list.length === 0 && (

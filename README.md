@@ -3,7 +3,8 @@
 A private, self-hosted note-taking app for a handful of people (fewer than 10).
 Each person has their own notes and nobody can see anyone else's. Notes are
 written in a rich-text editor (headings, lists, task lists, code, quotes, links,
-tables, images, underline, text colours, highlights, fonts and text sizes), organised in nested folders and with tags, and found with
+tables, images, underline, text colours, highlights, fonts, text sizes and saved
+text styles), organised in nested folders and with tags, and found with
 full-text search. Deleted notes go to Trash until you empty it.
 
 An AI agent (Claude Code, Codex, Grok, Muse, …) can **add** notes to one user's
@@ -583,6 +584,26 @@ answers recorded from the live service on 2026-11-15 are in
 | 22 preview names, 400 limit, shared queue, sign-out | `test/web/fonts-loader.test.ts`, `test/web/fonts-page.test.tsx` |
 | 23 "Mixed", no selection | `test/web/fonts-editor.test.tsx` |
 
+The Text styles feature's acceptance criteria (`STYLES-SPEC.md` section 12) run
+in the same `npm test`, with no network:
+
+| Styles criterion | Test file(s) |
+|---|---|
+| 1 create, trim, order | `test/styles-api.test.ts` |
+| 2 refusals, races, limits, renaming | `test/styles-api.test.ts` |
+| 3 retired and uncollected fonts | `test/styles-api.test.ts`, `test/web/styles-page.test.tsx`, `test/web/styles-editor.test.tsx` |
+| 4 other users, user deletion | `test/styles-api.test.ts`, `test/web/styles-page.test.tsx` |
+| 5-9 applying a style | `test/web/styles-editor.test.tsx` |
+| 10 a style is a stamp | `test/styles-api.test.ts` |
+| 11 Save selection as style | `test/web/styles-editor.test.tsx` |
+| 12 the style form | `test/web/styles-page.test.tsx` |
+| 13 the Styles menu | `test/web/styles-editor.test.tsx`, `test/web/styles-page.test.tsx` |
+| 14, 15 the `/styles` page and its routing | `test/web/styles-page.test.tsx` |
+| 16 the shared font loader | `test/web/styles-loader.test.tsx`, `test/web/styles-editor.test.tsx` |
+| 17 the note schema is unchanged | `test/styles-api.test.ts` |
+| 18 Origin, session, no-store | `test/styles-api.test.ts` |
+| 19 names as plain text, logs | `test/styles-api.test.ts`, `test/web/styles-page.test.tsx`, `test/web/styles-editor.test.tsx` |
+
 `DEVIATIONS.md` lists where the implementation interprets an ambiguous point of
 the specification.
 
@@ -674,3 +695,19 @@ repository.
 
 To update them, download the same two stylesheets again with a current browser
 User-Agent, replace the eight files and the `unicode-range` values, and rebuild.
+
+## 14. Text styles
+
+A style is a named set of text formatting: font, size, bold, italic,
+underline, strikethrough, text colour and highlight. Each person keeps up to
+50 of their own at **`/styles`** (the "Styles" entry in the sidebar), where
+they are shown as cards and can be created, edited and deleted. In a note, the
+toolbar's first button, **Styles**, lists them: choosing one sets exactly those
+eight things on the selected text (or, with no selection, on what is typed
+next). "Save selection as style…" in the same menu starts a new style from the
+formatting of the selected text.
+
+A style is a stamp, not a link: the text keeps no record of the style it came
+from, so editing or deleting a style later changes no note. Styles are private
+to each person, are stored in the database (so `notes data copy` includes them),
+and are deleted with their owner. Agents cannot use them.
