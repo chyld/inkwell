@@ -192,7 +192,7 @@ describe('applying a font (criteria 5 and 3)', () => {
     await waitFor(() => !!view!.container.querySelector('.font-empty'), 2000, 'empty collection');
     expect(view!.container.querySelector('.font-empty')?.textContent).toBe('No fonts yet');
     expect(menuItems().map((b) => b.textContent)).toEqual(['Inter', 'Browse fonts…']);
-    expect(view!.container.querySelector('.font-popover')!.firstElementChild!.textContent).toBe('Inter'); // first, above "No fonts yet"
+    expect(view!.container.querySelector('.font-popover .menu-scroll')!.firstElementChild!.textContent).toBe('Inter'); // first, above "No fonts yet"
     await click(button(view!.container, 'Inter (default)'));
     const marks = editorOf(view!.container).getJSON().content[0].content[0].marks.map((m: { type: string }) => m.type);
     expect(marks.sort()).toEqual(['bold', 'highlight', 'textColor']);

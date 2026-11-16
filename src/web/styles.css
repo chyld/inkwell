@@ -1205,12 +1205,14 @@ mark[data-highlight] {
   top: calc(100% + 4px);
   left: 0;
   z-index: 30;
+  /* The menu itself does not scroll: its list (.menu-scroll) does, and its footer stays below the list.
+     The max-height is set from the room left in the viewport (menuPlacement.ts); this is the fallback. */
   display: flex;
   flex-direction: column;
   min-width: 220px;
   max-width: min(320px, calc(100vw - 16px));
-  max-height: 340px;
-  overflow-y: auto;
+  max-height: 420px;
+  overflow: hidden;
   padding: 6px;
   background: var(--bg);
   border: 1px solid var(--border);
@@ -1219,6 +1221,7 @@ mark[data-highlight] {
 }
 .font-item {
   display: block;
+  flex: none; /* never shrunk below its content: a row keeps its own height */
   width: 100%;
   text-align: left;
   border: none;
@@ -1236,10 +1239,26 @@ mark[data-highlight] {
 .font-default-name {
   font-family: var(--font-sans); /* the app's own default font, drawn like the collection's names */
 }
-.font-browse {
-  border-top: 1px solid var(--border);
-  border-radius: 0 0 6px 6px;
+.font-popover.above {
+  top: auto;
+  bottom: calc(100% + 4px);
+}
+/* The list scrolls when it is taller than the room; its rows are in normal block flow, so they keep
+   their natural height. Only the list may shrink. */
+.menu-scroll {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+/* The separator and the entries below the list: never shrunk, always fully visible. */
+.menu-footer {
+  display: block;
+  flex: none;
   margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
 }
 .font-empty {
   margin: 4px 10px 6px;

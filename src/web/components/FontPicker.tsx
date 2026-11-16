@@ -5,6 +5,7 @@ import { DEFAULT_FONT_FAMILY, fontById, NOTE_FONTS_MAX } from '../../shared/font
 import { fontsInDoc } from '../../shared/schema';
 import { api } from '../api';
 import { usePreviews } from '../fonts/previews';
+import { placementStyle, useMenuPlacement } from './menuPlacement';
 
 export type FontState = { kind: 'none' } | { kind: 'one'; id: string } | { kind: 'mixed' };
 
@@ -74,7 +75,6 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
   const [open, setOpen] = useState(false);
   const [collection, setCollection] = useState<string[] | null>(null);
   const [focusIdx, setFocusIdx] = useState(0);
-  const [shift, setShift] = useState(0);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -105,10 +105,9 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
     const start = currentIdx >= 0 ? currentIdx : 0;
     setFocusIdx(start);
     itemsRef.current[start]?.focus();
-    const r = popRef.current?.getBoundingClientRect();
-    if (r && r.right > window.innerWidth - 8) setShift(Math.min(0, window.innerWidth - 8 - r.right));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, collection]);
+  const place = useMenuPlacement(open, wrapRef, popRef, [collection]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -120,7 +119,6 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
 
   function close(refocusButton: boolean) {
     setOpen(false);
-    setShift(0);
     if (refocusButton) buttonRef.current?.focus();
   }
 
@@ -133,6 +131,7 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
     const i = (to + count) % count;
     setFocusIdx(i);
     itemsRef.current[i]?.focus();
+    itemsRef.current[i]?.scrollIntoView?.({ block: 'nearest' });
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -195,31 +194,36 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
         <div
           id={popId}
           ref={popRef}
-          className="font-popover"
+          className={'font-popover' + (place?.above ? ' above' : '')}
           role="group"
           aria-label="Font"
-          style={shift ? { left: shift } : undefined}
+          style={placementStyle(place)}
           onKeyDown={onKeyDown}
           onBlur={(e) => {
             if (!wrapRef.current?.contains(e.relatedTarget as Node | null)) close(false);
           }}
         >
-          {item(0, <span className="font-default-name">{DEFAULT_FONT_FAMILY}</span>, () => choose(null), {
-            'aria-pressed': state.kind === 'none',
-            'aria-label': `${DEFAULT_FONT_FAMILY} (default)`,
-            className: 'font-item font-default',
-          })}
-          {collection !== null && fonts.length === 0 && <p className="font-empty">No fonts yet</p>}
-          {fonts.map((id, i) =>
-            item(i + 1, <span style={previewStyle(id)}>{fontById(id)!.family}</span>, () => choose(id), {
-              'aria-pressed': state.kind === 'one' && state.id === id,
-              'data-font-id': id,
-            }),
-          )}
-          {item(fonts.length + 1, 'Browse fonts…', () => {
-            close(false);
-            onBrowse();
-          }, { className: 'font-item font-browse' })}
+          {/* The list scrolls on its own; its rows keep their height. The footer stays below it, always visible. */}
+          <div className="menu-scroll">
+            {item(0, <span className="font-default-name">{DEFAULT_FONT_FAMILY}</span>, () => choose(null), {
+              'aria-pressed': state.kind === 'none',
+              'aria-label': `${DEFAULT_FONT_FAMILY} (default)`,
+              className: 'font-item font-default',
+            })}
+            {collection !== null && fonts.length === 0 && <p className="font-empty">No fonts yet</p>}
+            {fonts.map((id, i) =>
+              item(i + 1, <span style={previewStyle(id)}>{fontById(id)!.family}</span>, () => choose(id), {
+                'aria-pressed': state.kind === 'one' && state.id === id,
+                'data-font-id': id,
+              }),
+            )}
+          </div>
+          <div className="menu-footer">
+            {item(fonts.length + 1, 'Browse fonts…', () => {
+              close(false);
+              onBrowse();
+            }, { className: 'font-item font-browse' })}
+          </div>
         </div>
       )}
     </span>

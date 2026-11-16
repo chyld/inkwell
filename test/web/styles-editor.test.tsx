@@ -326,6 +326,60 @@ describe('the Styles menu (criterion 13) and names in it (criterion 19)', () => 
     expect(props.onManageStyles).toHaveBeenCalled();
   });
 
+  it('with many styles, the styles are in the scrolling list and the two entries below it; arrow keys scroll the focused row into view', async () => {
+    styles = Array.from({ length: 50 }, (_, i) => st(`Style ${String(i).padStart(2, '0')}`, { size: [12, 28, 64, 96][i % 4] }));
+    await open([p(t('x'))]);
+    await click(stylesButton());
+    await waitFor(() => view!.container.querySelectorAll('.styles-popover .style-item').length === 50, 2000, 'menu');
+    const pop = view!.container.querySelector('.styles-popover')!;
+    expect([...pop.children].map((c) => c.className)).toEqual(['menu-scroll', 'menu-footer']);
+    expect(pop.querySelectorAll('.menu-scroll > .style-item').length).toBe(50);
+    expect([...pop.querySelectorAll('.menu-footer > button')].map((b) => b.textContent)).toEqual(['Save selection as style…', 'Manage styles…']);
+    expect((pop as HTMLElement).style.maxHeight).toMatch(/^\d+px$/); // from the room in the viewport
+    const seen: string[] = [];
+    const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: HTMLElement) {
+      seen.push(this.textContent ?? '');
+    });
+    try {
+      for (const k of ['ArrowDown', 'ArrowDown', 'End', 'ArrowUp', 'ArrowUp', 'Home']) {
+        await act(async () => {
+          (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true }));
+        });
+      }
+      expect(seen).toEqual(['Style 01', 'Style 02', 'Manage styles…', 'Save selection as style…', 'Style 49', 'Style 00']);
+      expect(document.activeElement!.textContent).toBe('Style 00');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('the font menu with 50 fonts: Inter and the fonts in the scrolling list, Browse fonts… below it; arrow keys scroll', async () => {
+    collection = FONT_CATALOGUE.slice(0, 50).map((f) => f.id);
+    await open([p(t('x'))]);
+    await click(view!.container.querySelector('.toolbar .font-button'));
+    await waitFor(() => view!.container.querySelectorAll('.font-popover [data-font-id]').length === 50, 2000, 'font menu');
+    const pop = view!.container.querySelector('.font-popover')!;
+    expect([...pop.children].map((c) => c.className)).toEqual(['menu-scroll', 'menu-footer']);
+    expect(pop.querySelectorAll('.menu-scroll > [data-font-id]').length).toBe(50);
+    expect(pop.querySelector('.menu-scroll > .font-default')).not.toBeNull();
+    expect([...pop.querySelectorAll('.menu-footer > button')].map((b) => b.textContent)).toEqual(['Browse fonts…']);
+    const seen: string[] = [];
+    const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: HTMLElement) {
+      seen.push(this.textContent ?? '');
+    });
+    try {
+      await act(async () => {
+        (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+      });
+      await act(async () => {
+        (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
+      });
+      expect(seen).toEqual(['Browse fonts…', fontById(collection.at(-1)!)!.family]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('"No styles yet" when empty', async () => {
     await open([p(t('x'))]);
     await click(stylesButton());

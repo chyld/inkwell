@@ -6,6 +6,7 @@ import { ChevronDown } from 'lucide-react';
 import { api } from '../api';
 import { applyStyle, canUseStyles, styleFromText } from '../styleApply';
 import { NOTE_FONTS_REFUSED } from './FontPicker';
+import { placementStyle, useMenuPlacement } from './menuPlacement';
 import { StyleForm, type Style, type StyleDraft } from './StyleForm';
 import { SampleFontsProvider, StyleSample } from './StyleSample';
 
@@ -22,7 +23,6 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
   const [open, setOpen] = useState(false);
   const [styles, setStyles] = useState<Style[] | null>(null);
   const [focusIdx, setFocusIdx] = useState(0);
-  const [shift, setShift] = useState(0);
   const [form, setForm] = useState<StyleDraft | null>(null);
   const wrapRef = useRef<HTMLSpanElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -51,10 +51,9 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
     if (!open || styles === null) return;
     setFocusIdx(0);
     itemsRef.current[0]?.focus();
-    const r = popRef.current?.getBoundingClientRect();
-    if (r && r.right > window.innerWidth - 8) setShift(Math.min(0, window.innerWidth - 8 - r.right));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, styles]);
+  const place = useMenuPlacement(open, wrapRef, popRef, [styles]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -66,7 +65,6 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
 
   function close(refocusButton: boolean) {
     setOpen(false);
-    setShift(0);
     if (refocusButton) buttonRef.current?.focus();
   }
 
@@ -85,6 +83,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
     const i = (to + count) % count;
     setFocusIdx(i);
     itemsRef.current[i]?.focus();
+    itemsRef.current[i]?.scrollIntoView?.({ block: 'nearest' });
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -145,17 +144,21 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
           <div
             id={popId}
             ref={popRef}
-            className="font-popover styles-popover"
+            className={'font-popover styles-popover' + (place?.above ? ' above' : '')}
             role="group"
             aria-label="Styles"
-            style={shift ? { left: shift } : undefined}
+            style={placementStyle(place)}
             onKeyDown={onKeyDown}
             onBlur={(e) => {
               if (!wrapRef.current?.contains(e.relatedTarget as Node | null)) close(false);
             }}
           >
-            {styles !== null && list.length === 0 && <p className="font-empty">No styles yet</p>}
-            {list.map((s, i) => item(i, <StyleSample style={s} text={s.name} cap={MENU_SAMPLE_CAP} />, () => choose(s), 'font-item style-item'))}
+            {/* The styles scroll on their own; each row keeps its height. The two entries stay below, always visible. */}
+            <div className="menu-scroll">
+              {styles !== null && list.length === 0 && <p className="font-empty">No styles yet</p>}
+              {list.map((s, i) => item(i, <StyleSample style={s} text={s.name} cap={MENU_SAMPLE_CAP} />, () => choose(s), 'font-item style-item'))}
+            </div>
+            <div className="menu-footer">
             {item(
               list.length,
               'Save selection as style…',
@@ -170,6 +173,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
               close(false);
               onManage();
             })}
+            </div>
           </div>
         </SampleFontsProvider>
       )}
