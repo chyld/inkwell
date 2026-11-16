@@ -27,7 +27,7 @@ import { EditorContent, useEditor, useEditorState, type Editor } from '@tiptap/r
 import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model';
 import { api, ApiError, NetworkError, type FolderNode, type Me, type Note, type NoteItem, type TagCount } from '../api';
 import { localDrafts, type Draft } from '../drafts';
-import { NoteSaver, type SaveStatus } from '../saver';
+import { NoteSaver, activeSaver, type SaveStatus } from '../saver';
 import { noteExtensions, isAllowedHref, normalizeTag, fontsInDoc, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
 import { ColorPicker } from './ColorPicker';
 import { FontPicker, fontStateOf } from './FontPicker';
@@ -38,13 +38,11 @@ import { ImageResizeKeys, ResizableImage } from '../ImageView';
 import { NoteFontSession } from '../fonts/runtime';
 import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
-import { APP_TITLE, NOT_FOUND_TITLE, noteTitle } from '../route';
+import { APP_TITLE, noteTitle } from '../route';
 import { useDialogs } from './Dialogs';
 import { findFolder, folderPath } from './Sidebar';
 import { useImageUpload } from './images';
-
-/** The saver of the note on screen, for flushing before switching notes or signing out. */
-export const activeSaver: { current: NoteSaver | null } = { current: null };
+import { NoteNotFound } from './NoteNotFound';
 
 interface Props {
   noteId: string;
@@ -64,30 +62,6 @@ interface Props {
   onBrowseFonts?: () => void;
   /** "Manage styles…" in the Styles menu: go to /styles (the note is saved first). */
   onManageStyles?: () => void;
-}
-
-/** Shown for an address that names no note of this user: a malformed id, a deleted note or someone else's (same message for all). */
-export function NoteNotFound({ onBack, onAllNotes }: { onBack: () => void; onAllNotes: () => void }) {
-  useEffect(() => {
-    document.title = NOT_FOUND_TITLE;
-    return () => {
-      document.title = APP_TITLE;
-    };
-  }, []);
-  return (
-    <section className="editor-pane empty" aria-label="Editor">
-      <button className="icon-button mobile-only back" onClick={onBack} aria-label="Back to list" title="Back to list">
-        <ChevronLeft />
-      </button>
-      <div className="not-found" role="alert">
-        <h2>This note was not found</h2>
-        <p>It may have been deleted, or the address may be wrong.</p>
-        <button className="primary" onClick={onAllNotes}>
-          Go to all notes
-        </button>
-      </div>
-    </section>
-  );
 }
 
 export function NoteEditorPane(props: Props) {

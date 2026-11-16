@@ -1,20 +1,27 @@
 // The font catalogue snapshot (FONTS-SPEC 4.1), shared by the server, the web app and the tests,
-// so the editor and the server always agree on which ids exist.
+// so the editor and the server always agree on which ids exist. The web build imports a projection of
+// the same file with only the FontInfo fields (vite.config.ts, webCatalogueModule); the face fields are
+// read on the server only, through server/fonts/catalogue.ts.
 import data from './font-catalogue.json' with { type: 'json' };
 
 export type FontCategory = 'serif' | 'sans-serif' | 'display' | 'handwriting' | 'monospace';
 export const FONT_CATEGORIES: readonly FontCategory[] = ['serif', 'sans-serif', 'display', 'handwriting', 'monospace'];
 
-export interface FontEntry {
+/** What the web app reads of an entry. */
+export interface FontInfo {
   id: string;
   family: string;
   category: FontCategory;
+  retired: boolean;
+}
+
+/** A whole snapshot entry: FontInfo and the faces the server asks Google for. */
+export interface FontEntry extends FontInfo {
   /** The upright weight used as the regular face. */
   regular: number;
   bold: boolean;
   italic: boolean;
   boldItalic: boolean;
-  retired: boolean;
 }
 
 export const FONT_ID_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -24,7 +31,7 @@ export const FONT_HASH_RE = /^[0-9a-f]{64}$/;
 export const COLLECTION_MAX = 50;
 export const NOTE_FONTS_MAX = 50;
 
-export const FONT_CATALOGUE: readonly FontEntry[] = data as FontEntry[];
+export const FONT_CATALOGUE: readonly FontInfo[] = data as FontInfo[];
 
 /**
  * The app's own text font: the name shown for "no font" in the editor and the first family of the
@@ -36,7 +43,7 @@ export const DEFAULT_MONO_FAMILY = 'JetBrains Mono';
 const BY_ID = new Map(FONT_CATALOGUE.map((f) => [f.id, f]));
 
 /** The entry for an id, retired ones included, or undefined. Only ids that match the pattern are looked up. */
-export function fontById(id: unknown): FontEntry | undefined {
+export function fontById(id: unknown): FontInfo | undefined {
   if (typeof id !== 'string' || id.length > FONT_ID_MAX || !FONT_ID_RE.test(id)) return undefined;
   return BY_ID.get(id);
 }

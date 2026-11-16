@@ -1203,7 +1203,7 @@ mark {
 .prose {
   outline: none;
   min-height: 200px;
-  font-size: 16px; /* note body text; TEXT_SIZE_DEFAULT in src/shared/schema.ts */
+  font-size: 16px; /* note body text; TEXT_SIZE_DEFAULT in src/shared/noteRules.ts */
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
@@ -1220,7 +1220,7 @@ mark {
   margin: 1.1em 0 0.3em;
 }
 .prose h1 {
-  font-size: 26px; /* HEADING_SIZES in src/shared/schema.ts */
+  font-size: 26px; /* HEADING_SIZES in src/shared/noteRules.ts */
 }
 .prose h2 {
   font-size: 21px;

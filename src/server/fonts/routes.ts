@@ -4,7 +4,8 @@ import fs from 'node:fs';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { AppError, notFound } from '../errors.js';
 import type { Store } from '../store.js';
-import { COLLECTION_MAX, FONT_HASH_RE, fontById, type FontEntry } from '../../shared/fonts.js';
+import { COLLECTION_MAX, FONT_HASH_RE, type FontEntry } from '../../shared/fonts.js';
+import { fontEntryById } from './catalogue.js';
 import type { FontService } from './service.js';
 
 const collectionFull = () => new AppError(409, 'collection_full', `You can keep at most ${COLLECTION_MAX} fonts. Remove one to add another.`);
@@ -12,7 +13,7 @@ const retired = () => new AppError(409, 'retired', 'This font is no longer avail
 
 /** The catalogue entry named by :id, checked against the snapshot before any use. */
 function entry(req: FastifyRequest): FontEntry {
-  const f = fontById((req.params as { id?: unknown }).id);
+  const f = fontEntryById((req.params as { id?: unknown }).id);
   if (!f) throw notFound();
   return f;
 }

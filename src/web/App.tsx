@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { PanelLeftOpen } from 'lucide-react';
 import { api, ApiError, setUnauthorizedHandler, type FolderNode, type Me, type NoteItem, type TagCount } from './api';
 import { localDrafts } from './drafts';
@@ -7,18 +7,21 @@ import { SignIn } from './components/SignIn';
 import { findFolder, sameView, type View } from './components/Sidebar';
 import { Rail } from './components/Rail';
 import { NoteList } from './components/NoteList';
-import { NoteEditorPane, NoteNotFound, activeSaver } from './components/NoteEditor';
-import { FontsPage } from './components/FontsPage';
-import { StylesPage } from './components/StylesPage';
+import { NoteNotFound } from './components/NoteNotFound';
 import { currentRoute, initHistory, notePath, setAddress } from './route';
-import { clearAllFonts } from './fonts/runtime';
+import { clearAllFonts } from './fonts/clearing';
 import { waitForUploads } from './components/images';
 import { signOutFlow } from './signout';
 import { emptyTrashFlow } from './trash';
 import { cancelUploads, hasPendingUploads } from './components/images';
-import { NoteSaver } from './saver';
+import { NoteSaver, activeSaver } from './saver';
 import { loadLayout, saveLayout, type Layout } from './layout';
 import { currentAuthEpoch, getExpectedUser, newAuthEpoch, setExpectedUser } from './api';
+
+// Loaded when first shown, each in its own chunk: signing in and the note list need none of them.
+const NoteEditorPane = lazy(() => import('./components/NoteEditor').then((m) => ({ default: m.NoteEditorPane })));
+const FontsPage = lazy(() => import('./components/FontsPage').then((m) => ({ default: m.FontsPage })));
+const StylesPage = lazy(() => import('./components/StylesPage').then((m) => ({ default: m.StylesPage })));
 
 // The user this tab signed in as. It is kept, also across reloads of the tab, until a sign-in or
 // a confirmed sign-out in this tab: a 401 never clears it, so after another tab signs in as
@@ -460,8 +463,16 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   return (
     <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page !== 'notes' ? ` ${page}-open` : ''}`}>
       <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} onNewNote={() => void newNote(true)} />
-      {page === 'fonts' && <FontsPage onBack={leavePage} />}
-      {page === 'styles' && <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />}
+      {page === 'fonts' && (
+        <Suspense fallback={<section className="fonts-page" aria-label="Fonts" aria-busy="true" />}>
+          <FontsPage onBack={leavePage} />
+        </Suspense>
+      )}
+      {page === 'styles' && (
+        <Suspense fallback={<section className="styles-page" aria-label="Styles" aria-busy="true" />}>
+          <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />
+        </Suspense>
+      )}
       {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
       {page === 'notes' && <NoteList
         collapsed={layout.list}
@@ -482,6 +493,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
         onEmptyTrash={emptyTrash}
       />}
       {page !== 'notes' ? null : selected ? (
+        <Suspense fallback={<section className="editor-pane" aria-label="Editor" aria-busy="true" />}>
         <NoteEditorPane
           key={selected}
           noteId={selected}
@@ -499,6 +511,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
           onBrowseFonts={() => void openFonts()}
           onManageStyles={() => void openPage('styles')}
         />
+        </Suspense>
       ) : notFound ? (
         <NoteNotFound onBack={() => void closeNote('push')} onAllNotes={allNotes} />
       ) : (

@@ -2,7 +2,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent
 import type { Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import { DEFAULT_FONT_FAMILY, fontById, NOTE_FONTS_MAX } from '../../shared/fonts';
-import { fontsInDoc } from '../../shared/schema';
+import { fontsInDoc } from '../../shared/noteRules';
 import { api } from '../api';
 import { usePreviews } from '../fonts/previews';
 import { placementStyle, useMenuPlacement } from './menuPlacement';

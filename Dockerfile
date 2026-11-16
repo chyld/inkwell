@@ -11,12 +11,13 @@ COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY tsconfig.json tsconfig.web.json vite.config.ts ./
 COPY src ./src
-# The font catalogue snapshot (src/shared/font-catalogue.json) ends up in dist/ (server) and in the
-# web bundle; fail the build if it did not.
+# The font catalogue snapshot (src/shared/font-catalogue.json) ends up in dist/ (server) and, as the
+# browser's projection of it (family names; ids are derived from them), in the web bundle; fail the build
+# if it did not.
 RUN npm run build \
  && test -s dist/shared/font-catalogue.json \
  && grep -q '"titan-one"' dist/shared/font-catalogue.json \
- && grep -lq 'titan-one' dist/web/assets/*.js \
+ && grep -lq 'Titan One' dist/web/assets/*.js \
  && npm prune --omit=dev --no-audit --no-fund
 
 # ---- runtime ----

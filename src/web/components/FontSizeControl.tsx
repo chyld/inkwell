@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { Mark, Node as PMNode } from '@tiptap/pm/model';
 import { Minus, Plus } from 'lucide-react';
-import { FONT_SIZE_MAX, FONT_SIZE_MIN, defaultSizeOf } from '../../shared/schema';
+import { FONT_SIZE_MAX, FONT_SIZE_MIN, defaultSizeOf } from '../../shared/noteRules';
 
 const clamp = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, n));
 const markSize = (marks: readonly Mark[]) => marks.find((m) => m.type.name === 'fontSize')?.attrs.size as number | undefined;

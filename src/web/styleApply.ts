@@ -4,7 +4,7 @@ import type { Editor } from '@tiptap/react';
 import type { Mark, MarkType, Node as PMNode, Schema } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
 import { NOTE_FONTS_MAX } from '../shared/fonts';
-import { defaultSizeOf, fontsInDoc } from '../shared/schema';
+import { defaultSizeOf, fontsInDoc } from '../shared/noteRules';
 import type { StyleSettings } from './components/StyleSample';
 
 /** The eight mark types a style sets. */

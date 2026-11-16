@@ -2,7 +2,7 @@
 // plain values until Save; they look and behave like the toolbar's.
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Baseline, Bold, Highlighter, Italic, Minus, Plus, Strikethrough, Underline } from 'lucide-react';
-import { FONT_SIZE_MAX, FONT_SIZE_MIN, HIGHLIGHT_COLORS, TEXT_COLORS } from '../../shared/schema';
+import { FONT_SIZE_MAX, FONT_SIZE_MIN, HIGHLIGHT_COLORS, TEXT_COLORS } from '../../shared/noteRules';
 import { api, ApiError } from '../api';
 import { ColorMenu } from './ColorPicker';
 import { FontMenu } from './FontPicker';

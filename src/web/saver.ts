@@ -300,3 +300,6 @@ if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     if (document.visibilityState === 'hidden') NoteSaver.writeAllDrafts();
   });
 }
+
+/** The saver of the note on screen, for flushing before switching notes or signing out. */
+export const activeSaver: { current: NoteSaver | null } = { current: null };

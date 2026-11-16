@@ -12,7 +12,7 @@
   "scripts": {
     "build": "npm run build:server && npm run build:web",
     "build:server": "tsc -p tsconfig.json",
-    "build:web": "vite build",
+    "build:web": "tsc -p tsconfig.web.json --noEmit && vite build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "start": "node dist/server/main.js",
     "test": "vitest run",

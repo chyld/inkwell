@@ -2,6 +2,7 @@
 // style marked text. Font files come only from the notes server (/api/fonts/file/<hash>).
 import { FONT_HASH_RE, FONT_ID_RE, NOTE_FONTS_MAX, fallbackFamily, fontById } from '../../shared/fonts';
 import { api } from '../api';
+import { clearAllFonts, onFontsCleared } from './clearing';
 
 /** What the font code needs from the browser; tests put stand-ins here. */
 export interface FontFaceLike {
@@ -274,17 +275,12 @@ export class SampleFontSession {
 
 // ---- sign-out ----------------------------------------------------------------
 
-const onClear = new Set<() => void>();
-export function onFontsCleared(f: () => void) {
-  onClear.add(f);
-  return () => onClear.delete(f);
-}
+export { clearAllFonts, onFontsCleared };
 
-/** Sign-out: every registered face (previews included) and every rule is removed. */
-export function clearAllFonts() {
+// Registered first, when this module loads: this module's faces and rules go before what is built on them.
+onFontsCleared(() => {
   for (const id of [...noteFaces.keys()]) dropNoteFont(id);
   rules.clear();
   if (styleEl) styleEl.textContent = '';
   loader?.reset();
-  for (const f of onClear) f();
-}
+});
