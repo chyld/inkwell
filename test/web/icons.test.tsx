@@ -71,16 +71,27 @@ describe('icons', () => {
     await waitFor(() => !!view!.container.querySelector('.table-tools'), 2000, 'table tools');
     checkButtons(document);
     for (const [label, icon] of [
-      ['Heading 1', 'lucide-heading-1'],
-      ['Heading 2', 'lucide-heading-2'],
-      ['Heading 3', 'lucide-heading-3'],
+      ['Headings', 'lucide-letter-h'], // lucide's Heading icon
+      ['Lists', 'lucide-list'],
+      ['Blocks', 'lucide-text-quote'],
+      ['Insert', 'lucide-plus'],
       ['Bold', 'lucide-bold'],
       ['Move to Trash', 'lucide-trash-2'],
     ]) {
       expect(button(view.container, label)?.querySelector(`svg.${icon}`), label).toBeTruthy();
     }
-    // Active and disabled states are still on the buttons themselves.
-    expect(button(view.container, 'Insert table')!.disabled).toBe(true); // inside a table
+    // The block dropdowns' rows: icon and label, each a labelled lucide icon too.
+    for (const [menu, rows] of [
+      ['Headings', [['Normal text', 'lucide-pilcrow'], ['Heading 1', 'lucide-heading-1'], ['Heading 2', 'lucide-heading-2'], ['Heading 3', 'lucide-heading-3']]],
+      ['Insert', [['Horizontal line', 'lucide-minus'], ['Table', 'lucide-table'], ['Image', 'lucide-image-plus']]],
+    ] as const) {
+      await click(button(view.container, menu));
+      for (const [label, icon] of rows) expect(button(document, label)?.querySelector(`svg.${icon}`), label).toBeTruthy();
+      checkButtons(document);
+      // Active and disabled states are on the rows themselves: inside a table, Insert › Table is disabled.
+      if (menu === 'Insert') expect(button(document, 'Table')!.disabled).toBe(true);
+      await click(button(view.container, menu));
+    }
     expect(button(view.container, 'Bold')!.getAttribute('aria-pressed')).toBe('false');
   });
 

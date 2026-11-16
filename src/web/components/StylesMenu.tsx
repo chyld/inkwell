@@ -111,6 +111,14 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
       End: () => move(count - 1),
       Escape: () => close(true),
     };
+    // Enter and Space activate the focused entry here, with the key's default cancelled: left to the browser,
+    // the click would move the focus to the note and the same Enter would then split the text there.
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      itemsRef.current[focusIdx]?.click();
+      return;
+    }
     const k = keys[e.key];
     if (k) {
       e.preventDefault();

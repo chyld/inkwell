@@ -386,6 +386,34 @@ describe('the Styles menu (criterion 13) and names in it (criterion 19)', () => 
     }
   });
 
+  it('Enter and Space on an entry choose it and cancel the key, so it never reaches the note', async () => {
+    styles = [st('Loud', { bold: true }), st('Calm', { italic: true })];
+    await open([p(t('hello world'))]);
+    await select(3, 6);
+    const press = async (k: string) => {
+      const ev = new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true });
+      await act(async () => void document.activeElement!.dispatchEvent(ev));
+      return ev.defaultPrevented;
+    };
+    await click(stylesButton());
+    await waitFor(() => view!.container.querySelectorAll('.styles-popover .style-item').length === 2, 2000, 'menu');
+    expect(document.activeElement!.textContent).toBe('Loud');
+    expect(await press('Enter')).toBe(true);
+    expect(view!.container.querySelector('.styles-popover')).toBeNull();
+    expect(pieces()).toEqual([
+      { text: 'he', marks: [] },
+      { text: 'llo', marks: ['bold'] },
+      { text: ' world', marks: [] },
+    ]);
+    await select(3, 6);
+    await click(stylesButton());
+    await waitFor(() => view!.container.querySelectorAll('.styles-popover .style-item').length === 2, 2000, 'menu');
+    await act(async () => void document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })));
+    expect(await press(' ')).toBe(true);
+    expect(pieces()[1]).toEqual({ text: 'llo', marks: ['italic'] });
+    expect(doc().content).toHaveLength(1); // never split
+  });
+
   it('"No styles yet" when empty', async () => {
     await open([p(t('x'))]);
     await click(stylesButton());

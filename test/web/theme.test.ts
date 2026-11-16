@@ -90,3 +90,67 @@ describe("text colours and highlights, palette 'Jewel'", () => {
   });
 });
 
+
+describe("the editor toolbar: 'Quiet line' on a 'Sage' bar (DEVIATIONS 45)", () => {
+  const SAGE = {
+    light: { 'toolbar-bg': '#e3f0e0', 'toolbar-strong': '#c8dfc3', 'toolbar-icon': '#405e40' },
+    dark: { 'toolbar-bg': '#252f23', 'toolbar-strong': '#354531', 'toolbar-icon': '#bad3b4' },
+  };
+  /** Every declaration given to exactly this selector, in source order. */
+  const decls = (sel: string) => {
+    const out: Record<string, string> = {};
+    for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      if (!m[1].split(',').some((x) => x.trim() === sel)) continue;
+      for (const d of m[2].split(';')) {
+        const i = d.indexOf(':');
+        if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
+      }
+    }
+    return out;
+  };
+
+  it('sets the agreed token values in both themes', () => {
+    for (const [k, v] of Object.entries(SAGE.light)) expect(light[k], `light --${k}`).toBe(v);
+    for (const [k, v] of Object.entries(SAGE.dark)) expect(dark[k], `dark --${k}`).toBe(v);
+  });
+
+  it('meets contrast: icons 4.5:1 on the bar and on the pressed background, labels and pressed icons 4.5:1, the focus ring 3:1', () => {
+    const pairs: [string, string, number][] = [
+      ['toolbar-icon', 'toolbar-bg', 4.5], // icons on the bar
+      ['toolbar-icon', 'toolbar-strong', 4.5], // icons on hover
+      ['text', 'toolbar-strong', 4.5], // a pressed icon is in the text colour
+      ['text', 'toolbar-bg', 4.5], // picker labels (Styles, the font name)
+      ['text', 'bg', 4.5], // the size number on the page background
+      ['accent', 'toolbar-bg', 3], // the focus ring on sage
+      ['accent', 'toolbar-strong', 3],
+    ];
+    for (const [theme, t] of Object.entries({ light, dark })) {
+      for (const [fg, bg, min] of pairs) expect(contrast(t[fg], t[bg]), `${theme}: --${fg} on --${bg}`).toBeGreaterThanOrEqual(min);
+    }
+  });
+
+  it('the bar, its dividers, hover and pressed states use the sage tokens; icons sage, labels the text colour', () => {
+    expect(decls('.toolbar').background).toBe('var(--toolbar-bg)');
+    expect(decls('.toolbar')['border-bottom']).toBe('1px solid var(--toolbar-strong)');
+    expect(decls('.toolbar .tb-sep').background).toBe('var(--toolbar-strong)');
+    expect(decls('.toolbar .tb:hover:not(:disabled)').background).toBe('var(--toolbar-strong)');
+    expect(decls('.toolbar .tb.active').background).toBe('var(--toolbar-strong)');
+    expect(decls('.toolbar .tb').color).toBe('var(--text)');
+    expect(decls('.toolbar .tb > svg.lucide').color).toBe('var(--toolbar-icon)');
+    expect(decls('.toolbar .tb.active > svg.lucide').color).toBe('var(--text)');
+    expect(decls('.size-group .size-input').background).toBe('var(--bg)');
+    // Menus opened from the toolbar stay on the page background with the Plum current row.
+    expect(decls('.font-popover').background).toBe('var(--bg)');
+    expect(decls(".font-item[aria-checked='true']").background).toBe('var(--bg-active)');
+  });
+
+  it('toolbar icons have a 1.5 stroke; every other icon keeps 1.75', () => {
+    expect(light['icon-stroke']).toBe('1.75');
+    expect(light['icon-stroke-toolbar']).toBe('1.5');
+    expect(decls('svg.lucide')['stroke-width']).toBe('var(--icon-stroke)');
+    expect(decls('.toolbar svg.lucide')['stroke-width']).toBe('var(--icon-stroke-toolbar)');
+    // No other rule changes the stroke.
+    const others = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{[^{}]*stroke-width:[^{}]*\}/g)].map((m) => m[1].trim());
+    expect(others).toEqual(['svg.lucide', '.toolbar svg.lucide']);
+  });
+});

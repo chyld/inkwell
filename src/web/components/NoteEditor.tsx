@@ -11,25 +11,13 @@ import {
   Code,
   Folder,
   Grid2x2X,
-  Heading1,
-  Heading2,
-  Heading3,
   Highlighter,
-  ImagePlus,
   Italic,
   Link,
-  List,
-  ListOrdered,
-  ListTodo,
-  LoaderCircle,
-  Minus,
   PanelTop,
   Redo2,
-  SquareCode,
   SquareMinus,
   Strikethrough,
-  Table,
-  Quote,
   Trash2,
   Underline,
   Undo2,
@@ -45,6 +33,7 @@ import { ColorPicker } from './ColorPicker';
 import { FontPicker } from './FontPicker';
 import { FontSizeControl } from './FontSizeControl';
 import { StylesMenu } from './StylesMenu';
+import { BlockMenus } from './BlockMenus';
 import { ImageResizeKeys, ResizableImage } from '../ImageView';
 import { NoteFontSession } from '../fonts/runtime';
 import { NOTE_FONTS_MAX } from '../../shared/fonts';
@@ -665,7 +654,7 @@ function Toolbar({
   const inCode = editor.isActive('code') || editor.isActive('codeBlock');
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
-      {/* The start follows a familiar word-processor order: styles, font, size, then inline styles and colours. */}
+      {/* Styles | font | size | colours | inline marks | Headings, Lists, Blocks, Insert | Undo, Redo (DEVIATIONS 45). */}
       <div className="tb-group">
         <StylesMenu editor={editor} notice={notice} onManage={onManageStyles} onBrowseFonts={onBrowseFonts} />
       </div>
@@ -677,6 +666,11 @@ function Toolbar({
       <FontSizeControl editor={editor} disabled={inCode} />
       <span className="tb-sep" aria-hidden />
       <div className="tb-group">
+        <ColorPicker editor={editor} mark="textColor" colors={TEXT_COLORS} label="Text colour" removeLabel="Remove text colour" icon={<Baseline />} disabled={inCode} />
+        <ColorPicker editor={editor} mark="highlight" colors={HIGHLIGHT_COLORS} label="Highlight" removeLabel="Remove highlight" icon={<Highlighter />} disabled={inCode} />
+      </div>
+      <span className="tb-sep" aria-hidden />
+      <div className="tb-group">
         {b(<Bold />, 'Bold', editor.isActive('bold'), () => chain().toggleBold().run())}
         {b(<Italic />, 'Italic', editor.isActive('italic'), () => chain().toggleItalic().run())}
         {b(<Underline />, 'Underline', editor.isActive('underline'), () => chain().toggleUnderline().run())}
@@ -684,27 +678,11 @@ function Toolbar({
         {b(<Code />, 'Inline code', editor.isActive('code'), () => chain().toggleCode().run())}
         {b(<Link />, 'Link', editor.isActive('link'), link)}
       </div>
+      <span className="tb-sep" aria-hidden />
       <div className="tb-group">
-        <ColorPicker editor={editor} mark="textColor" colors={TEXT_COLORS} label="Text colour" removeLabel="Remove text colour" icon={<Baseline />} disabled={inCode} />
-        <ColorPicker editor={editor} mark="highlight" colors={HIGHLIGHT_COLORS} label="Highlight" removeLabel="Remove highlight" icon={<Highlighter />} disabled={inCode} />
+        <BlockMenus editor={editor} inTable={inTable} uploading={uploading} onImage={onImage} />
       </div>
-      <div className="tb-group">
-        {b(<Heading1 />, 'Heading 1', editor.isActive('heading', { level: 1 }), () => chain().toggleHeading({ level: 1 }).run())}
-        {b(<Heading2 />, 'Heading 2', editor.isActive('heading', { level: 2 }), () => chain().toggleHeading({ level: 2 }).run())}
-        {b(<Heading3 />, 'Heading 3', editor.isActive('heading', { level: 3 }), () => chain().toggleHeading({ level: 3 }).run())}
-      </div>
-      <div className="tb-group">
-        {b(<List />, 'Bullet list', editor.isActive('bulletList'), () => chain().toggleBulletList().run())}
-        {b(<ListOrdered />, 'Numbered list', editor.isActive('orderedList'), () => chain().toggleOrderedList().run())}
-        {b(<ListTodo />, 'Task list', editor.isActive('taskList'), () => chain().toggleTaskList().run())}
-        {b(<Quote />, 'Quote', editor.isActive('blockquote'), () => chain().toggleBlockquote().run())}
-        {b(<SquareCode />, 'Code block', editor.isActive('codeBlock'), () => chain().toggleCodeBlock().run())}
-        {b(<Minus />, 'Horizontal rule', false, () => chain().setHorizontalRule().run())}
-      </div>
-      <div className="tb-group">
-        {b(<Table />, 'Insert table', false, () => chain().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), inTable)}
-        {b(uploading ? <LoaderCircle className="spin" /> : <ImagePlus />, 'Insert image', false, onImage, uploading)}
-      </div>
+      <span className="tb-sep" aria-hidden />
       <div className="tb-group">
         {b(<Undo2 />, 'Undo', false, () => chain().undo().run(), !editor.can().undo())}
         {b(<Redo2 />, 'Redo', false, () => chain().redo().run(), !editor.can().redo())}
