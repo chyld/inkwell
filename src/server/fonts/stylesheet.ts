@@ -1,4 +1,5 @@
-// The Google Fonts stylesheet grammar of FONTS-SPEC 5.1: comments and @font-face blocks only.
+// The Google Fonts stylesheet grammar of FONTS-SPEC 5.1: comments and @font-face blocks only, plus the one rule
+// Google adds for colour-capable families, accepted in exactly one form and ignored (DEVIATIONS 31 and 52).
 // Upstream answers are untrusted: anything outside the grammar fails the fetch.
 
 export class FontFetchError extends Error {}
@@ -20,6 +21,8 @@ const fail = (msg: string): never => {
   throw new FontFetchError(msg);
 };
 
+/** `body { --google-font-color-<name>: <keyword>; }`: one custom property, a plain keyword value (e.g. colrv1). */
+const COLOUR_RULE_RE = /^body\s*\{\s*--google-font-color-[a-z0-9]+(?:-[a-z0-9]+)*\s*:\s*[a-z0-9]+(?:-[a-z0-9]+)*\s*;?\s*\}/;
 const UNICODE_RANGE_RE = /^U\+[0-9A-Fa-f]{1,6}(?:-[0-9A-Fa-f]{1,6})?(?:\s*,\s*U\+[0-9A-Fa-f]{1,6}(?:-[0-9A-Fa-f]{1,6})?)*$/;
 const KNOWN = new Set(['font-family', 'font-style', 'font-weight', 'src', 'unicode-range', 'font-stretch', 'font-display']);
 
@@ -121,6 +124,12 @@ export function parseStylesheet(text: string, needRange: boolean): FaceBlock[] {
       blocks.push(block(body, pendingComment, needRange));
       pendingComment = null;
       i = close + 1;
+      continue;
+    }
+    const colour = COLOUR_RULE_RE.exec(text.slice(i, i + 256));
+    if (colour) {
+      i += colour[0].length; // ignored: it changes nothing in the faces
+      pendingComment = null;
       continue;
     }
     fail('a rule other than @font-face');

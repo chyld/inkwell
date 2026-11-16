@@ -43,6 +43,7 @@ import { useDialogs } from './Dialogs';
 import { folderPath } from './folders';
 import { useImageUpload } from './images';
 import { NoteNotFound } from './NoteNotFound';
+import { selectionFromPaper } from '../paperClick';
 
 interface Props {
   noteId: string;
@@ -581,7 +582,21 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
         </div>
       )}
       {/* The paper: the body, full width; it scrolls, the title row and the toolbar above stay put. */}
-      <div className="editor-scroll paper">
+      <div
+        className="editor-scroll paper"
+        onMouseDown={(e) => {
+          // A press on the paper around the text acts on the nearest point of the text (and deselects an image).
+          // Touch sends mousedown only for a tap, never for a swipe that scrolls; the scrollbar is left alone.
+          const el = e.currentTarget;
+          if (e.button !== 0 || !editor || !editor.isEditable || editor.view.dom.contains(e.target as Node)) return;
+          if (e.clientX >= el.getBoundingClientRect().left + el.clientLeft + el.clientWidth) return;
+          const sel = selectionFromPaper(editor.view, e.clientX, e.clientY);
+          if (!sel) return;
+          e.preventDefault(); // the focus does not leave the editor
+          editor.view.dispatch(editor.state.tr.setSelection(sel)); // the pressed point is on screen: no scrolling
+          if (!editor.view.hasFocus()) editor.view.focus();
+        }}
+      >
         <div className="paper-column">
           <EditorContent editor={editor} className="editor-content" />
         </div>

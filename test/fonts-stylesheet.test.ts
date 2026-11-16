@@ -143,13 +143,34 @@ describe('rejected', () => {
   });
 });
 
-describe('colour-capable families (found in the hand checks, 2026-11-15)', () => {
-  it("Google adds a `body { --google-font-color-…: none; }` rule for them, which 5.1's grammar refuses", () => {
+describe('colour-capable families (found in the hand checks, 2026-11-15; accepted since CLEANUP-PLAN pass 2)', () => {
+  it('Google adds a `body { --google-font-color-…: colrv1; }` rule for them; it is accepted and ignored', () => {
     for (const n of ['fact-color-font-preview-nabla', 'fact-color-font-faces-nabla']) {
       expect(recorded.status(n)).toBe(200);
       expect(recorded.css(n)).toMatch(/\nbody \{\s*--google-font-color-nabla:/);
     }
-    expect(() => checkPreview(F('nabla'), recorded.css('fact-color-font-preview-nabla'))).toThrow(/a rule other than @font-face/);
-    expect(() => checkFaces(F('nabla'), recorded.css('fact-color-font-faces-nabla'))).toThrow(/a rule other than @font-face/);
+    const preview = checkPreview(F('nabla'), recorded.css('fact-color-font-preview-nabla'));
+    expect(preview.family).toBe('Nabla');
+    expect(preview.url).toMatch(/^https:\/\/fonts\.gstatic\.com\/l\/font\?kit=/);
+    const faces = checkFaces(F('nabla'), recorded.css('fact-color-font-faces-nabla'));
+    expect(faces.map((b) => b.slice)).toEqual(['latin-ext', 'latin']); // the same faces as without the rule
+    expect(faces).toEqual(checkFaces(F('nabla'), recorded.css('fact-color-font-faces-nabla').replace(/\nbody \{[^}]*\}/, '')));
+  });
+
+  it('only that exact form: any other rule, selector, property or value still fails the fetch', () => {
+    const face = "@font-face { font-family: 'Nabla'; font-style: normal; font-weight: 400; src: url(https://fonts.gstatic.com/a.woff2) format('woff2'); }\n";
+    expect(parseStylesheet(face + 'body {\n  --google-font-color-nabla:colrv1;\n}\n', false)).toHaveLength(1);
+    expect(parseStylesheet(face + 'body { --google-font-color-bitcount-ink: none }', false)).toHaveLength(1);
+    for (const extra of [
+      'body { color: red; }',
+      'html { --google-font-color-nabla: colrv1; }',
+      'body { --google-font-color-nabla: colrv1; --other: 1; }',
+      'body { --google-font-color-nabla: url(https://example.com/x); }',
+      "body { --google-font-color-nabla: 'colrv1'; }",
+      'body { --google-font-color-: colrv1; }',
+      'body { --google-font-color-nabla: colrv1; } p { }',
+      'body { --google-font-color-nabla: colrv1;',
+      'body.x { --google-font-color-nabla: colrv1; }',
+    ]) expect(() => parseStylesheet(face + extra, false), extra).toThrow(FontFetchError);
   });
 });

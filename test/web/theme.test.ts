@@ -166,10 +166,10 @@ describe('the editor toolbar: a flat teal bar (mock-up 07, DEVIATIONS 47)', () =
     return out;
   };
 
-  it('meets contrast: the rail ink 4.5:1 on the bar, 3:1 (icons) on the given pressed teal; its focus ring', () => {
+  it('meets contrast: the rail ink 4.5:1 on the bar and on hover and pressed (labels show pressed: an open picker); its focus ring', () => {
     const pairs: [string, string, number][] = [
       ['rail-icon', 'rail', 4.5], // icons and labels on the bar
-      ['rail-icon', 'bar-on', 3], // hover and pressed: the given light value is 4.03:1, enough for icons
+      ['rail-icon', 'bar-on', 4.5], // hover and pressed, labels included (CLEANUP-PLAN pass 2 item 5c; 4.75 light, 7.17 dark)
       ['text', 'bg', 4.5], // the size number on the paper-coloured box
     ];
     for (const [theme, t] of Object.entries({ light, dark })) {

@@ -331,3 +331,58 @@ describe('storage and HTML', () => {
     await settle();
   });
 });
+
+describe('a press on the paper around the text (CLEANUP-PLAN pass 2 item 5b)', () => {
+  // The paper is 640 px wide at x 0; the text column (the editable element) runs from x 20 to 620.
+  async function paperSetup() {
+    await open([p('Short line'), image({ width: 300, height: 150 }), p('After')]);
+    const paper = view!.container.querySelector('.paper') as HTMLElement;
+    stub(paper, 'clientWidth', { get: () => 640 });
+    stub(paper, 'getBoundingClientRect', { value: () => ({ x: 0, y: 0, left: 0, top: 0, right: 640, bottom: 800, width: 640, height: 800, toJSON() {} }) });
+    stub(ed().view.dom, 'getBoundingClientRect', { value: () => ({ x: 20, y: 10, left: 20, top: 10, right: 620, bottom: 400, width: 600, height: 390, toJSON() {} }) });
+    const at = vi.spyOn(ed().view, 'posAtCoords').mockReturnValue({ pos: 11, inside: -1 }); // the end of "Short line"
+    const press = (target: Element, init: MouseEventInit) => {
+      const e = new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, ...init });
+      target.dispatchEvent(e);
+      return e;
+    };
+    return { paper, at, press };
+  }
+
+  it('deselects a selected image and puts the cursor at the nearest point of the text; the focus stays in the editor', async () => {
+    const { paper, at, press } = await paperSetup();
+    await selectImage();
+    expect(handles()).toHaveLength(4);
+    let e!: MouseEvent;
+    await act(async () => void (e = press(paper, { clientX: 630, clientY: 30 }))); // in the right padding
+    expect(at).toHaveBeenCalledWith({ left: 619, top: 30 }); // clamped into the text column
+    expect(ed().state.selection).toBeInstanceOf(TextSelection);
+    expect(ed().state.selection.from).toBe(11);
+    expect(handles()).toHaveLength(0);
+    expect(e.defaultPrevented).toBe(true); // the focus does not go to the page
+    await act(async () => void press(paper, { clientX: 300, clientY: 700 })); // below the last line
+    expect(at).toHaveBeenLastCalledWith({ left: 300, top: 399 });
+  });
+
+  it('leaves alone a press inside the text, another button, the scrollbar and a read-only note', async () => {
+    const { paper, at, press } = await paperSetup();
+    await selectImage();
+    await act(async () => void press(paper, { clientX: 630, clientY: 30, button: 2 }));
+    await act(async () => void press(paper, { clientX: 645, clientY: 30 })); // beyond clientWidth: the scrollbar
+    expect(at).not.toHaveBeenCalled();
+    expect(ed().state.selection).toBeInstanceOf(NodeSelection);
+    // A press on the text is the editor's own (ProseMirror looks up the raw point; the paper would clamp it to 619).
+    await act(async () => void press(ed().view.dom.querySelector('p')!, { clientX: 630, clientY: 30 }));
+    expect(at).not.toHaveBeenCalledWith({ left: 619, top: 30 });
+    await view!.unmount();
+    view = null;
+    const ro = await (async () => {
+      await open([p('Short line'), image()], true);
+      const paperRo = view!.container.querySelector('.paper') as HTMLElement;
+      stub(paperRo, 'clientWidth', { get: () => 640 });
+      return vi.spyOn(ed().view, 'posAtCoords');
+    })();
+    await act(async () => void view!.container.querySelector('.paper')!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, button: 0, clientX: 630, clientY: 30 })));
+    expect(ro).not.toHaveBeenCalled();
+  });
+});
