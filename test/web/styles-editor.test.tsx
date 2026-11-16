@@ -11,6 +11,7 @@ import { DialogProvider } from '../../src/web/components/Dialogs';
 import { NoteEditorPane } from '../../src/web/components/NoteEditor';
 import { clearAllFonts, FaceLoader, setFaceLoader } from '../../src/web/fonts/runtime';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
+import { refreshStyles, resetStyles } from '../../src/web/stylesStore';
 import { button, click, editorOf, mockFetch, render, requests, settle, waitFor } from './harness';
 import { HASH, installFontEnv } from './fonts-env';
 
@@ -48,6 +49,7 @@ beforeEach(() => {
   styles = [];
   collection = ['lora'];
   props.onManageStyles.mockClear();
+  resetStyles();
 });
 afterEach(async () => {
   await view?.unmount();
@@ -64,7 +66,11 @@ async function open(content: unknown[]) {
       return { status: 200, json: { version: (b?.version ?? 0) + 1, updatedAt: '2026-01-02T00:00:00Z' } };
     }
     if (path === '/api/styles' && method === 'GET') return { status: 200, json: styles };
-    if (path === '/api/styles' && method === 'POST') return { status: 201, json: { ...st(b.name), ...b } };
+    if (path === '/api/styles' && method === 'POST') {
+      const made = { ...st(b.name), ...b };
+      styles = [...styles, made];
+      return { status: 201, json: made };
+    }
     if (path === '/api/fonts/collection') return { status: 200, json: collection };
     if (path.startsWith('/api/fonts/faces/')) return { status: 200, json: { faces: [{ weight: '400', style: 'normal', unicodeRange: 'U+0000-00FF', file: HASH(3) }] } };
     if (path.startsWith('/api/fonts/preview/')) return { status: 200, json: { file: HASH(9) } };
@@ -80,7 +86,7 @@ async function open(content: unknown[]) {
 const ed = () => editorOf(view!.container);
 const doc = () => ed().getJSON();
 const select = (from: number, to: number) => act(async () => void ed().chain().focus().setTextSelection({ from, to }).run());
-const stylesButton = () => view!.container.querySelector('button[aria-label="Styles"]') as HTMLButtonElement;
+const stylesButton = () => view!.container.querySelector('.styles-button') as HTMLButtonElement;
 async function choose(name: string) {
   await click(stylesButton());
   await waitFor(() => [...view!.container.querySelectorAll('.styles-popover .style-item')].some((b) => b.textContent === name), 2000, 'menu');
@@ -306,7 +312,7 @@ describe('Save selection as style (criterion 11)', () => {
 
 describe('the Styles menu (criterion 13) and names in it (criterion 19)', () => {
   it('first in the toolbar; styles in order with a 96 px sample carrying 20; the two entries; Manage styles', async () => {
-    styles = [st('Alpha'), st('Huge', { size: 96 }), st('<b>{x}</b>')];
+    styles = [st('Alpha', { bold: true }), st('Huge', { size: 96 }), st('<b>{x}</b>', { italic: true })];
     await open([p(t('x'))]);
     expect(view!.container.querySelector('.toolbar button')!.getAttribute('aria-label')).toBe('Styles');
     expect(stylesButton().textContent).toBe('Styles');
@@ -436,5 +442,226 @@ describe('the shared loader with an open note (criterion 16)', () => {
     expect(asked.filter((a) => a === 'caveat').length).toBe(1); // one request for a font used by two styles
     expect(asked).toContain('sunflower');
     expect(new Set(asked).size).toBe(52);
+  });
+});
+
+describe('the style name on the Styles button (DEVIATIONS 43)', () => {
+  const label = () => stylesButton().querySelector('.font-button-label')!.textContent;
+  const named = (n: string) => {
+    expect(label()).toBe(n);
+    const a = n === 'Styles' ? 'Styles' : `Style: ${n}`;
+    expect(stylesButton().getAttribute('aria-label')).toBe(a);
+    expect(stylesButton().getAttribute('title')).toBe(a);
+  };
+  /** Run the steps and check the note was not changed by any of them (no change, no save). */
+  async function unchanged(steps: () => Promise<void>) {
+    const before = JSON.stringify(doc());
+    const puts = requests.filter((r) => r.method === 'PUT').length;
+    await steps();
+    await settle();
+    expect(JSON.stringify(doc())).toBe(before);
+    expect(requests.filter((r) => r.method === 'PUT').length).toBe(puts);
+  }
+  const alert = () => st('Alert', { bold: true, textColor: 'ruby' });
+  const loaded = () => waitFor(() => requests.some((r) => r.method === 'GET' && r.path === '/api/styles'), 2000, 'styles loaded').then(settle);
+
+  it('is loaded when the editor mounts: the name shows without opening the menu; plain text matching nothing reads Styles', async () => {
+    styles = [alert()];
+    await open([p(t('plain '), t('loud', [m.bold, m.color('ruby')]))]);
+    await loaded();
+    await select(2, 2);
+    named('Styles');
+    expect(stylesButton().disabled).toBe(false);
+    await unchanged(async () => {
+      await select(8, 8);
+      named('Alert');
+    });
+  });
+
+  it('with no selection, right after choosing a style, shows its name; typed text keeps it; un-bolding goes back to Styles', async () => {
+    styles = [alert()];
+    await open([p(t('hello'))]);
+    await loaded();
+    await select(6, 6);
+    named('Styles');
+    await unchanged(async () => {
+      await choose('Alert');
+      named('Alert'); // from the stored marks, before anything is typed
+    });
+    await act(async () => void ed().commands.insertContent('xy'));
+    named('Alert');
+    await select(6, 8);
+    named('Alert');
+    await act(async () => void ed().chain().focus().toggleBold().run());
+    named('Styles');
+  });
+
+  it('hand-formatted text equal to a style shows it (a link is ignored); a selection reads every piece', async () => {
+    styles = [alert(), st('Calm', { italic: true })];
+    await open([p(t('aa', [m.bold, m.color('ruby')]), t('bb', [m.bold, m.color('ruby'), m.link]), t('cc', [m.italic]), t('dd'))]);
+    await loaded();
+    await unchanged(async () => {
+      await select(1, 5);
+      named('Alert'); // aa and the linked bb
+      await select(5, 7);
+      named('Calm');
+      await select(3, 7);
+      named('Mixed'); // two different styles
+      await select(5, 9);
+      named('Mixed'); // a style and text matching none
+      await select(7, 9);
+      named('Styles'); // all match none
+      await select(9, 1); // backwards
+      named('Mixed');
+    });
+  });
+
+  it('a heading matches by its default size; a paragraph needs the size mark; settings must be exact', async () => {
+    styles = [st('Big bold', { size: 26, bold: true })];
+    await open([
+      { type: 'heading', attrs: { level: 1 }, content: [t('Head', [m.bold])] },
+      p(t('para', [m.bold, m.size(26)]), t(' plain26', [m.size(26)]), t(' boldital', [m.bold, m.italic, m.size(26)])),
+    ]);
+    await loaded();
+    const headPos = 1;
+    await unchanged(async () => {
+      await select(headPos + 1, headPos + 3);
+      named('Big bold');
+      const pStart = 1 + 4 + 2; // inside the paragraph
+      await select(pStart, pStart + 4);
+      named('Big bold');
+      await select(pStart + 5, pStart + 10);
+      named('Styles'); // not bold
+      await select(pStart + 13, pStart + 18);
+      named('Styles'); // italic too
+    });
+  });
+
+  it('a table cell selection reads the text of every selected cell', async () => {
+    styles = [alert()];
+    const cell = (s: string, marks: unknown[]) => ({ type: 'tableCell', content: [p(t(s, marks))] });
+    const loud = [m.bold, m.color('ruby')];
+    await open([{ type: 'table', content: [0, 1, 2].map((r) => ({ type: 'tableRow', content: [0, 1, 2].map((c) => cell(`r${r}c${c}`, r === 2 && c === 0 ? [] : loud)) })) }, { type: 'paragraph' }]);
+    await loaded();
+    const cells = () => {
+      const out: number[] = [];
+      ed().state.doc.descendants((n: any, pos: number) => {
+        if (n.type.name === 'tableCell') out.push(pos);
+      });
+      return out;
+    };
+    const cellSel = (a: number, b: number) => act(async () => void ed().view.dispatch(ed().state.tr.setSelection(CellSelection.create(ed().state.doc, cells()[a], cells()[b]))));
+    await unchanged(async () => {
+      await cellSel(0, 4); // (0,0)-(1,1): all loud
+      named('Alert');
+      await cellSel(3, 7); // (1,0)-(2,1): includes the plain r2c0
+      named('Mixed');
+    });
+  });
+
+  it('in code it reads Styles and is disabled; code in a selection is skipped', async () => {
+    styles = [alert(), st('Plain')];
+    // Ends with a paragraph: the editor adds one after a final code block or table on its first transaction.
+    await open([p(t('loud', [m.bold, m.color('ruby')]), t('code', [m.code])), { type: 'codeBlock', attrs: { language: null }, content: [t('block')] }, { type: 'paragraph' }]);
+    await loaded();
+    await unchanged(async () => {
+      await select(7, 7); // in the inline code
+      named('Styles');
+      expect(stylesButton().disabled).toBe(true);
+      await select(12, 12); // in the code block
+      named('Styles');
+      expect(stylesButton().disabled).toBe(true);
+      await select(1, 9); // loud + code: the code is skipped
+      named('Alert');
+      await select(1, 15); // and the code block
+      named('Alert');
+    });
+  });
+
+  it('styles with identical settings: the first in list order, marked current in the menu', async () => {
+    styles = [st('Zed', { italic: true }), st('First', { bold: true }), st('Second', { bold: true })];
+    await open([p(t('bold', [m.bold]))]);
+    await loaded();
+    await unchanged(async () => {
+      await select(1, 5);
+      named('First');
+      await click(stylesButton());
+      await waitFor(() => view!.container.querySelectorAll('.styles-popover .style-item').length === 3, 2000, 'menu');
+      const items = [...view!.container.querySelectorAll('.styles-popover .style-item')];
+      expect(items.map((b) => b.getAttribute('aria-pressed'))).toEqual(['false', 'true', 'false']);
+      expect(document.activeElement).toBe(items[1]);
+      await act(async () => {
+        (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      });
+    });
+  });
+
+  it('opening the menu focuses the current style and scrolls the list to it', async () => {
+    styles = Array.from({ length: 50 }, (_, i) => st(`S${i}`, { size: 20 + i }));
+    await open([p(t('x', [m.size(60)]))]);
+    await loaded();
+    await select(1, 2);
+    named('S40');
+    const seen: string[] = [];
+    const spy = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(function (this: HTMLElement) {
+      seen.push(this.textContent ?? '');
+    });
+    try {
+      await click(stylesButton());
+      await waitFor(() => view!.container.querySelectorAll('.styles-popover .style-item').length === 50, 2000, 'menu');
+      await settle();
+      expect(document.activeElement!.textContent).toBe('S40');
+      expect(document.activeElement!.getAttribute('aria-pressed')).toBe('true');
+      expect(seen).toContain('S40');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('a style edited later no longer matches text stamped earlier; a rename shows the new name; a delete reads Styles', async () => {
+    styles = [alert()];
+    await open([p(t('hello world'))]);
+    await loaded();
+    await select(1, 6);
+    await choose('Alert');
+    await select(1, 6);
+    named('Alert');
+    await unchanged(async () => {
+      styles = [{ ...styles[0], name: 'Warning' }];
+      await act(async () => void (await refreshStyles()));
+      named('Warning');
+      styles = [{ ...styles[0], textColor: 'sapphire' }];
+      await act(async () => void (await refreshStyles()));
+      named('Styles');
+      styles = [{ ...styles[0], textColor: 'ruby' }];
+      await act(async () => void (await refreshStyles()));
+      named('Warning');
+      styles = [];
+      await act(async () => void (await refreshStyles()));
+      named('Styles');
+    });
+  });
+
+  it('Save selection as style refreshes the list: the button shows the new style at once; the note is unchanged', async () => {
+    await open([p(t('fancy', [m.underline, m.color('sapphire')]))]);
+    await loaded();
+    await select(1, 6);
+    named('Styles');
+    await unchanged(async () => {
+      await click(stylesButton());
+      await waitFor(() => !!button(view!.container, 'Save selection as style…'), 2000, 'menu');
+      await click(button(view!.container, 'Save selection as style…'));
+      const form = () => document.querySelector('.style-form') as HTMLElement | null;
+      await waitFor(() => !!form(), 2000, 'form');
+      await act(async () => {
+        const name = form()!.querySelector('input:not([aria-label])') as HTMLInputElement;
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(name, 'Blue line');
+        name.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      await click(button(form()!, 'Save'));
+      await waitFor(() => !form(), 2000, 'saved');
+      await waitFor(() => label() === 'Blue line', 2000, 'name');
+      named('Blue line');
+    });
   });
 });

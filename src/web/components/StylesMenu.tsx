@@ -1,10 +1,11 @@
 // The editor's Styles menu (STYLES-SPEC 8): the user's styles drawn as samples; choosing one applies it.
-// The button always reads "Styles": text keeps no record of a style.
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
+// The button shows the name of the style whose eight settings the text at the cursor or in the selection has
+// (DEVIATIONS 43); text keeps no record of a style, so this is found by matching.
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import type { Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
-import { api } from '../api';
-import { applyStyle, canUseStyles, styleFromText } from '../styleApply';
+import { applyStyle, canUseStyles, matchStyle, styleFromText, styleIndex } from '../styleApply';
+import { refreshStyles, useStyles } from '../stylesStore';
 import { NOTE_FONTS_REFUSED } from './FontPicker';
 import { placementStyle, useMenuPlacement } from './menuPlacement';
 import { StyleForm, type Style, type StyleDraft } from './StyleForm';
@@ -21,7 +22,7 @@ export const MENU_SAMPLE_CAP = 20;
 
 export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
   const [open, setOpen] = useState(false);
-  const [styles, setStyles] = useState<Style[] | null>(null);
+  const styles = useStyles();
   const [focusIdx, setFocusIdx] = useState(0);
   const [form, setForm] = useState<StyleDraft | null>(null);
   const wrapRef = useRef<HTMLSpanElement>(null);
@@ -32,28 +33,42 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
   const enabled = canUseStyles(editor);
   const list = styles ?? [];
   const count = list.length + 2; // the styles, "Save selection as style…", "Manage styles…"
+  // Computed on every render, which the editor triggers on each transaction: the same pass as the other toolbar states.
+  const index = useMemo(() => styleIndex(list), [list]);
+  const match = enabled ? matchStyle(editor, index) : ({ kind: 'none' } as const);
+  const currentIdx = match.kind === 'one' ? list.indexOf(match.style) : -1;
+  const label = match.kind === 'one' ? match.style.name : match.kind === 'mixed' ? 'Mixed' : 'Styles';
+  const name = match.kind === 'none' ? 'Styles' : `Style: ${label}`;
 
-  // The styles, fresh each time the menu opens.
+  // The styles: when the editor mounts (so the name shows before the menu is opened) and fresh each time it opens.
   useEffect(() => {
-    if (!open) return;
-    let alive = true;
-    api<Style[]>('GET', '/styles').then(
-      (s) => alive && setStyles(Array.isArray(s) ? s : []),
-      () => alive && setStyles((x) => x ?? []),
-    );
-    return () => {
-      alive = false;
-    };
+    void refreshStyles();
+  }, []);
+  useEffect(() => {
+    if (open) void refreshStyles();
   }, [open]);
 
+  // Focus goes into the menu once the styles have loaded (so a quick Enter cannot pick the wrong entry): on the
+  // current style if there is one. Only once per opening, so a refreshed list does not move the focus.
+  const focused = useRef(false);
   useLayoutEffect(() => {
-    // Focus goes into the menu once the styles have loaded, so a quick Enter cannot pick the wrong entry.
-    if (!open || styles === null) return;
-    setFocusIdx(0);
-    itemsRef.current[0]?.focus();
+    if (!open) {
+      focused.current = false;
+      return;
+    }
+    if (styles === null || focused.current) return;
+    focused.current = true;
+    const start = currentIdx >= 0 ? currentIdx : 0;
+    setFocusIdx(start);
+    itemsRef.current[start]?.focus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, styles]);
   const place = useMenuPlacement(open, wrapRef, popRef, [styles]);
+  // The list scrolls to the current style once the menu has its height.
+  useLayoutEffect(() => {
+    if (open && place && currentIdx >= 0) itemsRef.current[currentIdx]?.scrollIntoView?.({ block: 'nearest' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, place]);
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
@@ -104,7 +119,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
     }
   }
 
-  const item = (i: number, content: ReactNode, onClick: () => void, className = 'font-item') => (
+  const item = (i: number, content: ReactNode, onClick: () => void, className = 'font-item', extra: Record<string, unknown> = {}) => (
     <button
       key={i}
       ref={(el) => {
@@ -116,6 +131,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
       onMouseDown={(e) => e.preventDefault()}
       onFocus={() => setFocusIdx(i)}
       onClick={onClick}
+      {...extra}
     >
       {content}
     </button>
@@ -127,8 +143,8 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
         ref={buttonRef}
         type="button"
         className={'tb styles-button' + (open ? ' active' : '')}
-        title="Styles"
-        aria-label="Styles"
+        title={name}
+        aria-label={name}
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={open ? popId : undefined}
@@ -136,7 +152,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
         onMouseDown={(e) => e.preventDefault()}
         onClick={() => (open ? close(true) : setOpen(true))}
       >
-        <span>Styles</span>
+        <span className="font-button-label">{label}</span>
         <ChevronDown />
       </button>
       {open && (
@@ -156,7 +172,9 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
             {/* The styles scroll on their own; each row keeps its height. The two entries stay below, always visible. */}
             <div className="menu-scroll">
               {styles !== null && list.length === 0 && <p className="font-empty">No styles yet</p>}
-              {list.map((s, i) => item(i, <StyleSample style={s} text={s.name} cap={MENU_SAMPLE_CAP} />, () => choose(s), 'font-item style-item'))}
+              {list.map((s, i) =>
+                item(i, <StyleSample style={s} text={s.name} cap={MENU_SAMPLE_CAP} />, () => choose(s), 'font-item style-item', { 'aria-pressed': i === currentIdx }),
+              )}
             </div>
             <div className="menu-footer">
             {item(
@@ -178,7 +196,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
         </SampleFontsProvider>
       )}
       {/* Saving creates the style and changes nothing in the note: there is nothing more to do here. */}
-      {form && <StyleForm initial={form} title="New style" onClose={() => setForm(null)} onSaved={() => undefined} onBrowseFonts={onBrowseFonts} />}
+      {form && <StyleForm initial={form} title="New style" onClose={() => setForm(null)} onSaved={() => void refreshStyles()} onBrowseFonts={onBrowseFonts} />}
     </span>
   );
 }

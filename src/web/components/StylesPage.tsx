@@ -7,6 +7,7 @@ import { APP_TITLE, STYLES_TITLE } from '../route';
 import { useDialogs } from './Dialogs';
 import { NEW_STYLE, StyleForm, type Style, type StyleDraft } from './StyleForm';
 import { SampleFontsProvider, StyleSample } from './StyleSample';
+import { setStyles as publishStyles } from '../stylesStore';
 
 export const STYLES_MAX = 50;
 export const STYLES_FULL = `You can keep at most ${STYLES_MAX} styles. Delete one to add another.`;
@@ -41,7 +42,9 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
 
   async function load() {
     try {
-      setStyles(await api<Style[]>('GET', '/styles'));
+      const list = await api<Style[]>('GET', '/styles');
+      setStyles(list);
+      publishStyles(list); // the editor's Styles button matches against the same list
     } catch (e) {
       setStyles((s) => s ?? []);
       dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');

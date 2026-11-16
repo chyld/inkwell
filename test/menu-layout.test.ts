@@ -59,6 +59,18 @@ describe('menu rows never shrink (the crushed Styles menu)', () => {
   });
 });
 
+describe('the Styles button (DEVIATIONS 43)', () => {
+  it('has a fixed width like the font button, so the toolbar does not jump; its name is one line, cut with an ellipsis', () => {
+    expect(decls('.styles-button').width).toMatch(/^\d+px$/);
+    expect(decls('.font-button').width).toMatch(/^\d+px$/);
+    const lab = decls('.font-button-label'); // the label class both buttons use
+    expect(lab['white-space']).toBe('nowrap');
+    expect(lab['text-overflow']).toBe('ellipsis');
+    expect(lab.overflow).toBe('hidden');
+    expect(lab['min-width']).toBe('0');
+  });
+});
+
 describe('menuPlacement', () => {
   const vp = { width: 1280, height: 800 };
   it('opens below with the room left, capped at the maximum', () => {

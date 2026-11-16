@@ -708,6 +708,11 @@ next). "Save selection as style…" in the same menu starts a new style from the
 formatting of the selected text.
 
 A style is a stamp, not a link: the text keeps no record of the style it came
-from, so editing or deleting a style later changes no note. Styles are private
+from, so editing or deleting a style later changes no note. The **Styles**
+button shows the name of a style when the text at the cursor, or every piece of
+the selected text, has exactly that style's eight settings (found by comparing,
+so hand-formatted text that happens to match shows the name too, and text
+stamped before a style was edited shows **Styles**). It reads **Mixed** when the
+selected pieces differ, as the font button does. Styles are private
 to each person, are stored in the database (so `notes data copy` includes them),
 and are deleted with their owner. Agents cannot use them.

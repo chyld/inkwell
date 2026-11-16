@@ -1846,6 +1846,9 @@ mark[data-highlight] {
 
 /* the editor's Styles menu (STYLES-SPEC 8) */
 .styles-button {
+  /* Fixed width like the font button: the toolbar does not jump when the style name changes; long names are cut short. */
+  width: 112px;
+  justify-content: space-between;
   gap: 4px;
   font-size: 0.88rem;
 }

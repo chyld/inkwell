@@ -8,6 +8,7 @@ import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { clearAllFonts } from '../../src/web/fonts/runtime';
+import { currentStyles, resetStyles } from '../../src/web/stylesStore';
 import { button, click, mockFetch, render, requests, settle, waitFor } from './harness';
 import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
 
@@ -86,6 +87,7 @@ beforeEach(() => {
   collection = ['lora'];
   failFaces = new Set();
   noteBody = { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'hello' }] }] };
+  resetStyles();
 });
 afterEach(async () => {
   await view?.unmount();
@@ -349,6 +351,48 @@ describe('/styles routing (criterion 15)', () => {
     await waitFor(() => !page(), 2000, 'left');
     expect(location.pathname).toBe('/');
     expect(document.title).toBe('Notes');
+  });
+
+  it('the button names a matching style; a rename and an edit on /styles reach it; the note is not changed (DEVIATIONS 43)', async () => {
+    styles.u1 = [plain('Base')]; // Inter, 16 px, nothing on: the note's plain text matches it
+    server();
+    await start('/');
+    await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
+    await click(view!.container.querySelector('.note-item'));
+    await waitFor(() => !!view!.container.querySelector('.ProseMirror'), 3000, 'editor');
+    const label = () => view!.container.querySelector('.styles-button .font-button-label')?.textContent;
+    await waitFor(() => label() === 'Base', 2000, 'the name without opening the menu');
+    const before = JSON.stringify(noteBody);
+    await click(view!.container.querySelector('.styles-button'));
+    await waitFor(() => !!button(view!.container, 'Manage styles…'), 2000, 'menu');
+    await click(button(view!.container, 'Manage styles…'));
+    await waitFor(() => cards().length === 1, 3000, 'page');
+    await click(button(view!.container, 'Edit Base'));
+    await waitFor(() => !!dialog(), 2000, 'form');
+    await setValue(dialog()!.querySelector('input:not([aria-label])')!, 'Body');
+    await click(button(dialog()!, 'Save'));
+    await waitFor(() => !dialog() && currentStyles()?.[0]?.name === 'Body', 2000, 'renamed in the shared list');
+    await click(view!.container.querySelector('#sidebar .view-button'));
+    await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
+    await click(view!.container.querySelector('.note-item'));
+    await waitFor(() => label() === 'Body', 3000, 'the new name');
+    // An edit: text stamped earlier no longer matches.
+    await click(view!.container.querySelector('.styles-button'));
+    await waitFor(() => !!button(view!.container, 'Manage styles…'), 2000, 'menu');
+    await click(button(view!.container, 'Manage styles…'));
+    await waitFor(() => cards().length === 1, 3000, 'page');
+    await click(button(view!.container, 'Edit Body'));
+    await waitFor(() => !!dialog(), 2000, 'form');
+    await click(inDialog('Bold'));
+    await click(button(dialog()!, 'Save'));
+    await waitFor(() => !dialog() && currentStyles()?.[0]?.bold === true, 2000, 'edited in the shared list');
+    await click(view!.container.querySelector('#sidebar .view-button'));
+    await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
+    await click(view!.container.querySelector('.note-item'));
+    await waitFor(() => !!view!.container.querySelector('.ProseMirror'), 3000, 'editor');
+    await settle();
+    expect(label()).toBe('Styles');
+    expect(JSON.stringify(noteBody)).toBe(before);
   });
 
   it('"Manage styles…" in the editor saves the note and goes to /styles (criterion 13)', async () => {

@@ -47,6 +47,75 @@ function markablePieces(editor: Editor): { from: number; to: number; node: PMNod
   return out;
 }
 
+/** The eight settings a piece of text has (size: its mark, otherwise its block's default), as a string key. */
+function settingsKey(marks: readonly Mark[], block: PMNode): string {
+  let font = '';
+  let size = defaultSizeOf(block);
+  let flags = '';
+  let color = '';
+  let hl = '';
+  for (const m of marks) {
+    switch (m.type.name) {
+      case 'fontFamily': font = m.attrs.font as string; break;
+      case 'fontSize': size = m.attrs.size as number; break;
+      case 'bold': flags += 'b'; break;
+      case 'italic': flags += 'i'; break;
+      case 'underline': flags += 'u'; break;
+      case 'strike': flags += 's'; break;
+      case 'textColor': color = m.attrs.color as string; break;
+      case 'highlight': hl = m.attrs.color as string; break;
+    }
+  }
+  return [font, size, [...flags].sort().join(''), color, hl].join('|');
+}
+const styleKey = (s: StyleSettings): string =>
+  [s.font ?? '', s.size, (s.bold ? 'b' : '') + (s.italic ? 'i' : '') + (s.strike ? 's' : '') + (s.underline ? 'u' : ''), s.textColor ?? '', s.highlight ?? ''].join('|');
+
+/** Settings key → the first style (in list order) with those settings. Build once per list. */
+export function styleIndex<T extends StyleSettings>(styles: readonly T[]): Map<string, T> {
+  const out = new Map<string, T>();
+  for (const s of styles) {
+    const k = styleKey(s);
+    if (!out.has(k)) out.set(k, s);
+  }
+  return out;
+}
+
+export type StyleMatch<T> = { kind: 'none' } | { kind: 'one'; style: T } | { kind: 'mixed' };
+
+/**
+ * The style in use, found by matching (styles keep no record in the text): with no selection, the formatting
+ * in effect at the cursor (what 5.2 starts from); with one, every piece of text that can take marks (code
+ * skipped). 'mixed' as soon as two pieces disagree (different styles, or a style and none), like the font
+ * button's Mixed. 'none' in code or when nothing matches. Links and block type are ignored.
+ */
+export function matchStyle<T extends StyleSettings>(editor: Editor, index: Map<string, T>): StyleMatch<T> {
+  if (index.size === 0 || !canUseStyles(editor)) return { kind: 'none' };
+  const { state } = editor;
+  const { selection } = state;
+  if (selection.empty) {
+    const style = index.get(settingsKey(state.storedMarks ?? selection.$from.marks(), selection.$from.parent));
+    return style ? { kind: 'one', style } : { kind: 'none' };
+  }
+  let first: T | null | undefined; // undefined: no piece seen yet
+  let mixed = false;
+  const ranges = [...selection.ranges].sort((a, b) => a.$from.pos - b.$from.pos);
+  for (const r of ranges) {
+    const from = r.$from.pos;
+    const to = r.$to.pos;
+    state.doc.nodesBetween(from, to, (node, pos, parent) => {
+      if (mixed) return false; // stop early once two pieces disagree
+      if (!node.isText || !parent || inCode(node, parent)) return;
+      if (Math.max(pos, from) >= Math.min(pos + node.nodeSize, to)) return;
+      const style = index.get(settingsKey(node.marks, parent)) ?? null;
+      if (first === undefined) first = style;
+      else if (style !== first) mixed = true;
+    });
+    if (mixed) return { kind: 'mixed' };
+  }
+  return first ? { kind: 'one', style: first } : { kind: 'none' };
+}
+
 /** 5.3: the Styles button is disabled in inline code or a code block, and for a selection with no text that can take marks. */
 export function canUseStyles(editor: Editor): boolean {
   const { selection } = editor.state;
