@@ -2,7 +2,7 @@
 // stamp: applying it sets marks on text, which keeps no record of it, so nothing here touches notes.
 import crypto from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
-import type { DB } from './db.js';
+import { stmt, type DB } from './db.js';
 import { AppError, badRequest, notFound } from './errors.js';
 import { isFontId } from '../shared/fonts.js';
 import { HIGHLIGHT_COLORS, TEXT_COLORS, charLength, isFontSize } from '../shared/schema.js';
@@ -108,11 +108,11 @@ export class StyleStore {
   ) {}
 
   list(userId: string): Style[] {
-    return (this.db.prepare(`SELECT ${COLS} FROM styles WHERE user_id = ? ORDER BY name_key, id`).all(userId) as Row[]).map(toStyle);
+    return (stmt(this.db, `SELECT ${COLS} FROM styles WHERE user_id = ? ORDER BY name_key, id`).all(userId) as Row[]).map(toStyle);
   }
 
   get(userId: string, id: string): Style | null {
-    const r = this.db.prepare(`SELECT ${COLS} FROM styles WHERE user_id = ? AND id = ?`).get(userId, id) as Row | undefined;
+    const r = stmt(this.db, `SELECT ${COLS} FROM styles WHERE user_id = ? AND id = ?`).get(userId, id) as Row | undefined;
     return r ? toStyle(r) : null;
   }
 
@@ -122,11 +122,10 @@ export class StyleStore {
     try {
       this.db
         .transaction(() => {
-          if ((this.db.prepare('SELECT count(*) AS n FROM styles WHERE user_id = ?').get(userId) as { n: number }).n >= STYLES_MAX) throw stylesFull();
-          if (this.db.prepare('SELECT 1 FROM styles WHERE user_id = ? AND name_key = ?').get(userId, styleNameKey(s.name))) throw nameTaken();
+          if ((stmt(this.db, 'SELECT count(*) AS n FROM styles WHERE user_id = ?').get(userId) as { n: number }).n >= STYLES_MAX) throw stylesFull();
+          if (stmt(this.db, 'SELECT 1 FROM styles WHERE user_id = ? AND name_key = ?').get(userId, styleNameKey(s.name))) throw nameTaken();
           const now = this.now();
-          this.db
-            .prepare('INSERT INTO styles (id, user_id, name, name_key, font, size, bold, italic, underline, strike, text_color, highlight, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+          stmt(this.db, 'INSERT INTO styles (id, user_id, name, name_key, font, size, bold, italic, underline, strike, text_color, highlight, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
             .run(id, userId, s.name, styleNameKey(s.name), s.font, s.size, +s.bold, +s.italic, +s.underline, +s.strike, s.textColor, s.highlight, now, now);
         })
         .immediate();
@@ -143,9 +142,8 @@ export class StyleStore {
       this.db
         .transaction(() => {
           if (!this.get(userId, id)) throw notFound('No such style.');
-          if (this.db.prepare('SELECT 1 FROM styles WHERE user_id = ? AND name_key = ? AND id != ?').get(userId, styleNameKey(s.name), id)) throw nameTaken();
-          this.db
-            .prepare('UPDATE styles SET name = ?, name_key = ?, font = ?, size = ?, bold = ?, italic = ?, underline = ?, strike = ?, text_color = ?, highlight = ?, updated_at = ? WHERE user_id = ? AND id = ?')
+          if (stmt(this.db, 'SELECT 1 FROM styles WHERE user_id = ? AND name_key = ? AND id != ?').get(userId, styleNameKey(s.name), id)) throw nameTaken();
+          stmt(this.db, 'UPDATE styles SET name = ?, name_key = ?, font = ?, size = ?, bold = ?, italic = ?, underline = ?, strike = ?, text_color = ?, highlight = ?, updated_at = ? WHERE user_id = ? AND id = ?')
             .run(s.name, styleNameKey(s.name), s.font, s.size, +s.bold, +s.italic, +s.underline, +s.strike, s.textColor, s.highlight, this.now(), userId, id);
         })
         .immediate();
@@ -158,7 +156,7 @@ export class StyleStore {
 
   /** Delete the user's style with that id; an unknown or another user's id deletes nothing. */
   delete(userId: string, id: string): void {
-    this.db.prepare('DELETE FROM styles WHERE user_id = ? AND id = ?').run(userId, id);
+    stmt(this.db, 'DELETE FROM styles WHERE user_id = ? AND id = ?').run(userId, id);
   }
 }
 

@@ -4,7 +4,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import type { DB } from './db.js';
+import { stmt, type DB } from './db.js';
 import { FontStore } from './fonts/store.js';
 import { StyleStore } from './styles.js';
 import { AppError, badRequest, notFound, quotaExceeded } from './errors.js';
@@ -45,6 +45,9 @@ export interface UserRow {
   disabled: number;
   created_at: number;
 }
+
+/** The signed-in user as a request carries it: no password hash or other fields the handlers do not use. */
+export type SessionUser = Pick<UserRow, 'id' | 'username'>;
 
 export interface AgentAuth {
   agentId: string;
@@ -184,11 +187,11 @@ export class Store {
   // ---- users -----------------------------------------------------------
 
   getUserByUsername(raw: string): UserRow | undefined {
-    return this.db.prepare('SELECT * FROM users WHERE username = ?').get(normalizeUsername(raw)) as UserRow | undefined;
+    return stmt(this.db, 'SELECT * FROM users WHERE username = ?').get(normalizeUsername(raw)) as UserRow | undefined;
   }
 
   getUser(id: string): UserRow | undefined {
-    return this.db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
+    return stmt(this.db, 'SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
   }
 
   requireUser(raw: string): UserRow {
@@ -206,17 +209,15 @@ export class Store {
     const id = crypto.randomUUID();
     return this.tx(() => {
       if (this.getUserByUsername(username)) throw new AppError(409, 'user_exists', `User "${username}" already exists.`);
-      this.db.prepare('INSERT INTO users (id, username, password_hash, disabled, created_at) VALUES (?, ?, ?, 0, ?)').run(id, username, hash, now);
-      this.db
-        .prepare("INSERT INTO folders (id, user_id, parent_id, name, name_key, is_inbox, created_at) VALUES (?, ?, NULL, 'Inbox', 'inbox', 1, ?)")
+      stmt(this.db, 'INSERT INTO users (id, username, password_hash, disabled, created_at) VALUES (?, ?, ?, 0, ?)').run(id, username, hash, now);
+      stmt(this.db, "INSERT INTO folders (id, user_id, parent_id, name, name_key, is_inbox, created_at) VALUES (?, ?, NULL, 'Inbox', 'inbox', 1, ?)")
         .run(crypto.randomUUID(), id, now);
       return this.getUser(id)!;
     });
   }
 
   listUsers() {
-    return this.db
-      .prepare(
+    return stmt(this.db, 
         `SELECT u.username, u.created_at, u.disabled,
            (SELECT count(*) FROM notes n WHERE n.user_id = u.id) AS note_count,
            (SELECT count(*) FROM agents a WHERE a.user_id = u.id AND a.revoked_at IS NULL) AS agent_count,
@@ -238,28 +239,28 @@ export class Store {
     const user = this.requireUser(rawUsername);
     const hash = await hashPassword(password);
     this.tx(() => {
-      this.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id);
-      this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+      stmt(this.db, 'UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id);
+      stmt(this.db, 'DELETE FROM sessions WHERE user_id = ?').run(user.id);
     });
   }
 
   setDisabled(rawUsername: string, disabled: boolean): void {
     const user = this.requireUser(rawUsername);
     this.tx(() => {
-      this.db.prepare('UPDATE users SET disabled = ? WHERE id = ?').run(disabled ? 1 : 0, user.id);
-      if (disabled) this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
+      stmt(this.db, 'UPDATE users SET disabled = ? WHERE id = ?').run(disabled ? 1 : 0, user.id);
+      if (disabled) stmt(this.db, 'DELETE FROM sessions WHERE user_id = ?').run(user.id);
     });
   }
 
   deleteUser(rawUsername: string): void {
     const user = this.requireUser(rawUsername);
     this.tx(() => {
-      this.db.prepare('DELETE FROM notes_fts WHERE rowid IN (SELECT seq FROM notes WHERE user_id = ?)').run(user.id);
-      this.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
-      this.db.prepare('DELETE FROM notes WHERE user_id = ?').run(user.id);
+      stmt(this.db, 'DELETE FROM notes_fts WHERE rowid IN (SELECT seq FROM notes WHERE user_id = ?)').run(user.id);
+      stmt(this.db, 'DELETE FROM sessions WHERE user_id = ?').run(user.id);
+      stmt(this.db, 'DELETE FROM notes WHERE user_id = ?').run(user.id);
       // Folders: children before parents (cascade handles it, but be explicit about order-independence).
-      this.db.prepare('DELETE FROM folders WHERE user_id = ?').run(user.id);
-      this.db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+      stmt(this.db, 'DELETE FROM folders WHERE user_id = ?').run(user.id);
+      stmt(this.db, 'DELETE FROM users WHERE id = ?').run(user.id);
     });
     // A running data copy may still need these files; the copy removes the directory when it ends.
     if (!this.copyInProgress()) fs.rmSync(path.join(this.imagesDir, user.id), { recursive: true, force: true });
@@ -278,8 +279,7 @@ export class Store {
   }
 
   usage(userId: string): number {
-    const r = this.db
-      .prepare(
+    const r = stmt(this.db, 
         `SELECT (SELECT ifnull(sum(body_size), 0) FROM notes WHERE user_id = ?) +
                 (SELECT ifnull(sum(size), 0) FROM images WHERE user_id = ?) AS used`,
       )
@@ -297,30 +297,33 @@ export class Store {
   createSession(userId: string): string {
     const token = crypto.randomBytes(32).toString('base64url');
     const now = this.now();
-    this.db.prepare('INSERT INTO sessions (id_hash, user_id, created_at, last_used) VALUES (?, ?, ?, ?)').run(sha256(token), userId, now, now);
+    stmt(this.db, 'INSERT INTO sessions (id_hash, user_id, created_at, last_used) VALUES (?, ?, ?, ?)').run(sha256(token), userId, now, now);
     return token;
   }
 
-  /** Returns the user for a valid session, deleting expired ones (SPEC 5). */
-  authenticateSession(token: string | undefined): UserRow | null {
+  /**
+   * Returns the user for a valid session, deleting expired ones (SPEC 5). One query: the session and its user
+   * together, with only the fields the check and the handlers use.
+   */
+  authenticateSession(token: string | undefined): SessionUser | null {
     if (!token || token.length > 200) return null;
     const hash = sha256(token);
-    const row = this.db.prepare('SELECT * FROM sessions WHERE id_hash = ?').get(hash) as
-      | { id_hash: string; user_id: string; created_at: number; last_used: number }
-      | undefined;
+    const row = stmt(
+      this.db,
+      'SELECT s.created_at, s.last_used, u.id, u.username, u.disabled FROM sessions s LEFT JOIN users u ON u.id = s.user_id WHERE s.id_hash = ?',
+    ).get(hash) as { created_at: number; last_used: number; id: string | null; username: string | null; disabled: number | null } | undefined;
     if (!row) return null;
     const now = this.now();
     if (now - row.last_used > SESSION_IDLE_MS || now - row.created_at > SESSION_MAX_MS) {
-      this.db.prepare('DELETE FROM sessions WHERE id_hash = ?').run(hash);
+      stmt(this.db, 'DELETE FROM sessions WHERE id_hash = ?').run(hash);
       return null;
     }
-    const user = this.getUser(row.user_id);
-    if (!user || user.disabled) {
-      this.db.prepare('DELETE FROM sessions WHERE id_hash = ?').run(hash);
+    if (row.id === null || row.disabled) {
+      stmt(this.db, 'DELETE FROM sessions WHERE id_hash = ?').run(hash);
       return null;
     }
-    if (now - row.last_used > HOUR) this.db.prepare('UPDATE sessions SET last_used = ? WHERE id_hash = ?').run(now, hash);
-    return user;
+    if (now - row.last_used > HOUR) stmt(this.db, 'UPDATE sessions SET last_used = ? WHERE id_hash = ?').run(now, hash);
+    return { id: row.id, username: row.username! };
   }
 
   /**
@@ -336,12 +339,12 @@ export class Store {
   }
 
   deleteSession(token: string | undefined): void {
-    if (token) this.db.prepare('DELETE FROM sessions WHERE id_hash = ?').run(sha256(token));
+    if (token) stmt(this.db, 'DELETE FROM sessions WHERE id_hash = ?').run(sha256(token));
   }
 
   purgeExpiredSessions(): number {
     const now = this.now();
-    return this.db.prepare('DELETE FROM sessions WHERE last_used < ? OR created_at < ?').run(now - SESSION_IDLE_MS, now - SESSION_MAX_MS).changes;
+    return stmt(this.db, 'DELETE FROM sessions WHERE last_used < ? OR created_at < ?').run(now - SESSION_IDLE_MS, now - SESSION_MAX_MS).changes;
   }
 
   // ---- agents ----------------------------------------------------------
@@ -354,7 +357,7 @@ export class Store {
     }
     const token = 'nta_' + crypto.randomBytes(32).toString('base64url');
     this.tx(() => {
-      const existing = this.db.prepare('SELECT revoked_at FROM agents WHERE user_id = ? AND name = ?').get(user.id, name) as
+      const existing = stmt(this.db, 'SELECT revoked_at FROM agents WHERE user_id = ? AND name = ?').get(user.id, name) as
         | { revoked_at: number | null }
         | undefined;
       if (existing) {
@@ -366,8 +369,7 @@ export class Store {
             : `User "${user.username}" already has an agent named "${name}". Choose another name.`,
         );
       }
-      this.db
-        .prepare('INSERT INTO agents (id, user_id, name, token_hash, created_at) VALUES (?, ?, ?, ?, ?)')
+      stmt(this.db, 'INSERT INTO agents (id, user_id, name, token_hash, created_at) VALUES (?, ?, ?, ?, ?)')
         .run(crypto.randomUUID(), user.id, name, sha256(token), this.now());
     });
     return { token, name, username: user.username };
@@ -375,8 +377,7 @@ export class Store {
 
   listAgents(rawUsername?: string) {
     const user = rawUsername ? this.requireUser(rawUsername) : null;
-    const rows = this.db
-      .prepare(
+    const rows = stmt(this.db, 
         `SELECT a.name, u.username, a.created_at, a.last_used, a.notes_created, a.revoked_at
          FROM agents a JOIN users u ON u.id = a.user_id
          ${user ? 'WHERE a.user_id = ?' : ''} ORDER BY u.username, a.name`,
@@ -394,9 +395,9 @@ export class Store {
 
   revokeAgent(rawUsername: string, name: string): void {
     const user = this.requireUser(rawUsername);
-    const r = this.db.prepare('UPDATE agents SET revoked_at = ? WHERE user_id = ? AND name = ? AND revoked_at IS NULL').run(this.now(), user.id, name);
+    const r = stmt(this.db, 'UPDATE agents SET revoked_at = ? WHERE user_id = ? AND name = ? AND revoked_at IS NULL').run(this.now(), user.id, name);
     if (r.changes === 0) {
-      const exists = this.db.prepare('SELECT 1 FROM agents WHERE user_id = ? AND name = ?').get(user.id, name);
+      const exists = stmt(this.db, 'SELECT 1 FROM agents WHERE user_id = ? AND name = ?').get(user.id, name);
       throw new AppError(404, 'no_such_agent', exists ? `Agent "${name}" is already revoked.` : `User "${user.username}" has no agent named "${name}".`);
     }
   }
@@ -404,32 +405,31 @@ export class Store {
   /** Valid only for an existing, unrevoked token whose user is enabled. */
   authenticateAgent(token: string | undefined): AgentAuth | null {
     if (!token || !token.startsWith('nta_') || token.length > 200) return null;
-    const row = this.db
-      .prepare(
+    const row = stmt(this.db, 
         `SELECT a.id, a.name, a.user_id, a.last_used FROM agents a JOIN users u ON u.id = a.user_id
          WHERE a.token_hash = ? AND a.revoked_at IS NULL AND u.disabled = 0`,
       )
       .get(sha256(token)) as { id: string; name: string; user_id: string; last_used: number | null } | undefined;
     if (!row) return null;
     const now = this.now();
-    if (row.last_used === null || now - row.last_used > 60_000) this.db.prepare('UPDATE agents SET last_used = ? WHERE id = ?').run(now, row.id);
+    if (row.last_used === null || now - row.last_used > 60_000) stmt(this.db, 'UPDATE agents SET last_used = ? WHERE id = ?').run(now, row.id);
     return { agentId: row.id, agentName: row.name, userId: row.user_id };
   }
 
   // ---- folders ---------------------------------------------------------
 
   private folderRows(userId: string): FolderRow[] {
-    return this.db.prepare('SELECT * FROM folders WHERE user_id = ?').all(userId) as FolderRow[];
+    return stmt(this.db, 'SELECT * FROM folders WHERE user_id = ?').all(userId) as FolderRow[];
   }
 
   inboxId(userId: string): string {
-    const r = this.db.prepare('SELECT id FROM folders WHERE user_id = ? AND is_inbox = 1').get(userId) as { id: string };
+    const r = stmt(this.db, 'SELECT id FROM folders WHERE user_id = ? AND is_inbox = 1').get(userId) as { id: string };
     return r.id;
   }
 
   private ownFolder(userId: string, id: unknown): FolderRow {
     if (typeof id !== 'string') throw notFound('Folder not found.');
-    const f = this.db.prepare('SELECT * FROM folders WHERE id = ? AND user_id = ?').get(id, userId) as FolderRow | undefined;
+    const f = stmt(this.db, 'SELECT * FROM folders WHERE id = ? AND user_id = ?').get(id, userId) as FolderRow | undefined;
     if (!f) throw notFound('Folder not found.');
     return f;
   }
@@ -454,7 +454,7 @@ export class Store {
     const rows = this.folderRows(userId);
     const counts = new Map(
       (
-        this.db.prepare('SELECT folder_id, count(*) c FROM notes WHERE user_id = ? AND trashed_at IS NULL AND folder_id IS NOT NULL GROUP BY folder_id').all(userId) as {
+        stmt(this.db, 'SELECT folder_id, count(*) c FROM notes WHERE user_id = ? AND trashed_at IS NULL AND folder_id IS NOT NULL GROUP BY folder_id').all(userId) as {
           folder_id: string;
           c: number;
         }[]
@@ -485,16 +485,14 @@ export class Store {
       }
       this.assertSiblingFree(userId, parent?.id ?? null, key, null);
       const id = crypto.randomUUID();
-      this.db
-        .prepare('INSERT INTO folders (id, user_id, parent_id, name, name_key, is_inbox, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)')
+      stmt(this.db, 'INSERT INTO folders (id, user_id, parent_id, name, name_key, is_inbox, created_at) VALUES (?, ?, ?, ?, ?, 0, ?)')
         .run(id, userId, parent?.id ?? null, name, key, this.now());
       return { id, name, parentId: parent?.id ?? null, isInbox: false, noteCount: 0, children: [] };
     });
   }
 
   private assertSiblingFree(userId: string, parentId: string | null, key: string, exceptId: string | null) {
-    const clash = this.db
-      .prepare("SELECT id FROM folders WHERE user_id = ? AND ifnull(parent_id, '') = ? AND name_key = ? AND id != ?")
+    const clash = stmt(this.db, "SELECT id FROM folders WHERE user_id = ? AND ifnull(parent_id, '') = ? AND name_key = ? AND id != ?")
       .get(userId, parentId ?? '', key, exceptId ?? '');
     if (clash) throw new AppError(409, 'name_taken', 'A folder with that name already exists here.');
   }
@@ -525,7 +523,7 @@ export class Store {
         }
       }
       this.assertSiblingFree(userId, parentId, key, f.id);
-      this.db.prepare('UPDATE folders SET name = ?, name_key = ?, parent_id = ? WHERE id = ?').run(name, key, parentId, f.id);
+      stmt(this.db, 'UPDATE folders SET name = ?, name_key = ?, parent_id = ? WHERE id = ?').run(name, key, parentId, f.id);
     });
   }
 
@@ -533,14 +531,14 @@ export class Store {
     this.tx(() => {
       const f = this.ownFolder(userId, id);
       if (f.is_inbox) throw badRequest('Inbox cannot be deleted.', 'inbox_protected');
-      if (this.db.prepare('SELECT 1 FROM folders WHERE parent_id = ?').get(f.id)) {
+      if (stmt(this.db, 'SELECT 1 FROM folders WHERE parent_id = ?').get(f.id)) {
         throw new AppError(409, 'folder_not_empty', 'Only an empty folder can be deleted. This one has subfolders.');
       }
-      if (this.db.prepare('SELECT 1 FROM notes WHERE folder_id = ? AND trashed_at IS NULL').get(f.id)) {
+      if (stmt(this.db, 'SELECT 1 FROM notes WHERE folder_id = ? AND trashed_at IS NULL').get(f.id)) {
         throw new AppError(409, 'folder_not_empty', 'Only an empty folder can be deleted. This one has notes.');
       }
-      this.db.prepare('UPDATE notes SET folder_id = NULL WHERE folder_id = ?').run(f.id);
-      this.db.prepare('DELETE FROM folders WHERE id = ?').run(f.id);
+      stmt(this.db, 'UPDATE notes SET folder_id = NULL WHERE folder_id = ?').run(f.id);
+      stmt(this.db, 'DELETE FROM folders WHERE id = ?').run(f.id);
     });
   }
 
@@ -548,7 +546,7 @@ export class Store {
 
   private ownNote(userId: string, id: unknown): NoteRow {
     if (typeof id !== 'string') throw notFound('Note not found.');
-    const n = this.db.prepare('SELECT * FROM notes WHERE id = ? AND user_id = ?').get(id, userId) as NoteRow | undefined;
+    const n = stmt(this.db, 'SELECT * FROM notes WHERE id = ? AND user_id = ?').get(id, userId) as NoteRow | undefined;
     if (!n) throw notFound('Note not found.');
     return n;
   }
@@ -556,7 +554,7 @@ export class Store {
   /** The note's metadata, without its body and text (which can be up to 1 MB each): enough to check and update it. */
   private ownNoteMeta(userId: string, id: unknown): NoteMeta {
     if (typeof id !== 'string') throw notFound('Note not found.');
-    const n = this.db.prepare('SELECT seq, id, folder_id, version, body_size, trashed_at FROM notes WHERE id = ? AND user_id = ?').get(id, userId) as
+    const n = stmt(this.db, 'SELECT seq, id, folder_id, version, body_size, trashed_at FROM notes WHERE id = ? AND user_id = ?').get(id, userId) as
       | NoteMeta
       | undefined;
     if (!n) throw notFound('Note not found.');
@@ -564,55 +562,55 @@ export class Store {
   }
 
   private tagsOf(seq: number): string[] {
-    return (this.db.prepare('SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_seq = ? ORDER BY t.name').all(seq) as { name: string }[]).map(
+    return (stmt(this.db, 'SELECT t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_seq = ? ORDER BY t.name').all(seq) as { name: string }[]).map(
       (r) => r.name,
     );
   }
 
   /** Index a note that is not in Trash, from values the caller already holds (no row of its own yet). */
   private ftsInsert(seq: number, title: string, text: string, tags: string[]) {
-    this.db.prepare('INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?, ?, ?, ?)').run(seq, title, text, sortTags(tags).join(' '));
+    stmt(this.db, 'INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?, ?, ?, ?)').run(seq, title, text, sortTags(tags).join(' '));
   }
 
   /** Update some of an indexed note's columns in place; rebuilds the entry from the note if it is missing. */
   private ftsUpdate(seq: number, cols: { title: string; text: string } | { tags: string[] }) {
     const r =
       'tags' in cols
-        ? this.db.prepare('UPDATE notes_fts SET tags = ? WHERE rowid = ?').run(sortTags(cols.tags).join(' '), seq)
-        : this.db.prepare('UPDATE notes_fts SET title = ?, body = ? WHERE rowid = ?').run(cols.title, cols.text, seq);
+        ? stmt(this.db, 'UPDATE notes_fts SET tags = ? WHERE rowid = ?').run(sortTags(cols.tags).join(' '), seq)
+        : stmt(this.db, 'UPDATE notes_fts SET title = ?, body = ? WHERE rowid = ?').run(cols.title, cols.text, seq);
     if (r.changes === 0) this.syncFts(seq);
   }
 
   /** Rebuild a note's index entry from the database (restore, and the fallback above). */
   private syncFts(seq: number) {
-    this.db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(seq);
-    const n = this.db.prepare('SELECT title, body_text, trashed_at FROM notes WHERE seq = ?').get(seq) as
+    stmt(this.db, 'DELETE FROM notes_fts WHERE rowid = ?').run(seq);
+    const n = stmt(this.db, 'SELECT title, body_text, trashed_at FROM notes WHERE seq = ?').get(seq) as
       | { title: string; body_text: string; trashed_at: number | null }
       | undefined;
     if (!n || n.trashed_at !== null) return;
-    this.db.prepare('INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?, ?, ?, ?)').run(seq, n.title, n.body_text, this.tagsOf(seq).join(' '));
+    stmt(this.db, 'INSERT INTO notes_fts (rowid, title, body, tags) VALUES (?, ?, ?, ?)').run(seq, n.title, n.body_text, this.tagsOf(seq).join(' '));
   }
 
   /** Set a note's tags with a constant number of statements, whatever the number of tags. */
   private setTags(userId: string, seq: number, tags: string[]) {
-    this.db.prepare('DELETE FROM note_tags WHERE note_seq = ?').run(seq);
+    stmt(this.db, 'DELETE FROM note_tags WHERE note_seq = ?').run(seq);
     if (tags.length) {
       const list = JSON.stringify(tags);
-      this.db.prepare('INSERT INTO tags (user_id, name) SELECT ?, value FROM json_each(?) WHERE true ON CONFLICT (user_id, name) DO NOTHING').run(userId, list);
-      this.db.prepare('INSERT INTO note_tags (note_seq, tag_id) SELECT ?, id FROM tags WHERE user_id = ? AND name IN (SELECT value FROM json_each(?))').run(seq, userId, list);
+      stmt(this.db, 'INSERT INTO tags (user_id, name) SELECT ?, value FROM json_each(?) WHERE true ON CONFLICT (user_id, name) DO NOTHING').run(userId, list);
+      stmt(this.db, 'INSERT INTO note_tags (note_seq, tag_id) SELECT ?, id FROM tags WHERE user_id = ? AND name IN (SELECT value FROM json_each(?))').run(seq, userId, list);
     }
     this.gcTags(userId);
   }
 
   private gcTags(userId: string) {
-    this.db.prepare('DELETE FROM tags WHERE user_id = ? AND NOT EXISTS (SELECT 1 FROM note_tags nt WHERE nt.tag_id = tags.id)').run(userId);
+    stmt(this.db, 'DELETE FROM tags WHERE user_id = ? AND NOT EXISTS (SELECT 1 FROM note_tags nt WHERE nt.tag_id = tags.id)').run(userId);
   }
 
   private assertImagesOwned(userId: string, ids: string[]) {
     if (!ids.length) return;
     // One query for all of them, in the note's order.
     const missing = (
-      this.db.prepare('SELECT value FROM json_each(?) WHERE value NOT IN (SELECT id FROM images WHERE user_id = ?) ORDER BY key').all(JSON.stringify(ids), userId) as {
+      stmt(this.db, 'SELECT value FROM json_each(?) WHERE value NOT IN (SELECT id FROM images WHERE user_id = ?) ORDER BY key').all(JSON.stringify(ids), userId) as {
         value: string;
       }[]
     ).map((r) => r.value);
@@ -630,8 +628,8 @@ export class Store {
   /** Make the note's image links exactly `ids`, touching only the links that change. */
   private setImageLinks(seq: number, ids: string[]) {
     const list = JSON.stringify(ids);
-    this.db.prepare('DELETE FROM note_images WHERE note_seq = ? AND image_id NOT IN (SELECT value FROM json_each(?))').run(seq, list);
-    if (ids.length) this.db.prepare('INSERT OR IGNORE INTO note_images (note_seq, image_id) SELECT ?, value FROM json_each(?)').run(seq, list);
+    stmt(this.db, 'DELETE FROM note_images WHERE note_seq = ? AND image_id NOT IN (SELECT value FROM json_each(?))').run(seq, list);
+    if (ids.length) stmt(this.db, 'INSERT OR IGNORE INTO note_images (note_seq, image_id) SELECT ?, value FROM json_each(?)').run(seq, list);
   }
 
   private noteOut(n: NoteRow, tags = this.tagsOf(n.seq)) {
@@ -661,8 +659,7 @@ export class Store {
       this.assertQuota(userId, body.bytes);
       const now = this.now();
       const id = crypto.randomUUID();
-      const r = this.db
-        .prepare(
+      const r = stmt(this.db, 
           `INSERT INTO notes (id, user_id, folder_id, title, body, body_text, body_size, version, created_at, updated_at)
            VALUES (?, ?, ?, '', ?, ?, ?, 1, ?, ?)`,
         )
@@ -709,8 +706,7 @@ export class Store {
       this.assertQuota(userId, body.bytes - n.body_size);
       const now = this.now();
       const version = n.version + 1;
-      this.db
-        .prepare('UPDATE notes SET title = ?, body = ?, body_text = ?, body_size = ?, version = ?, updated_at = ? WHERE seq = ?')
+      stmt(this.db, 'UPDATE notes SET title = ?, body = ?, body_text = ?, body_size = ?, version = ?, updated_at = ? WHERE seq = ?')
         .run(title, body.serialized, body.text, body.bytes, version, now, n.seq);
       this.setImageLinks(n.seq, body.imageIds);
       this.ftsUpdate(n.seq, { title, text: body.text });
@@ -727,7 +723,7 @@ export class Store {
       let folderId = n.folder_id;
       if (changes.folderId !== undefined) {
         folderId = changes.folderId === null ? null : this.ownFolder(userId, changes.folderId).id;
-        this.db.prepare('UPDATE notes SET folder_id = ? WHERE seq = ?').run(folderId, n.seq);
+        stmt(this.db, 'UPDATE notes SET folder_id = ? WHERE seq = ?').run(folderId, n.seq);
       }
       if (tags) {
         this.setTags(userId, n.seq, tags);
@@ -742,8 +738,8 @@ export class Store {
     this.tx(() => {
       const n = this.ownNoteMeta(userId, id);
       if (n.trashed_at !== null) return;
-      this.db.prepare('UPDATE notes SET trashed_at = ? WHERE seq = ?').run(this.now(), n.seq);
-      this.db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(n.seq); // notes in Trash are not searched
+      stmt(this.db, 'UPDATE notes SET trashed_at = ? WHERE seq = ?').run(this.now(), n.seq);
+      stmt(this.db, 'DELETE FROM notes_fts WHERE rowid = ?').run(n.seq); // notes in Trash are not searched
     });
   }
 
@@ -753,7 +749,7 @@ export class Store {
       const n = this.ownNote(userId, id);
       if (n.trashed_at === null) return this.noteOut(n);
       // folder_id is already NULL if the folder was deleted (ON DELETE SET NULL / deleteFolder).
-      this.db.prepare('UPDATE notes SET trashed_at = NULL WHERE seq = ?').run(n.seq);
+      stmt(this.db, 'UPDATE notes SET trashed_at = NULL WHERE seq = ?').run(n.seq);
       const tags = this.tagsOf(n.seq);
       this.ftsInsert(n.seq, n.title, n.body_text, tags);
       return this.noteOut({ ...n, trashed_at: null }, tags);
@@ -765,17 +761,17 @@ export class Store {
     this.tx(() => {
       const n = this.ownNoteMeta(userId, id);
       if (n.trashed_at === null) throw new AppError(409, 'not_in_trash', 'Only a note in Trash can be deleted permanently.');
-      this.db.prepare('DELETE FROM notes_fts WHERE rowid = ?').run(n.seq);
-      this.db.prepare('DELETE FROM notes WHERE seq = ?').run(n.seq);
+      stmt(this.db, 'DELETE FROM notes_fts WHERE rowid = ?').run(n.seq);
+      stmt(this.db, 'DELETE FROM notes WHERE seq = ?').run(n.seq);
       this.gcTags(userId);
     });
   }
 
   emptyTrash(userId: string): string[] {
     return this.tx(() => {
-      const ids = (this.db.prepare('SELECT id FROM notes WHERE user_id = ? AND trashed_at IS NOT NULL').all(userId) as { id: string }[]).map((r) => r.id);
-      this.db.prepare('DELETE FROM notes_fts WHERE rowid IN (SELECT seq FROM notes WHERE user_id = ? AND trashed_at IS NOT NULL)').run(userId);
-      this.db.prepare('DELETE FROM notes WHERE user_id = ? AND trashed_at IS NOT NULL').run(userId);
+      const ids = (stmt(this.db, 'SELECT id FROM notes WHERE user_id = ? AND trashed_at IS NOT NULL').all(userId) as { id: string }[]).map((r) => r.id);
+      stmt(this.db, 'DELETE FROM notes_fts WHERE rowid IN (SELECT seq FROM notes WHERE user_id = ? AND trashed_at IS NOT NULL)').run(userId);
+      stmt(this.db, 'DELETE FROM notes WHERE user_id = ? AND trashed_at IS NOT NULL').run(userId);
       this.gcTags(userId);
       return ids;
     });
@@ -784,7 +780,7 @@ export class Store {
   private listItems(rows: (NoteRow & { snippet_src?: string })[]) {
     const tags = new Map<number, string[]>();
     if (rows.length) {
-      const q = this.db.prepare(
+      const q = stmt(this.db, 
         `SELECT nt.note_seq, t.name FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_seq IN (${rows.map(() => '?').join(',')}) ORDER BY t.name`,
       );
       for (const r of q.all(...rows.map((r) => r.seq)) as { note_seq: number; name: string }[]) {
@@ -842,8 +838,7 @@ export class Store {
       where.push('(n.updated_at < ? OR (n.updated_at = ? AND n.seq < ?))');
       args.push(u, u, s);
     }
-    const rows = this.db
-      .prepare(
+    const rows = stmt(this.db, 
         `SELECT n.seq, n.id, n.title, substr(n.body_text, 1, 400) AS body_text, n.folder_id, n.agent_name, n.created_at, n.updated_at, n.trashed_at
          FROM notes n WHERE ${where.join(' AND ')} ORDER BY n.updated_at DESC, n.seq DESC LIMIT ?`,
       )
@@ -857,8 +852,7 @@ export class Store {
   // ---- tags & search ---------------------------------------------------
 
   listTags(userId: string) {
-    return this.db
-      .prepare(
+    return stmt(this.db, 
         `SELECT t.name, count(*) AS count FROM tags t JOIN note_tags nt ON nt.tag_id = t.id JOIN notes n ON n.seq = nt.note_seq
          WHERE t.user_id = ? AND n.trashed_at IS NULL GROUP BY t.id ORDER BY t.name`,
       )
@@ -884,8 +878,7 @@ export class Store {
       where.push('EXISTS (SELECT 1 FROM note_tags nt JOIN tags t ON t.id = nt.tag_id WHERE nt.note_seq = n.seq AND t.name = ?)');
       args.push(t);
     }
-    const rows = this.db
-      .prepare(
+    const rows = stmt(this.db, 
         `${cte}SELECT n.seq, n.id, n.title, n.folder_id, n.agent_name, n.created_at, n.updated_at, n.trashed_at,
            snippet(notes_fts, 1, '', '', '…', 24) AS snippet_src, substr(n.body_text, 1, 400) AS body_text
          FROM notes_fts JOIN notes n ON n.seq = notes_fts.rowid
@@ -903,19 +896,17 @@ export class Store {
     return this.tx(() => {
       const now = this.now();
       // Re-check the agent inside the transaction: it may have been revoked a moment ago.
-      const live = this.db
-        .prepare('SELECT 1 FROM agents a JOIN users u ON u.id = a.user_id WHERE a.id = ? AND a.revoked_at IS NULL AND u.disabled = 0')
+      const live = stmt(this.db, 'SELECT 1 FROM agents a JOIN users u ON u.id = a.user_id WHERE a.id = ? AND a.revoked_at IS NULL AND u.disabled = 0')
         .get(agent.agentId);
       if (!live) throw new AppError(401, 'unauthorized', 'This agent token is no longer valid.');
-      const calls = this.db.prepare('SELECT count(*) AS c FROM agent_calls WHERE agent_id = ? AND at > ?').get(agent.agentId, now - HOUR) as { c: number };
+      const calls = stmt(this.db, 'SELECT count(*) AS c FROM agent_calls WHERE agent_id = ? AND at > ?').get(agent.agentId, now - HOUR) as { c: number };
       if (calls.c >= this.opts.agentRatePerHour) {
         throw new AppError(429, 'rate_limited', `Rate limit reached: at most ${this.opts.agentRatePerHour} notes per hour for this agent. Try again later.`);
       }
       this.assertImagesOwned(agent.userId, input.body.imageIds);
       this.assertQuota(agent.userId, input.body.bytes);
       const id = crypto.randomUUID();
-      const r = this.db
-        .prepare(
+      const r = stmt(this.db, 
           `INSERT INTO notes (id, user_id, folder_id, title, body, body_text, body_size, version, agent_id, agent_name, created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)`,
         )
@@ -924,9 +915,9 @@ export class Store {
       this.setTags(agent.userId, seq, input.tags);
       this.setImageLinks(seq, input.body.imageIds);
       this.ftsInsert(seq, input.title, input.body.text, input.tags);
-      this.db.prepare('DELETE FROM agent_calls WHERE agent_id = ? AND at <= ?').run(agent.agentId, now - HOUR);
-      this.db.prepare('INSERT INTO agent_calls (agent_id, at) VALUES (?, ?)').run(agent.agentId, now);
-      this.db.prepare('UPDATE agents SET notes_created = notes_created + 1, last_used = ? WHERE id = ?').run(now, agent.agentId);
+      stmt(this.db, 'DELETE FROM agent_calls WHERE agent_id = ? AND at <= ?').run(agent.agentId, now - HOUR);
+      stmt(this.db, 'INSERT INTO agent_calls (agent_id, at) VALUES (?, ?)').run(agent.agentId, now);
+      stmt(this.db, 'UPDATE agents SET notes_created = notes_created + 1, last_used = ? WHERE id = ?').run(now, agent.agentId);
       return { id };
     });
   }
@@ -936,17 +927,17 @@ export class Store {
   insertImageRow(userId: string, id: string, mime: string, size: number) {
     this.tx(() => {
       this.assertQuota(userId, size);
-      this.db.prepare('INSERT INTO images (id, user_id, mime, size, created_at) VALUES (?, ?, ?, ?, ?)').run(id, userId, mime, size, this.now());
+      stmt(this.db, 'INSERT INTO images (id, user_id, mime, size, created_at) VALUES (?, ?, ?, ?, ?)').run(id, userId, mime, size, this.now());
     });
   }
 
   deleteImageRow(id: string) {
-    this.db.prepare('DELETE FROM images WHERE id = ?').run(id);
+    stmt(this.db, 'DELETE FROM images WHERE id = ?').run(id);
   }
 
   getImage(userId: string, id: unknown): { id: string; user_id: string; mime: string; size: number } {
     if (typeof id !== 'string') throw notFound();
-    const r = this.db.prepare('SELECT id, user_id, mime, size FROM images WHERE id = ? AND user_id = ?').get(id, userId) as any;
+    const r = stmt(this.db, 'SELECT id, user_id, mime, size FROM images WHERE id = ? AND user_id = ?').get(id, userId) as any;
     if (!r) throw notFound();
     return r;
   }
@@ -961,8 +952,7 @@ export class Store {
    */
   cleanupImages(): number {
     const cutoff = this.now() - IMAGE_GRACE_MS;
-    const victims = this.db
-      .prepare('SELECT id, user_id FROM images i WHERE created_at < ? AND NOT EXISTS (SELECT 1 FROM note_images ni WHERE ni.image_id = i.id)')
+    const victims = stmt(this.db, 'SELECT id, user_id FROM images i WHERE created_at < ? AND NOT EXISTS (SELECT 1 FROM note_images ni WHERE ni.image_id = i.id)')
       .all(cutoff) as { id: string; user_id: string }[];
     let n = 0;
     for (const v of victims) {
@@ -972,9 +962,9 @@ export class Store {
         // transaction: see dataCopy for why that closes the race.
         if (this.copyInProgress()) return false;
         // Re-check inside the transaction in case a save linked it meanwhile.
-        const still = this.db.prepare('SELECT 1 FROM note_images WHERE image_id = ?').get(v.id);
+        const still = stmt(this.db, 'SELECT 1 FROM note_images WHERE image_id = ?').get(v.id);
         if (still) return false;
-        return this.db.prepare('DELETE FROM images WHERE id = ?').run(v.id).changes > 0;
+        return stmt(this.db, 'DELETE FROM images WHERE id = ?').run(v.id).changes > 0;
       });
       if (removed) {
         n++;
@@ -1000,7 +990,7 @@ export class Store {
       fs.rmSync(path.join(this.tmpDir, f), { recursive: true, force: true });
       tmp++;
     }
-    const has = this.db.prepare('SELECT 1 FROM images WHERE id = ? AND user_id = ?');
+    const has = stmt(this.db, 'SELECT 1 FROM images WHERE id = ? AND user_id = ?');
     for (const userDir of fs.readdirSync(this.imagesDir)) {
       const dir = path.join(this.imagesDir, userDir);
       if (!fs.statSync(dir).isDirectory()) {
@@ -1015,9 +1005,9 @@ export class Store {
         }
       }
     }
-    for (const r of this.db.prepare('SELECT id, user_id FROM images').all() as { id: string; user_id: string }[]) {
+    for (const r of stmt(this.db, 'SELECT id, user_id FROM images').all() as { id: string; user_id: string }[]) {
       if (!fs.existsSync(this.imagePath(r.user_id, r.id))) {
-        this.db.prepare('DELETE FROM images WHERE id = ?').run(r.id);
+        stmt(this.db, 'DELETE FROM images WHERE id = ?').run(r.id);
         orphanRows++;
       }
     }

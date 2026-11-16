@@ -5,8 +5,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Writable } from 'node:stream';
 import type { Config } from './config.js';
-import type { Store, UserRow } from './store.js';
+import type { SessionUser, Store } from './store.js';
 import { AppError } from './errors.js';
+import { stmt } from './db.js';
 import { registerApi } from './api.js';
 import { FontService, type Timers } from './fonts/service.js';
 import type { Fetcher } from './fonts/upstream.js';
@@ -14,7 +15,7 @@ import { registerMcp } from './mcp.js';
 
 declare module 'fastify' {
   interface FastifyRequest {
-    user?: UserRow;
+    user?: SessionUser;
   }
 }
 
@@ -109,7 +110,7 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
 
   app.get('/healthz', async (_req, reply) => {
     try {
-      store.db.prepare('SELECT 1').get();
+      stmt(store.db, 'SELECT 1').get();
     } catch {
       return reply.status(503).send({ ok: false });
     }

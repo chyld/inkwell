@@ -28,8 +28,9 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
     }
   });
 
-  // Session authentication: cookie only. An agent bearer token is never accepted here.
-  api.addHook('preHandler', async (req, reply) => {
+  // Session authentication: cookie only. An agent bearer token is never accepted here. It runs on onRequest,
+  // after the Origin check and the cookie parsing, so a refused request is never buffered or parsed.
+  api.addHook('onRequest', async (req, reply) => {
     if (req.routeOptions.config && (req.routeOptions.config as { public?: boolean }).public) return;
     const user = store.authenticateSession(req.cookies[SESSION_COOKIE]);
     if (!user) {

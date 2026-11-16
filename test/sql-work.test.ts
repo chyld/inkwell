@@ -1,7 +1,7 @@
 // Measured SQL work per request (CLEANUP-PLAN pass 1, items 1 and 2). Counts come from better-sqlite3's verbose
 // hook (statements executed) and a wrapper on prepare (statements compiled), so they include the session check.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { doc, makeEnv, p, upload, userClient, type Client, type Env } from './helpers.js';
+import { Client, doc, makeEnv, p, upload, userClient, type Env } from './helpers.js';
 import sharp from 'sharp';
 
 let env: Env;
@@ -73,15 +73,51 @@ describe('SQL work per request', () => {
     expect(styleM.status).toBe(201);
     // CLEANUP-PLAN pass 1 item 1 (before: autosave 12 executed / 12 compiled, with 2 images 15, 3 tags 22,
     // create 12, restore 12, style create 8). Upper bounds, so a later saving does not break them.
-    expect(saveM.executed).toBeLessThanOrEqual(9);
-    expect(imgM.executed).toBeLessThanOrEqual(10);
-    expect(tagM.executed).toBeLessThanOrEqual(10);
-    expect(createM.executed).toBeLessThanOrEqual(7);
-    expect(restoreM.executed).toBeLessThanOrEqual(8);
-    expect(styleM.executed).toBeLessThanOrEqual(7);
+    // Item 2: the session check is one query (before: two), so every request is one statement lighter.
+    expect(saveM.executed).toBeLessThanOrEqual(8);
+    expect(imgM.executed).toBeLessThanOrEqual(9);
+    expect(tagM.executed).toBeLessThanOrEqual(9);
+    expect(createM.executed).toBeLessThanOrEqual(6);
+    expect(restoreM.executed).toBeLessThanOrEqual(7);
+    expect(styleM.executed).toBeLessThanOrEqual(6);
+    expect(listM.executed).toBeLessThanOrEqual(3); // before: 4
+    // Item 2: statements are compiled once and reused: a repeated request compiles nothing (before: 12 per autosave).
+    expect(saveM.compiled).toBe(0);
+    expect(listM.sql.filter((q) => /FROM sessions/.test(q))).toHaveLength(1);
+    expect(listM.sql.some((q) => /FROM users/.test(q) && !/JOIN users/.test(q))).toBe(false);
     // The autosave does not read the note's body or text back, nor rebuild the search entry.
     expect(saveM.sql.some((q) => /SELECT \* FROM notes/.test(q))).toBe(false);
     expect(saveM.sql.some((q) => /SELECT title, body_text/.test(q))).toBe(false);
+  });
+});
+
+describe('the session check (item 2)', () => {
+  it('carries only the id and username on the request: no password hash', async () => {
+    const token = c.cookie.split('=')[1];
+    expect(Object.keys(env.store.authenticateSession(token)!).sort()).toEqual(['id', 'username']);
+  });
+
+  it('runs before the body is parsed: a refused request is not parsed', async () => {
+    const bad = '{"title": "unterminated';
+    const json = { 'content-type': 'application/json' };
+    // No session: refused as unauthorised, not as a body that does not parse.
+    const anon = await new Client(env).req('PUT', '/api/notes/x', bad, json);
+    expect(anon.statusCode).toBe(401);
+    expect(anon.json().error.code).toBe('unauthorized');
+    // The wrong tab: refused before parsing too.
+    const wrong = await c.req('PUT', '/api/notes/x', bad, { ...json, 'x-notes-user': 'someone-else' });
+    expect(wrong.statusCode).toBe(401);
+    expect(wrong.json().error.code).toBe('wrong_user');
+    // Signed in properly, the same body is a parse error as before.
+    const mine = await c.req('PUT', '/api/notes/x', bad, json);
+    expect(mine.statusCode).toBe(400);
+  });
+
+  it('a session whose user has gone or is disabled is refused and deleted, as before', async () => {
+    const token = c.cookie.split('=')[1];
+    env.store.setDisabled('alice', true); // also deletes the sessions
+    expect(env.store.authenticateSession(token)).toBeNull();
+    expect((await c.get('/api/me')).statusCode).toBe(401);
   });
 });
 

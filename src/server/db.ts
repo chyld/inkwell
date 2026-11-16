@@ -4,6 +4,19 @@ import path from 'node:path';
 
 export type DB = Database.Database;
 
+const cache = new WeakMap<DB, Map<string, Database.Statement>>();
+/**
+ * The prepared statement for this SQL text on this connection, compiled once and reused (better-sqlite3 caches
+ * nothing itself). No statement is iterated or switched to pluck/raw mode in this code, so sharing one is safe.
+ */
+export function stmt(db: DB, sql: string): Database.Statement {
+  let m = cache.get(db);
+  if (!m) cache.set(db, (m = new Map()));
+  let s = m.get(sql);
+  if (!s) m.set(sql, (s = db.prepare(sql)));
+  return s;
+}
+
 export interface Migration {
   version: number;
   name: string;
