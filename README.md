@@ -633,3 +633,44 @@ if two families would share an id or the listing's format is not what it
 expects. Ids never change and are never removed: a family Google drops is marked
 retired (hidden on `/fonts`, still working where it is already used). Commit the
 file and rebuild the image (section 6) to ship it.
+
+## 13. The app's own fonts
+
+All interface and note text is set in **Inter**, and inline code and code blocks
+in **JetBrains Mono**, on every device. Both are part of the app: static WOFF2
+files in `src/web/fonts/default/`, built into the web bundle (hashed under
+`/assets/`, cached for a year like the other assets) and served by the notes
+server. Neither the browser nor the running server contacts Google for them, and
+they do not depend on the `/fonts` store or on outbound network access. Fonts
+chosen from `/fonts` (section 12) still apply to the text that carries them.
+
+| File | Family, style | Weights | Version | Bytes |
+|---|---|---|---|---|
+| `inter-latin-upright.woff2` | Inter, upright, Latin | 100-900 (variable) | 4.001 | 48,256 |
+| `inter-latin-italic.woff2` | Inter, italic, Latin | 100-900 (variable) | 4.001 | 51,832 |
+| `inter-latin-ext-upright.woff2` | Inter, upright, Latin Extended | 100-900 (variable) | 4.001 | 85,068 |
+| `inter-latin-ext-italic.woff2` | Inter, italic, Latin Extended | 100-900 (variable) | 4.001 | 91,900 |
+| `jetbrains-mono-latin-upright.woff2` | JetBrains Mono, upright, Latin | 100-800 (variable) | 2.211 | 40,404 |
+| `jetbrains-mono-latin-italic.woff2` | JetBrains Mono, italic, Latin | 100-800 (variable) | 2.211 | 42,964 |
+| `jetbrains-mono-latin-ext-upright.woff2` | JetBrains Mono, upright, Latin Extended | 100-800 (variable) | 2.211 | 15,196 |
+| `jetbrains-mono-latin-ext-italic.woff2` | JetBrains Mono, italic, Latin Extended | 100-800 (variable) | 2.211 | 16,520 |
+
+392,140 bytes in all; a page downloads only the slices and styles it uses (the
+upright Latin Inter file, 48 KB, on every page and preloaded; the others only
+when italic, code or Latin Extended characters appear).
+
+**Where they came from.** Downloaded once, on 2026-11-15, from Google Fonts:
+the stylesheets
+`https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900`
+(files under `https://fonts.gstatic.com/s/inter/v20/`) and
+`https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800`
+(files under `https://fonts.gstatic.com/s/jetbrainsmono/v24/`), keeping only the
+`latin` and `latin-ext` blocks; their `unicode-range` values are copied into the
+`@font-face` rules at the top of `src/web/styles.css`. The version numbers above
+are the ones inside the font files. Both fonts are under the SIL Open Font
+License 1.1; the licence texts (`Inter-OFL.txt`, `JetBrainsMono-OFL.txt`, each
+with the copyright notice from its font file) are kept next to the files in the
+repository.
+
+To update them, download the same two stylesheets again with a current browser
+User-Agent, replace the eight files and the `unicode-range` values, and rebuild.

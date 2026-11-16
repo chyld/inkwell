@@ -171,7 +171,7 @@ describe('applying a font (criteria 5 and 3)', () => {
       facesFor('titan-one').faces.map((x) => [`url(/api/fonts/file/${x.file})`, { weight: x.weight, style: x.style, unicodeRange: x.unicodeRange, display: 'swap' }]),
     );
     expect(faces.every((f) => f.loadCalls === 0)).toBe(true);
-    expect(fontRulesText()).toContain('[data-font="titan-one"] { font-family: "nf-titan-one", sans-serif; }'); // display -> sans-serif
+    expect(fontRulesText()).toContain('[data-font="titan-one"] { font-family: "nf-titan-one", "Inter", sans-serif; }'); // display: Inter, then sans-serif
     // Reload.
     await view!.unmount();
     view = null;

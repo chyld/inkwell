@@ -37,16 +37,20 @@ export function isFontId(id: unknown): id is string {
   return fontById(id) !== undefined;
 }
 
-/** The generic family that stands in for a font of this category. */
+/**
+ * What stands in for a font of this category while it loads or if it cannot: the app's own Inter
+ * (sans-serif and display) or JetBrains Mono (monospace), then the generic family. Constant strings:
+ * they are written into CSS rules.
+ */
 export function fallbackFamily(category: FontCategory): string {
   switch (category) {
     case 'serif':
       return 'serif';
     case 'monospace':
-      return 'monospace';
+      return '"JetBrains Mono", monospace';
     case 'handwriting':
       return 'cursive';
     default:
-      return 'sans-serif'; // sans-serif and display
+      return '"Inter", sans-serif'; // sans-serif and display
   }
 }
