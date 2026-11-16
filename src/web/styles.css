@@ -349,7 +349,7 @@ mark {
 /* layout */
 .app {
   --rail-width: 54px;
-  --list-width: 320px;
+  --list-width: 290px;
   display: grid;
   grid-template-columns: var(--rail-width) var(--list-width) 1fr;
   height: 100%;
@@ -693,9 +693,8 @@ mark {
   color: var(--text);
 }
 
-/* note list */
+/* note list (REDESIGN-BRIEF 2.2): on the app ground, white cards */
 .note-list {
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -703,54 +702,96 @@ mark {
 }
 .list-header {
   display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 10px 6px;
+}
+.list-top {
+  display: flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 12px 8px;
 }
-.list-header button {
+.list-top > .primary,
+.list-top > .danger {
   display: inline-flex;
   align-items: center;
   gap: 4px;
+  flex: none;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
 }
-.list-header h2 {
+.list-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 28px;
+  padding: 0 2px;
+}
+.list-title h2 {
   flex: 1;
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .search-box {
-  padding: 0 12px 10px;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.search-box > svg.lucide {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-soft);
+  pointer-events: none;
+}
+.search-box input {
+  width: 100%;
+  padding-left: 32px;
+  border-radius: 8px;
+  background: var(--bg);
 }
 .list-scroll {
   flex: 1;
   overflow-y: auto;
+  padding: 2px 10px 14px;
 }
 .list-scroll ul {
   list-style: none;
   margin: 0;
   padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 .list-message {
-  padding: 12px 16px;
+  padding: 12px 6px;
   color: var(--text-soft);
 }
 .list-message.error {
   color: var(--danger);
 }
+/* a note: a white rounded card; the selected one has a coral outline, hover a subtle border */
 .note-item {
   display: block;
   width: 100%;
   text-align: left;
-  border: none;
-  border-bottom: 1px solid var(--border);
-  border-radius: 0;
+  border: 1px solid transparent;
+  border-radius: 12px;
   padding: 10px 14px;
-  background: none;
+  background: var(--bg);
+}
+.note-item:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--border);
 }
 .note-item.selected {
-  background: var(--bg-active) !important;
+  outline: 2px solid var(--accent-line);
+  outline-offset: -1px;
 }
 .note-item-top {
   display: flex;
@@ -774,14 +815,12 @@ mark {
   white-space: nowrap;
 }
 .note-snippet {
-  margin: 4px 0 0;
+  margin: 3px 0 0;
   font-size: 0.85rem;
   color: var(--text-soft);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* one line */
 }
 .note-meta {
   display: flex;

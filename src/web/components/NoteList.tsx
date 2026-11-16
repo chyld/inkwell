@@ -1,5 +1,5 @@
 import type { NoteItem } from '../api';
-import { PanelLeftClose, Plus } from 'lucide-react';
+import { PanelLeftClose, Plus, Search } from 'lucide-react';
 import { highlightPieces, isMac, relativeTime } from '../util';
 
 interface Props {
@@ -25,41 +25,47 @@ export function NoteList(p: Props) {
   const shortcut = isMac() ? '⌘⌥N' : 'Ctrl+Alt+N';
   return (
     <section id="note-list" className={'note-list' + (p.collapsed ? ' collapsed' : '')} aria-label="Notes">
+      {/* REDESIGN-BRIEF 2.2: the search box and a compact New on one row, the name of the view under them. */}
       <header className="list-header">
-        <button
-          id="list-hide"
-          className="icon-button collapse-button desktop-only"
-          aria-expanded={true}
-          aria-controls="note-list"
-          aria-label="Hide note list"
-          title="Hide note list"
-          onClick={p.onCollapse}
-        >
-          <PanelLeftClose />
-        </button>
-        <h2 title={p.heading}>{p.heading}</h2>
-        {!p.isTrash && (
-          <button className="primary" onClick={p.onNewNote} title={`New note (${shortcut})`}>
-            <Plus /> New note
-          </button>
-        )}
-        {p.isTrash && p.items.length > 0 && !p.searching && (
-          <button className="danger" onClick={p.onEmptyTrash}>
-            Empty Trash
-          </button>
-        )}
-      </header>
-      {!p.isTrash && (
-        <div className="search-box">
-          <input
-            type="search"
-            placeholder={p.heading === 'All notes' ? 'Search notes' : `Search in ${p.heading}`}
-            aria-label="Search notes"
-            value={p.query}
-            onChange={(e) => p.onQuery(e.target.value)}
-          />
+        <div className="list-top">
+          {!p.isTrash && (
+            <div className="search-box">
+              <Search aria-hidden />
+              <input
+                type="search"
+                placeholder={p.heading === 'All notes' ? 'Search notes' : `Search in ${p.heading}`}
+                aria-label="Search notes"
+                value={p.query}
+                onChange={(e) => p.onQuery(e.target.value)}
+              />
+            </div>
+          )}
+          {!p.isTrash && (
+            <button className="primary new-button" onClick={p.onNewNote} aria-label="New note" title={`New note (${shortcut})`}>
+              <Plus /> New
+            </button>
+          )}
+          {p.isTrash && p.items.length > 0 && !p.searching && (
+            <button className="danger empty-trash" onClick={p.onEmptyTrash}>
+              Empty Trash
+            </button>
+          )}
         </div>
-      )}
+        <div className="list-title">
+          <button
+            id="list-hide"
+            className="icon-button collapse-button desktop-only"
+            aria-expanded={true}
+            aria-controls="note-list"
+            aria-label="Hide note list"
+            title="Hide note list"
+            onClick={p.onCollapse}
+          >
+            <PanelLeftClose />
+          </button>
+          <h2 title={p.searching ? `Search results in ${p.heading}` : p.heading}>{p.searching ? 'Search results' : p.heading}</h2>
+        </div>
+      </header>
       <div className="list-scroll">
         {p.error && <p className="list-message error">{p.error}</p>}
         {!p.loading && !p.error && p.items.length === 0 && (
@@ -68,7 +74,7 @@ export function NoteList(p: Props) {
         <ul>
           {p.items.map((n) => (
             <li key={n.id}>
-              <button className={'note-item' + (n.id === p.selectedId ? ' selected' : '')} onClick={() => p.onSelect(n.id)} aria-current={n.id === p.selectedId}>
+              <button className={'note-item card' + (n.id === p.selectedId ? ' selected' : '')} onClick={() => p.onSelect(n.id)} aria-current={n.id === p.selectedId}>
                 <div className="note-item-top">
                   <span className={'note-title' + (n.title ? '' : ' untitled')}>
                     <Highlight text={n.title || 'Untitled'} query={p.searching ? p.query : ''} />
