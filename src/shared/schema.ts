@@ -6,6 +6,7 @@ import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table
 import Image from '@tiptap/extension-image';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import type { Node as PMNode, Schema } from '@tiptap/pm/model';
+import { NOTE_FONTS_MAX, isFontId } from './fonts.js';
 
 export const MAX_BODY_BYTES = 1024 * 1024; // 1 MB
 export const MAX_TITLE_CHARS = 200;
@@ -92,7 +93,8 @@ function colorMark(name: string, tag: 'span' | 'mark', attr: string, allowed: re
       };
     },
     parseHTML() {
-      return [{ tag: `${tag}[${attr}]`, getAttrs: (el) => (ok((el as AttrSource).getAttribute(attr)) ? null : false) }];
+      // Not consuming: one element may carry a colour and a font (FONTS-SPEC 8.1), and keeps both.
+      return [{ tag: `${tag}[${attr}]`, consuming: false, getAttrs: (el) => (ok((el as AttrSource).getAttribute(attr)) ? null : false) }];
     },
     renderHTML({ HTMLAttributes }) {
       return [tag, HTMLAttributes, 0];
@@ -102,6 +104,38 @@ function colorMark(name: string, tag: 'span' | 'mark', attr: string, allowed: re
 
 export const TextColorMark = colorMark('textColor', 'span', 'data-text-color', TEXT_COLORS);
 export const HighlightMark = colorMark('highlight', 'mark', 'data-highlight', HIGHLIGHT_COLORS);
+
+// ---- font (FONTS-SPEC 8.1) ---------------------------------------------------
+// One attribute, `font`: a catalogue id (retired ones included). Rendered as <span data-font="id">:
+// no inline style, no class, no family name. Defined like the colour marks; inline code excludes it
+// and code blocks allow no marks. A piece of text has at most one font.
+export const FontFamilyMark = Mark.create({
+  name: 'fontFamily',
+  addAttributes() {
+    return {
+      font: {
+        default: null,
+        parseHTML: (el: AttrSource) => el.getAttribute('data-font'),
+        renderHTML: (attrs: Record<string, unknown>) => (isFontId(attrs.font) ? { 'data-font': attrs.font } : {}),
+      },
+    };
+  },
+  parseHTML() {
+    return [{ tag: 'span[data-font]', consuming: false, getAttrs: (el) => (isFontId((el as AttrSource).getAttribute('data-font')) ? null : false) }];
+  },
+  renderHTML({ HTMLAttributes }) {
+    return ['span', HTMLAttributes, 0];
+  },
+});
+
+/** The distinct font ids used in a document (JSON or ProseMirror node). */
+export function fontsInDoc(doc: PMNode): Set<string> {
+  const out = new Set<string>();
+  doc.descendants((n) => {
+    for (const m of n.marks) if (m.type.name === 'fontFamily' && typeof m.attrs.font === 'string') out.add(m.attrs.font);
+  });
+  return out;
+}
 
 /** The extensions that define the note schema. The editor adds only behaviour, never node or mark types. */
 export const noteExtensions: AnyExtension[] = [
@@ -127,6 +161,7 @@ export const noteExtensions: AnyExtension[] = [
   TaskItem.configure({ nested: true }),
   TextColorMark,
   HighlightMark,
+  FontFamilyMark,
 ];
 
 let cachedSchema: Schema | null = null;
@@ -192,6 +227,7 @@ const MARK_ATTRS: Record<string, Record<string, AttrCheck>> = {
   },
   textColor: { color: (v) => typeof v === 'string' && (TEXT_COLORS as readonly string[]).includes(v) },
   highlight: { color: (v) => typeof v === 'string' && (HIGHLIGHT_COLORS as readonly string[]).includes(v) },
+  fontFamily: { font: (v) => isFontId(v) },
 };
 
 export class NoteValidationError extends Error {}
@@ -237,6 +273,7 @@ function walk(node: unknown, depth: number, imageIds: Set<string>) {
       checkAttrs(mm.type, mm.attrs, MARK_ATTRS[mm.type]);
       if (mm.type === 'link' && mm.attrs === undefined) fail('link: href is required');
       if ((mm.type === 'textColor' || mm.type === 'highlight') && (mm.attrs as { color?: unknown } | undefined)?.color === undefined) fail(`${mm.type}: color is required`);
+      if (mm.type === 'fontFamily' && (mm.attrs as { font?: unknown } | undefined)?.font === undefined) fail('fontFamily: font is required');
     }
   }
   if (n.content !== undefined) {
@@ -285,6 +322,7 @@ export function validateBody(input: unknown): ValidatedBody {
     fail(`document structure is not valid: ${(e as Error).message}`);
   }
   checkTables(doc);
+  if (fontsInDoc(doc).size > NOTE_FONTS_MAX) fail(`a note can use at most ${NOTE_FONTS_MAX} fonts`);
   const json = doc.toJSON() as JSONContent;
   const serialized = JSON.stringify(json);
   const bytes = utf8Length(serialized);

@@ -8,6 +8,7 @@ import { Sidebar, findFolder, sameView, type View } from './components/Sidebar';
 import { NoteList } from './components/NoteList';
 import { NoteEditorPane, NoteNotFound, activeSaver } from './components/NoteEditor';
 import { currentRoute, initHistory, notePath, setAddress } from './route';
+import { clearAllFonts } from './fonts/runtime';
 import { waitForUploads } from './components/images';
 import { signOutFlow } from './signout';
 import { emptyTrashFlow } from './trash';
@@ -244,6 +245,12 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     return () => window.removeEventListener('popstate', on);
   }, []);
 
+  /** "Browse fonts…": the note is saved first, as on any navigation, then /fonts. */
+  async function openFonts() {
+    await settleCurrent();
+    setAddress('/fonts', 'push');
+  }
+
   /** From the not-found state: all notes, no note open, and the bad address replaced (so Back does not return to it). */
   function allNotes() {
     void changeView({ kind: 'all' });
@@ -331,6 +338,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     if (done) {
       newAuthEpoch();
       setAddress('/', 'replace'); // the next person to sign in here starts with no note open
+      clearAllFonts(); // every registered face and rule, previews included
       onSignedOut();
     }
   }
@@ -458,6 +466,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
           onStorageChanged={refreshMe}
           onBack={() => void closeNote('push')}
           onAllNotes={allNotes}
+          onBrowseFonts={() => void openFonts()}
         />
       ) : notFound ? (
         <NoteNotFound onBack={() => void closeNote('push')} onAllNotes={allNotes} />

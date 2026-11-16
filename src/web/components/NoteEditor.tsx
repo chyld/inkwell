@@ -39,8 +39,11 @@ import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model';
 import { api, ApiError, NetworkError, type FolderNode, type Me, type Note, type NoteItem, type TagCount } from '../api';
 import { localDrafts, type Draft } from '../drafts';
 import { NoteSaver, type SaveStatus } from '../saver';
-import { noteExtensions, isAllowedHref, normalizeTag, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
+import { noteExtensions, isAllowedHref, normalizeTag, fontsInDoc, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
 import { ColorPicker } from './ColorPicker';
+import { FontPicker } from './FontPicker';
+import { NoteFontSession } from '../fonts/runtime';
+import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
 import { APP_TITLE, NOT_FOUND_TITLE, noteTitle } from '../route';
 import { useDialogs } from './Dialogs';
@@ -65,6 +68,8 @@ interface Props {
   onBack: () => void;
   /** "Go to all notes" from the not-found state. */
   onAllNotes?: () => void;
+  /** "Browse fonts…" in the font menu: go to /fonts (the note is saved first, as on any navigation). */
+  onBrowseFonts?: () => void;
 }
 
 /** Shown for an address that names no note of this user: a malformed id, a deleted note or someone else's (same message for all). */
@@ -96,6 +101,9 @@ export function NoteEditorPane(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [missing, setMissing] = useState(false);
   const [reload, setReload] = useState(0);
+  // The fonts of this opening of the note (FONTS-SPEC 8.3): kept across a conflict's reload.
+  const [fontSession] = useState(() => new NoteFontSession((id) => api('GET', `/fonts/faces/${id}`)));
+  useEffect(() => () => fontSession.close(), [fontSession]);
 
   useEffect(() => {
     let alive = true;
@@ -130,7 +138,39 @@ export function NoteEditorPane(props: Props) {
         <p>Loading…</p>
       </section>
     );
-  return <EditorBody key={`${note.id}:${reload}`} {...props} note={note} reloadNote={() => setReload((r) => r + 1)} setNote={setNote} />;
+  return <EditorBody key={`${note.id}:${reload}`} {...props} note={note} reloadNote={() => setReload((r) => r + 1)} setNote={setNote} fontSession={fontSession} />;
+}
+
+/**
+ * A paste that would bring the note past 50 fonts keeps the fonts already in the note (and new ones up
+ * to the limit, in order) and drops the marks of the extra ones (FONTS-SPEC 8.1).
+ */
+export function limitPastedFonts(slice: Slice, editor: Editor): Slice {
+  const used = fontsInDoc(editor.state.doc);
+  const added = new Set<string>();
+  let dropped = false;
+  const keep = (id: string) => {
+    if (used.has(id) || added.has(id)) return true;
+    if (used.size + added.size >= NOTE_FONTS_MAX) return false;
+    added.add(id);
+    return true;
+  };
+  const mapNode = (node: PMNode): PMNode => {
+    if (node.isText) {
+      const font = node.marks.find((m) => m.type.name === 'fontFamily');
+      if (font && !keep(font.attrs.font as string)) {
+        dropped = true;
+        return node.mark(font.removeFromSet(node.marks));
+      }
+      return node;
+    }
+    const kids: PMNode[] = [];
+    node.forEach((c) => kids.push(mapNode(c)));
+    return node.copy(Fragment.fromArray(kids));
+  };
+  const kids: PMNode[] = [];
+  slice.content.forEach((c) => kids.push(mapNode(c)));
+  return dropped ? new Slice(Fragment.fromArray(kids), slice.openStart, slice.openEnd) : slice;
 }
 
 /** Convert header cells outside a table's first row into normal cells (pasted tables). */
@@ -158,7 +198,7 @@ function fixPastedTables(slice: Slice, editor: Editor): Slice {
   return new Slice(Fragment.from(kids), slice.openStart, slice.openEnd);
 }
 
-function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote: (n: Note) => void }) {
+function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote: (n: Note) => void; fontSession: NoteFontSession }) {
   const { note, me } = props;
   const dialogs = useDialogs();
   const trashed = note.trashedAt !== null;
@@ -264,7 +304,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     shouldRerenderOnTransaction: true,
     editorProps: {
       attributes: { class: 'prose', 'aria-label': 'Note body' },
-      transformPasted: (slice) => (editorRef.current ? fixPastedTables(slice, editorRef.current) : slice),
+      transformPasted: (slice) => (editorRef.current ? limitPastedFonts(fixPastedTables(slice, editorRef.current), editorRef.current) : slice),
       handlePaste: (_view, event) => upload.handleFiles(event.clipboardData?.files),
       handleDrop: (view, event) => {
         const files = (event as DragEvent).dataTransfer?.files;
@@ -279,6 +319,23 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     },
   });
   editorRef.current = editor;
+
+  // The fonts in the document: when the note opens and on every change (typing, paste, undo, redo);
+  // the draft and conflict paths below also call it, as they replace the document.
+  const syncFonts = () => {
+    const ed = editorRef.current;
+    if (ed && !ed.isDestroyed) props.fontSession.update(fontsInDoc(ed.state.doc));
+  };
+  useEffect(() => {
+    if (!editor) return;
+    syncFonts();
+    const onTr = ({ transaction }: { transaction: { docChanged: boolean } }) => transaction.docChanged && syncFonts();
+    editor.on('transaction', onTr);
+    return () => {
+      editor.off('transaction', onTr);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
 
   useEffect(() => {
     if (editor && !editor.isDestroyed && editor.isEditable === locked) editor.setEditable(!locked, false);
@@ -307,6 +364,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     }
     const s = makeSaver(current.version);
     editor.commands.setContent(current.body as any, { emitUpdate: false });
+    syncFonts();
     setTitle(current.title);
     titleRef.current = current.title;
     s.change(current.title, editor.getJSON(), true);
@@ -341,6 +399,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   function keepMine() {
     setConflict(false);
     saverRef.current?.keepMine();
+    syncFonts();
   }
 
   function loadTheirs() {
@@ -530,7 +589,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           </span>
         </div>
       )}
-      {!locked && editor && <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} />}
+      {!locked && editor && <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} onBrowseFonts={props.onBrowseFonts ?? (() => {})} notice={dialogs.notice} />}
       <div className="editor-scroll">
         <EditorContent editor={editor} className="editor-content" />
       </div>
@@ -539,7 +598,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   );
 }
 
-function Toolbar({ editor, onImage, uploading }: { editor: Editor; onImage: () => void; uploading: boolean }) {
+function Toolbar({ editor, onImage, uploading, onBrowseFonts, notice }: { editor: Editor; onImage: () => void; uploading: boolean; onBrowseFonts: () => void; notice: (m: string) => void }) {
   const dialogs = useDialogs();
   const b = (label: ReactNode, title: string, active: boolean, run: () => void, disabled = false, withText = false) => (
     <button
@@ -587,6 +646,9 @@ function Toolbar({ editor, onImage, uploading }: { editor: Editor; onImage: () =
         {b(<Strikethrough />, 'Strikethrough', editor.isActive('strike'), () => chain().toggleStrike().run())}
         {b(<Code />, 'Inline code', editor.isActive('code'), () => chain().toggleCode().run())}
         {b(<Link />, 'Link', editor.isActive('link'), link)}
+      </div>
+      <div className="tb-group">
+        <FontPicker editor={editor} disabled={inCode} onBrowse={onBrowseFonts} notice={notice} />
       </div>
       <div className="tb-group">
         <ColorPicker editor={editor} mark="textColor" colors={TEXT_COLORS} label="Text colour" removeLabel="Remove text colour" icon={<Baseline />} disabled={inCode} />
