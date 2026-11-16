@@ -5,6 +5,7 @@ import { SignInLimiter } from './ratelimit.js';
 import { normalizeUsername } from './store.js';
 import { registerImageRoutes } from './images.js';
 import { registerFontRoutes } from './fonts/routes.js';
+import { registerStyleRoutes } from './styles.js';
 
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const SESSION_MAX_AGE_S = 90 * 24 * 60 * 60;
@@ -164,6 +165,9 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
 
   // ---- fonts (FONTS-SPEC 6) ----
   await registerFontRoutes(api, store, opts.fontService!);
+
+  // ---- text styles (STYLES-SPEC 6) ----
+  await registerStyleRoutes(api, store.styles);
 
   // ---- tags & search ----
   api.get('/tags', async (req) => ({ tags: store.listTags(req.user!.id) }));

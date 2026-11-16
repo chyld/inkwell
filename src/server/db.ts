@@ -146,6 +146,31 @@ CREATE TABLE font_collection (
 CREATE INDEX font_collection_font ON font_collection(font_id);
 `),
   },
+  {
+    version: 3,
+    name: 'text styles',
+    // STYLES-SPEC 4 and 6: each user's named bundles of text formatting.
+    up: (db) =>
+      db.exec(`
+CREATE TABLE styles (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  name_key TEXT NOT NULL,
+  font TEXT,
+  size INTEGER NOT NULL,
+  bold INTEGER NOT NULL,
+  italic INTEGER NOT NULL,
+  underline INTEGER NOT NULL,
+  strike INTEGER NOT NULL,
+  text_color TEXT,
+  highlight TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX styles_user_name ON styles(user_id, name_key);
+`),
+  },
 ];
 
 export function openDatabase(file: string): DB {

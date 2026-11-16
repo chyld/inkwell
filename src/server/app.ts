@@ -86,6 +86,9 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
     reply.header('x-content-type-options', 'nosniff');
     reply.header('referrer-policy', 'same-origin');
     reply.header('x-frame-options', 'DENY');
+    // STYLES-SPEC 6: every answer of the styles routes, errors and early refusals included.
+    const p = pathOf(req.url);
+    if (p === '/api/styles' || p.startsWith('/api/styles/')) reply.header('cache-control', 'private, no-store');
     return payload;
   });
 

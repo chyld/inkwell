@@ -6,6 +6,7 @@ import path from 'node:path';
 import Database from 'better-sqlite3';
 import type { DB } from './db.js';
 import { FontStore } from './fonts/store.js';
+import { StyleStore } from './styles.js';
 import { AppError, badRequest, notFound, quotaExceeded } from './errors.js';
 import { hashPassword, verifyPassword, dummyVerify } from './passwords.js';
 import {
@@ -155,6 +156,8 @@ export class Store {
   readonly tmpDir: string;
   /** The shared font store and the per-user font collections (FONTS-SPEC 5.2, 6). */
   readonly fonts: FontStore;
+  /** Each user's text styles (STYLES-SPEC). */
+  readonly styles: StyleStore;
 
   constructor(
     readonly db: DB,
@@ -164,6 +167,7 @@ export class Store {
     this.imagesDir = path.join(opts.dataDir, 'images');
     this.tmpDir = path.join(opts.dataDir, 'tmp');
     this.fonts = new FontStore(db, { dataDir: opts.dataDir, now: this.now, capBytes: opts.fontCacheBytes ?? 500 * 1024 * 1024 });
+    this.styles = new StyleStore(db, this.now);
   }
 
   /** Run fn in one BEGIN IMMEDIATE transaction. */
