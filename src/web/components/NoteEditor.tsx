@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   Baseline,
   BetweenHorizontalEnd,
@@ -477,64 +477,52 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 
   return (
     <section className="editor-pane" aria-label="Editor">
-      {/* Everything about the note sits above the toolbar, in two tight rows; below it there is only the body. */}
+      {/* REDESIGN-BRIEF 2.3: one slim line (folder and tags on the left; dates, save status and Move to Trash on the
+          right), then the toolbar pill, the banners, and the paper with the title on it. */}
       <header className="editor-header">
         <div className="editor-row">
-          <button className="icon-button mobile-only" onClick={props.onBack} aria-label="Back to list" title="Back to list">
-            <ChevronLeft />
-          </button>
-          {!trashed && (
-            <button className="folder-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
-              <Folder />
-              <span className="folder-button-label">{location}</span>
-              <ChevronDown />
+          <div className="slim-left">
+            <button className="icon-button mobile-only" onClick={props.onBack} aria-label="Back to list" title="Back to list">
+              <ChevronLeft />
             </button>
-          )}
-          {trashed && (
-            <span className="editor-trashed">
-              <Trash2 />
-              <span>In Trash · was in {location}</span>
-            </span>
-          )}
-          <input
-            id="note-title"
-            className="title-input"
-            placeholder="Untitled"
-            value={title}
-            maxLength={200}
-            readOnly={locked}
-            onChange={(e) => onTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                editor?.commands.focus('start');
-              }
-            }}
-            aria-label="Title"
-          />
-          <span className="editor-dates" title={`Created ${created.toLocaleString()} · Updated ${updated.toLocaleString()}`}>
-            Created{' '}
-            <time dateTime={note.createdAt}>{created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' })}</time> · Updated{' '}
-            <time dateTime={updatedAt}>{relativeTime(updatedAt)}</time>
-          </span>
-          {!trashed && (
-            <span className={`save-status ${status}`} role="status" aria-live="polite" title={statusMsg ?? undefined}>
-              {statusText}
-            </span>
-          )}
-          {!trashed && (
-            <button className="icon-button" onClick={trash} title="Move to Trash" aria-label="Move to Trash">
-              <Trash2 />
-            </button>
-          )}
-        </div>
-        {showTagRow && (
-          <div className="editor-row editor-tags">
+            {!trashed && (
+              <button className="folder-button" onClick={moveTo} title="Move to…" aria-label="Move to…" disabled={locked}>
+                <Folder />
+                <span className="folder-button-label">{location}</span>
+                <ChevronDown />
+              </button>
+            )}
+            {trashed && (
+              <span className="editor-trashed">
+                <Trash2 />
+                <span>In Trash · was in {location}</span>
+              </span>
+            )}
             {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
-            <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />
+            {showTagRow && <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />}
           </div>
-        )}
+          <div className="slim-right">
+            <span className="editor-dates" title={`Created ${created.toLocaleString()} · Updated ${updated.toLocaleString()}`}>
+              Created{' '}
+              <time dateTime={note.createdAt}>{created.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: sameYear ? undefined : 'numeric' })}</time> · Updated{' '}
+              <time dateTime={updatedAt}>{relativeTime(updatedAt)}</time>
+            </span>
+            {!trashed && (
+              <span className={`save-status ${status}`} role="status" aria-live="polite" title={statusMsg ?? undefined}>
+                {statusText}
+              </span>
+            )}
+            {!trashed && (
+              <button className="icon-button" onClick={trash} title="Move to Trash" aria-label="Move to Trash">
+                <Trash2 />
+              </button>
+            )}
+          </div>
+        </div>
       </header>
+      {!locked && editor && (
+        <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} onBrowseFonts={props.onBrowseFonts ?? (() => {})} onManageStyles={props.onManageStyles ?? (() => {})} notice={dialogs.notice} />
+      )}
       {statusMsg && status === 'unsaved' && !conflict && (
         <div className="banner warn">
           <span>{statusMsg}</span>
@@ -584,11 +572,27 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           </span>
         </div>
       )}
-      {!locked && editor && (
-        <Toolbar editor={editor} onImage={upload.pick} uploading={upload.busy} onBrowseFonts={props.onBrowseFonts ?? (() => {})} onManageStyles={props.onManageStyles ?? (() => {})} notice={dialogs.notice} />
-      )}
-      <div className="editor-scroll">
-        <EditorContent editor={editor} className="editor-content" />
+      {/* The paper: the title, then the body; it scrolls, the line and the toolbar above stay put. */}
+      <div className="editor-scroll paper">
+        <div className="paper-column">
+              <input
+                id="note-title"
+                className="title-input"
+                placeholder="Untitled"
+                value={title}
+                maxLength={200}
+                readOnly={locked}
+                onChange={(e) => onTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    editor?.commands.focus('start');
+                  }
+                }}
+                aria-label="Title"
+              />
+          <EditorContent editor={editor} className="editor-content" />
+        </div>
       </div>
       {upload.input}
     </section>
@@ -614,6 +618,7 @@ function Toolbar({
   notice: (m: string) => void;
 }) {
   const dialogs = useDialogs();
+  const [pillRef, wrapped] = usePillWrapped();
   const b = (label: ReactNode, title: string, active: boolean, run: () => void, disabled = false, withText = false) => (
     <button
       type="button"
@@ -653,7 +658,8 @@ function Toolbar({
   // Colours never apply inside code (inline code excludes other marks; code blocks allow none).
   const inCode = editor.isActive('code') || editor.isActive('codeBlock');
   return (
-    <div className="toolbar" role="toolbar" aria-label="Formatting">
+    <div className="toolbar-wrap">
+    <div className="toolbar" role="toolbar" aria-label="Formatting" ref={pillRef} data-wrapped={wrapped || undefined}>
       {/* Styles | font | size | colours | inline marks | Headings, Lists, Blocks, Insert | Undo, Redo (DEVIATIONS 45). */}
       <div className="tb-group">
         <StylesMenu editor={editor} notice={notice} onManage={onManageStyles} onBrowseFonts={onBrowseFonts} />
@@ -687,8 +693,10 @@ function Toolbar({
         {b(<Undo2 />, 'Undo', false, () => chain().undo().run(), !editor.can().undo())}
         {b(<Redo2 />, 'Redo', false, () => chain().redo().run(), !editor.can().redo())}
       </div>
+    </div>
+      {/* The table tools: a second, smaller pill under the toolbar, only in a table. */}
       {inTable && (
-        <div className="tb-group table-tools" aria-label="Table">
+        <div className="toolbar table-tools" role="toolbar" aria-label="Table">
           {b(<><BetweenHorizontalStart /> Row above</>, 'Add row above', false, () => chain().addRowBefore().run(), false, true)}
           {b(<><BetweenHorizontalEnd /> Row below</>, 'Add row below', false, () => chain().addRowAfter().run(), false, true)}
           {b(<><SquareMinus /> Delete row</>, 'Delete row', false, () => chain().deleteRow().run(), false, true)}
@@ -701,6 +709,30 @@ function Toolbar({
       )}
     </div>
   );
+}
+
+/**
+ * The pill has fully rounded ends on one row and becomes a rounded rectangle when it wraps (REDESIGN-BRIEF 2.3).
+ * CSS cannot tell that a flex row has wrapped, so this compares the bar's height with one row of its buttons.
+ */
+function usePillWrapped(): [RefObject<HTMLDivElement | null>, boolean] {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [wrapped, setWrapped] = useState(false);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const row = el.querySelector('.tb')?.getBoundingClientRect().height ?? 0;
+      const inner = el.clientHeight - parseFloat(getComputedStyle(el).paddingTop || '0') - parseFloat(getComputedStyle(el).paddingBottom || '0');
+      setWrapped(row > 0 && inner > row * 1.5);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, wrapped];
 }
 
 function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[]; allTags: TagCount[]; readOnly: boolean; onChange: (t: string[]) => void }) {

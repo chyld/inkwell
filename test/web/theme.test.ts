@@ -164,13 +164,29 @@ describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
     expect(decls(".font-item[aria-checked='true']").background).toBe('var(--bg-active)');
   });
 
-  it('toolbar icons have a 1.5 stroke; every other icon keeps 1.75', () => {
+  it('every icon, the toolbar included, has the 1.75 stroke (the thinner toolbar stroke was dropped: DEVIATIONS 46)', () => {
     expect(light['icon-stroke']).toBe('1.75');
-    expect(light['icon-stroke-toolbar']).toBe('1.5');
+    expect(light['icon-stroke-toolbar']).toBeUndefined();
     expect(decls('svg.lucide')['stroke-width']).toBe('var(--icon-stroke)');
-    expect(decls('.toolbar svg.lucide')['stroke-width']).toBe('var(--icon-stroke-toolbar)');
-    // No other rule changes the stroke.
     const others = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{[^{}]*stroke-width:[^{}]*\}/g)].map((m) => m[1].trim());
-    expect(others).toEqual(['svg.lucide', '.toolbar svg.lucide']);
+    expect(others).toEqual(['svg.lucide']); // no other rule changes the stroke
+  });
+
+  it('the pill is centred with fully rounded ends, a 16 px rectangle when wrapped; the table tools a smaller pill under it', () => {
+    expect(decls('.toolbar-wrap')['align-items']).toBe('center');
+    expect(decls('.toolbar-wrap > .toolbar')['border-radius']).toBe('999px');
+    expect(decls('.toolbar-wrap > .toolbar[data-wrapped]')['border-radius']).toBe('16px');
+    expect(decls('.toolbar-wrap > .table-tools')['font-size']).toBe('0.75rem');
+  });
+
+  it('the paper: white with 14 px top corners, about 60 px side padding, a comfortable measure; the title 26 px bold', () => {
+    expect(decls('.editor-scroll.paper').background).toBe('var(--bg)');
+    expect(decls('.editor-scroll.paper')['border-radius']).toBe('14px 14px 0 0');
+    expect(decls('.editor-scroll.paper').padding).toBe('26px 60px 60px');
+    expect(decls('.editor-scroll.paper')['overflow-y']).toBe('auto'); // the paper scrolls, the line and toolbar stay
+    expect(decls('.paper-column')['max-width']).toBe('760px');
+    expect(decls('.title-input')['font-size']).toBe('26px');
+    expect(decls('.title-input')['font-weight']).toBe('700');
+    expect(decls('.editor-pane').background).toBe('var(--bg-soft)');
   });
 });
