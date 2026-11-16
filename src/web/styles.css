@@ -98,10 +98,9 @@
   --rail-hover: #1b6d67;
   --rail-current: #ffffff; /* the current rail item: paper background */
   --rail-current-icon: #0f5f5a; /* with a rail-coloured icon */
-  --pill: #17302d; /* the editor toolbar */
-  --pill-ink: #e7f1ef;
-  --pill-line: #3a5551;
-  --pill-on: #2f4c48;
+  /* the editor toolbar: a flat bar in the rail teal (mock-up 07), its ink the rail ink */
+  --bar-on: #1b7a73; /* hover and pressed */
+  --bar-line: #2f7d77; /* dividers */
   /* text colours and highlights, palette 'Jewel' (a note stores the name; see DEVIATIONS) */
   --tc-ruby: #9c012b;
   --tc-garnet: #960157;
@@ -163,10 +162,8 @@
     --rail-hover: #155a55;
     --rail-current: #172725; /* the paper */
     --rail-current-icon: #8fd6cb; /* a light teal: the rail colour would not show on dark paper */
-    --pill: #233835;
-    --pill-ink: #e7f1ef;
-    --pill-line: #3e5753;
-    --pill-on: #35504b;
+    --bar-on: #1a6560;
+    --bar-line: #23605b;
     --tc-ruby: #fe898f;
     --tc-garnet: #fa86b6;
     --tc-amber: #ef9d32;
@@ -844,11 +841,9 @@ mark {
 .editor-pane {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   min-height: 0;
   min-width: 0;
-  padding: 10px 18px 0 6px;
-  background: var(--bg-soft); /* the app ground; the paper sits on it */
+  background: var(--bg-soft); /* the app ground */
 }
 .editor-pane.empty {
   display: grid;
@@ -878,8 +873,9 @@ mark {
   left: 10px;
 }
 /* the slim line: folder and tags on the left; dates, save status and Move to Trash on the right */
+/* the title row: folder / title, tags on the left; dates, save status and Move to Trash on the right */
 .editor-header {
-  padding: 0 4px;
+  padding: 0 16px;
   font-size: 0.8rem;
   color: var(--text-soft);
 }
@@ -889,7 +885,11 @@ mark {
   justify-content: space-between;
   gap: 10px;
   min-width: 0;
-  min-height: 28px;
+  min-height: 36px;
+}
+.title-sep {
+  flex: none;
+  color: var(--text-soft);
 }
 .slim-left {
   flex: 1;
@@ -942,10 +942,9 @@ mark {
   gap: 8px 12px;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
+  padding: 8px 16px;
   background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  border-bottom: 1px solid var(--border);
   font-size: 0.9rem;
 }
 .banner.warn {
@@ -962,31 +961,32 @@ mark {
   align-items: center;
   gap: 2px 3px;
   padding: 3px 6px;
-  background: var(--pill);
+  background: var(--rail);
 }
-/* The dark toolbar: icons and labels in the light ink, hover and pressed on the deeper pill colour. The ink is
-   set on the buttons only, so the light menus that open from the toolbar keep the normal text colour. */
+/* The teal toolbar: icons and labels in the rail ink, hover and pressed a lighter teal. The ink is set on the
+   buttons only, so the light menus that open from the toolbar keep the normal text colour. */
 .toolbar .tb-group {
   gap: 1px;
 }
 .toolbar .tb {
-  color: var(--pill-ink);
+  color: var(--rail-icon);
   min-width: 24px;
   padding: 3px;
+  border-radius: 4px;
 }
 .toolbar .tb:hover:not(:disabled) {
-  background: var(--pill-on);
+  background: var(--bar-on);
 }
 .toolbar .tb.active {
-  background: var(--pill-on);
+  background: var(--bar-on);
   border-color: transparent;
 }
 .toolbar .tb-sep {
-  background: var(--pill-line);
+  background: var(--bar-line);
 }
 .toolbar .tb:focus-visible,
 .toolbar .size-input:focus-visible {
-  outline-color: var(--pill-ink); /* visible on the dark pill in both themes; the light menus keep the coral ring */
+  outline-color: var(--rail-icon); /* visible on the teal bar in both themes; the light menus keep the coral ring */
 }
 .toolbar .styles-button {
   width: 80px;
@@ -1030,56 +1030,54 @@ mark {
   background: var(--bg-active);
   border-color: var(--border);
 }
-/* the toolbar: one dark pill, centred, as wide as its content; a 16 px rectangle when it wraps */
+/* the toolbar (mock-up 07): a flat, full-width bar in the rail teal, directly under the title row */
 .toolbar-wrap {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
+  align-items: stretch;
   min-width: 0;
 }
 .toolbar-wrap > .toolbar {
-  max-width: 100%;
-  justify-content: center;
-  border-radius: 999px;
-  padding: 4px 12px;
+  justify-content: flex-start;
+  border-radius: 0;
+  padding: 3px 16px; /* the title row's left padding */
 }
-.toolbar-wrap > .toolbar[data-wrapped] {
-  border-radius: 16px;
-}
-/* the table tools: a second, smaller pill */
+/* the table tools: a second flat bar in the same style */
 .toolbar-wrap > .table-tools {
   gap: 1px;
-  padding: 2px 10px;
+  padding: 2px 16px;
+  border-top: 1px solid var(--bar-line);
   font-size: 0.75rem;
 }
 /* the paper: a white sheet with rounded top corners to the bottom of the window; its content scrolls */
+/* the paper: directly under the toolbar, square corners, full width; its content scrolls */
 .editor-scroll.paper {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   background: var(--bg);
-  border-radius: 14px 14px 0 0;
-  padding: 26px 60px 60px;
+  padding: 16px 20px 60px;
 }
 .paper-column {
   display: flex;
   flex-direction: column;
-  max-width: 760px; /* a comfortable measure */
-  min-height: 100%;
-  margin: 0 auto;
+  min-height: 100%; /* the full width of the editor: no centred column */
 }
 /* the title: the first thing on the paper, large and bold */
+/* the title, in the title row: bold, taking the free width, cut short with an ellipsis */
 .title-input {
-  width: 100%;
-  margin: 0 0 10px;
+  flex: 1 1 120px;
+  min-width: 80px;
+  margin: 0;
   border: none !important;
   border-radius: 4px !important;
-  padding: 0 !important;
-  font-size: 26px;
-  line-height: 1.2;
+  padding: 2px 4px !important;
+  font-size: 19px;
+  line-height: 1.3;
   font-weight: 700;
   color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   outline: none;
   background: transparent !important;
 }
@@ -2332,12 +2330,16 @@ mark[data-highlight] {
     display: none;
   }
   /* the editor on a phone: the paper fills the width with smaller padding; the slim line takes two lines */
-  .editor-pane {
-    padding: 6px 6px 0;
-    gap: 6px;
+  .editor-header {
+    padding: 0 10px;
   }
   .editor-scroll.paper {
-    padding: 18px 16px 60px;
+    padding: 14px 16px 60px;
+  }
+  .toolbar-wrap > .toolbar,
+  .toolbar-wrap > .table-tools {
+    padding-left: 10px;
+    padding-right: 10px;
   }
   .editor-row {
     flex-wrap: wrap;
@@ -2351,9 +2353,7 @@ mark[data-highlight] {
     flex: 1 1 100%;
     justify-content: flex-end;
   }
-  .editor-header {
-    padding: 3px 6px 3px 8px;
-  }
+
 
   .folder-menu-button {
     opacity: 1;

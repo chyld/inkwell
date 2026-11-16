@@ -323,8 +323,8 @@ describe('disabled states, as before', () => {
   });
 });
 
-describe('the pill (REDESIGN-BRIEF 2.3)', () => {
-  it('the toolbar sits in a centring wrapper; in a table the table tools are a second pill under it', async () => {
+describe('the toolbar bar and its wrap marker (DEVIATIONS 47)', () => {
+  it('the toolbar sits in its wrapper; in a table the table tools are a second bar under it', async () => {
     await open([p(t('hello'))]);
     const wrap = view!.container.querySelector('.editor-pane > .toolbar-wrap')!;
     expect([...wrap.children].map((e) => e.getAttribute('aria-label'))).toEqual(['Formatting']);

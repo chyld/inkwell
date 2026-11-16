@@ -98,9 +98,9 @@ describe('phone width (REDESIGN-BRIEF 4)', () => {
     expect(decls('.account-menu', phone).position).toBe('fixed');
   });
 
-  it('the paper fills the width with smaller padding; the slim line wraps onto two lines', () => {
-    expect(decls('.editor-scroll.paper', phone).padding).toBe('18px 16px 60px');
-    expect(decls('.editor-pane', phone).padding).toBe('6px 6px 0');
+  it('the paper fills the width with smaller padding; the title row wraps its right-hand part to a second line', () => {
+    expect(decls('.editor-scroll.paper', phone).padding).toBe('14px 16px 60px');
+    expect(decls('.editor-header', phone).padding).toBe('0 10px');
     expect(decls('.editor-row', phone)['flex-wrap']).toBe('wrap');
     expect(decls('.slim-left', phone).flex).toBe('1 1 100%');
   });

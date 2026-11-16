@@ -21,13 +21,13 @@ const TEAL = {
     bg: '#ffffff', 'bg-soft': '#f1f5f4', 'bg-hover': '#eaf0ef', 'bg-active': '#fdece6', border: '#d5e0de', text: '#17302d', 'text-soft': '#5a706d',
     accent: '#ef6f53', 'accent-text': '#17302d', 'accent-line': '#dc664c', link: '#974634', 'code-bg': '#edf3f2', mark: '#ffe1d6',
     rail: '#0f5f5a', 'rail-icon': '#cfe9e5', 'rail-hover': '#1b6d67', 'rail-current': '#ffffff', 'rail-current-icon': '#0f5f5a',
-    pill: '#17302d', 'pill-ink': '#e7f1ef', 'pill-line': '#3a5551', 'pill-on': '#2f4c48',
+    'bar-on': '#1b7a73', 'bar-line': '#2f7d77',
   },
   dark: {
     bg: '#172725', 'bg-soft': '#0f1c1b', 'bg-hover': '#20322f', 'bg-active': '#47302a', border: '#2c403d', text: '#e3efec', 'text-soft': '#9ab3ae',
     accent: '#f4806a', 'accent-text': '#17302d', 'accent-line': '#f4806a', link: '#ff9d85', 'code-bg': '#1f302d', mark: '#5a3328',
     rail: '#0c4440', 'rail-icon': '#cfe9e5', 'rail-hover': '#155a55', 'rail-current': '#172725', 'rail-current-icon': '#8fd6cb',
-    pill: '#233835', 'pill-ink': '#e7f1ef', 'pill-line': '#3e5753', 'pill-on': '#35504b',
+    'bar-on': '#1a6560', 'bar-line': '#23605b',
   },
 };
 
@@ -48,7 +48,7 @@ describe("'Teal rail and paper' colour scheme", () => {
   });
 
   it('keeps the light values of the brief, except the soft text nudged darker to pass', () => {
-    const brief = { 'bg-soft': '#f1f5f4', bg: '#ffffff', text: '#17302d', border: '#d5e0de', rail: '#0f5f5a', 'rail-icon': '#cfe9e5', accent: '#ef6f53', pill: '#17302d', 'pill-ink': '#e7f1ef', 'pill-line': '#3a5551', 'pill-on': '#2f4c48' };
+    const brief = { 'bg-soft': '#f1f5f4', bg: '#ffffff', text: '#17302d', border: '#d5e0de', rail: '#0f5f5a', 'rail-icon': '#cfe9e5', accent: '#ef6f53', 'bar-on': '#1b7a73', 'bar-line': '#2f7d77' };
     for (const [k, v] of Object.entries(brief)) expect(light[k], `light --${k}`).toBe(v);
     expect(contrast('#5f7673', light['bg-soft'])).toBeLessThan(4.5); // the brief's soft text fails on the ground…
     expect(contrast(light['text-soft'], light['bg-soft'])).toBeGreaterThanOrEqual(4.5); // …the nudged one passes
@@ -146,7 +146,7 @@ const wideCss = (() => {
   return out;
 })();
 
-describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
+describe('the editor toolbar: a flat teal bar (mock-up 07, DEVIATIONS 47)', () => {
   /** Every declaration given to exactly this selector, in source order. */
   const decls = (sel: string) => {
     const out: Record<string, string> = {};
@@ -160,10 +160,10 @@ describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
     return out;
   };
 
-  it('meets contrast: icons and labels 4.5:1 on the pill and on the pressed colour; its focus ring 3:1', () => {
+  it('meets contrast: the rail ink 4.5:1 on the bar, 3:1 (icons) on the given pressed teal; its focus ring', () => {
     const pairs: [string, string, number][] = [
-      ['pill-ink', 'pill', 4.5], // icons and labels on the pill
-      ['pill-ink', 'pill-on', 4.5], // hover and pressed
+      ['rail-icon', 'rail', 4.5], // icons and labels on the bar
+      ['rail-icon', 'bar-on', 3], // hover and pressed: the given light value is 4.03:1, enough for icons
       ['text', 'bg', 4.5], // the size number on the paper-coloured box
     ];
     for (const [theme, t] of Object.entries({ light, dark })) {
@@ -171,13 +171,14 @@ describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
     }
   });
 
-  it('the pill, its dividers, hover and pressed states use the pill tokens; the light menus keep the paper and the coral row', () => {
-    expect(decls('.toolbar').background).toBe('var(--pill)');
-    expect(decls('.toolbar .tb-sep').background).toBe('var(--pill-line)');
-    expect(decls('.toolbar .tb:hover:not(:disabled)').background).toBe('var(--pill-on)');
-    expect(decls('.toolbar .tb.active').background).toBe('var(--pill-on)');
-    expect(decls('.toolbar .tb').color).toBe('var(--pill-ink)');
-    expect(decls('.toolbar .tb:focus-visible')['outline-color']).toBe('var(--pill-ink)');
+  it('the bar is the rail teal; dividers, hover and pressed use the bar tokens; the light menus keep the paper and the coral row', () => {
+    expect(decls('.toolbar').background).toBe('var(--rail)');
+    expect(decls('.toolbar .tb-sep').background).toBe('var(--bar-line)');
+    expect(decls('.toolbar .tb:hover:not(:disabled)').background).toBe('var(--bar-on)');
+    expect(decls('.toolbar .tb.active').background).toBe('var(--bar-on)');
+    expect(decls('.toolbar .tb').color).toBe('var(--rail-icon)');
+    expect(decls('.toolbar .tb')['border-radius']).toBe('4px');
+    expect(decls('.toolbar .tb:focus-visible')['outline-color']).toBe('var(--rail-icon)');
     expect(decls('.toolbar').color).toBeUndefined(); // the ink is on the buttons, not inherited by the menus
     expect(decls('.size-group .size-input').background).toBe('var(--bg)');
     expect(decls('.font-popover').background).toBe('var(--bg)');
@@ -192,21 +193,29 @@ describe('the editor toolbar: the dark pill (REDESIGN-BRIEF 1, 2.3)', () => {
     expect(others).toEqual(['svg.lucide']); // no other rule changes the stroke
   });
 
-  it('the pill is centred with fully rounded ends, a 16 px rectangle when wrapped; the table tools a smaller pill under it', () => {
-    expect(decls('.toolbar-wrap')['align-items']).toBe('center');
-    expect(decls('.toolbar-wrap > .toolbar')['border-radius']).toBe('999px');
-    expect(decls('.toolbar-wrap > .toolbar[data-wrapped]')['border-radius']).toBe('16px');
+  it('the bar is flat and full width, its contents left-aligned at the title row padding, flat when wrapped; the table tools a second flat bar', () => {
+    expect(decls('.toolbar-wrap')['align-items']).toBe('stretch');
+    expect(decls('.toolbar-wrap > .toolbar')['border-radius']).toBe('0');
+    expect(decls('.toolbar-wrap > .toolbar')['justify-content']).toBe('flex-start');
+    expect(decls('.toolbar-wrap > .toolbar').padding).toBe('3px 16px');
+    expect(decls('.editor-header').padding).toBe('0 16px');
+    expect(decls('.toolbar-wrap > .toolbar[data-wrapped]')['border-radius']).toBeUndefined(); // no rounding when wrapped
     expect(decls('.toolbar-wrap > .table-tools')['font-size']).toBe('0.75rem');
+    expect(decls('.toolbar-wrap > .table-tools')['border-top']).toBe('1px solid var(--bar-line)');
   });
 
-  it('the paper: white with 14 px top corners, about 60 px side padding, a comfortable measure; the title 26 px bold', () => {
+  it('no wasted space: the pane has no padding or gaps; the paper square, full width, 20 px side padding; the title 19 px bold in the row', () => {
     expect(decls('.editor-scroll.paper').background).toBe('var(--bg)');
-    expect(decls('.editor-scroll.paper')['border-radius']).toBe('14px 14px 0 0');
-    expect(decls('.editor-scroll.paper').padding).toBe('26px 60px 60px');
-    expect(decls('.editor-scroll.paper')['overflow-y']).toBe('auto'); // the paper scrolls, the line and toolbar stay
-    expect(decls('.paper-column')['max-width']).toBe('760px');
-    expect(decls('.title-input')['font-size']).toBe('26px');
+    expect(decls('.editor-scroll.paper')['border-radius']).toBeUndefined(); // square corners
+    expect(decls('.editor-scroll.paper').padding).toBe('16px 20px 60px');
+    expect(decls('.editor-scroll.paper')['overflow-y']).toBe('auto'); // the paper scrolls, the row and toolbar stay
+    expect(decls('.paper-column')['max-width']).toBeUndefined(); // no centred column
+    expect(decls('.editor-pane').padding).toBeUndefined();
+    expect(decls('.editor-pane').gap).toBeUndefined();
+    expect(decls('.editor-row')['min-height']).toBe('36px');
+    expect(decls('.title-input')['font-size']).toBe('19px');
     expect(decls('.title-input')['font-weight']).toBe('700');
+    expect(decls('.title-input')['text-overflow']).toBe('ellipsis');
     expect(decls('.editor-pane').background).toBe('var(--bg-soft)');
   });
 });

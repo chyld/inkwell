@@ -226,13 +226,13 @@ describe('round 3', () => {
 });
 
 
-// REDESIGN-BRIEF 2.3: one slim line (folder and tags left; dates, status, Move to Trash right), then the toolbar
-// pill, the banners, and the paper with the title on it. Replaces the earlier 'title above the toolbar' layout.
-describe('editor layout: the slim line, the toolbar, then the paper with the title and the body', () => {
+// Mock-up 07 (DEVIATIONS 47): one title row (folder / title and tags left; dates, status, Move to Trash right), then
+// the flat toolbar, the banners, and the paper with the body.
+describe('editor layout: the title row, the toolbar, then the paper with the body', () => {
   const focusable = (root: Element) =>
     [...root.querySelectorAll<HTMLElement>('button, input, [contenteditable="true"]')].filter((e) => !e.closest('datalist')).map((e) => e.getAttribute('aria-label') ?? e.textContent);
 
-  it('puts folder, tags, dates and save status in the slim line, then the toolbar, then the paper with the title', async () => {
+  it('puts folder, title, tags, dates and save status in the title row, then the toolbar, then the paper with the body', async () => {
     const v = await open(props(), serverNote({ tags: ['work'] }));
     const pane = v.container.querySelector('.editor-pane')!;
     const header = pane.querySelector('.editor-header')!;
@@ -241,7 +241,8 @@ describe('editor layout: the slim line, the toolbar, then the paper with the tit
     expect(header.querySelector('input[aria-label="Add tag"]')).toBeTruthy();
     expect(header.querySelector('.editor-dates')?.textContent).toMatch(/^Created .+ · Updated .+/);
     expect(header.querySelector('.save-status')?.textContent).toBe('Saved');
-    expect(header.querySelector('#note-title')).toBeNull(); // the title is on the paper now
+    expect(header.querySelector('#note-title')).toBeTruthy(); // the title is in the row again
+    expect(header.querySelector('.title-sep')?.textContent?.trim()).toBe('/');
 
     // Order in the page (and so the keyboard order): slim line, toolbar, paper (title, body).
     const kids = [...pane.children].map((e) => e.className.split(' ')[0]);
@@ -250,22 +251,22 @@ describe('editor layout: the slim line, the toolbar, then the paper with the tit
     const order = focusable(pane);
     const at = (label: string) => order.indexOf(label);
     expect(at('Move to…')).toBeGreaterThanOrEqual(0);
-    expect(at('Move to…')).toBeLessThan(at('Add tag'));
+    expect(at('Move to…')).toBeLessThan(at('Title'));
+    expect(at('Title')).toBeLessThan(at('Add tag'));
     expect(at('Add tag')).toBeLessThan(at('Move to Trash'));
     expect(at('Move to Trash')).toBeLessThan(at('Bold'));
-    expect(at('Bold')).toBeLessThan(at('Title'));
-    expect(at('Title')).toBeLessThan(at('Note body'));
+    expect(at('Bold')).toBeLessThan(at('Note body'));
 
-    // The paper: the title first, then the body, and nothing else.
+    // The paper: the body and nothing else.
     const paper = pane.querySelector('.editor-scroll.paper')!;
     const column = paper.querySelector('.paper-column')!;
-    expect([...column.children].map((e) => e.id || e.className.split(' ')[0])).toEqual(['note-title', 'editor-content']);
-    expect(paper.querySelectorAll('.tag-editor, .editor-dates, .save-status, .toolbar').length).toBe(0);
+    expect([...column.children].map((e) => e.id || e.className.split(' ')[0])).toEqual(['editor-content']);
+    expect(paper.querySelectorAll('#note-title, .tag-editor, .editor-dates, .save-status, .toolbar').length).toBe(0);
   });
 
   it('Enter in the title moves the focus to the body', async () => {
     const v = await open();
-    const titleInput = v.container.querySelector('.paper #note-title') as HTMLInputElement;
+    const titleInput = v.container.querySelector('.editor-header #note-title') as HTMLInputElement;
     titleInput.focus();
     await act(async () => {
       titleInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
@@ -289,16 +290,16 @@ describe('editor layout: the slim line, the toolbar, then the paper with the tit
     expect(v.container.querySelector('.editor-header .slim-left .agent-badge')?.textContent).toBe('by Claude');
   });
 
-  it('a trashed note keeps its banner, has no toolbar, and the paper still holds only the title and the body', async () => {
+  it('a trashed note keeps its banner, has no toolbar, and the paper still holds only the body', async () => {
     const v = await open(props(), serverNote({ trashedAt: '2026-01-03T00:00:00Z' }));
     const pane = v.container.querySelector('.editor-pane')!;
     expect(pane.querySelector('.editor-header')?.textContent).toContain('In Trash');
     expect(pane.querySelector('.banner')?.textContent).toContain('This note is in Trash and cannot be edited.');
     expect(pane.querySelector('.toolbar')).toBeNull();
-    expect((pane.querySelector('.paper #note-title') as HTMLInputElement).readOnly).toBe(true);
+    expect((pane.querySelector('.editor-header #note-title') as HTMLInputElement).readOnly).toBe(true);
     const kids = [...pane.children].map((e) => e.className.split(' ')[0]);
     expect(kids.indexOf('banner')).toBeLessThan(kids.indexOf('editor-scroll')); // banners sit above the paper
-    expect(pane.querySelector('.paper-column')!.children.length).toBe(2);
+    expect(pane.querySelector('.paper-column')!.children.length).toBe(1);
   });
 });
 
@@ -309,7 +310,7 @@ describe('the slim line', () => {
     expect(rows.length).toBe(1);
     const left = rows[0].querySelector('.slim-left')!;
     const right = rows[0].querySelector('.slim-right')!;
-    expect([...left.querySelectorAll('[aria-label="Move to…"], .agent-badge, .tag-editor')].map((e) => e.getAttribute('aria-label') ?? e.className.split(' ')[0])).toEqual(['Move to…', 'agent-badge', 'tag-editor']);
+    expect([...left.querySelectorAll('[aria-label="Move to…"], #note-title, .agent-badge, .tag-editor')].map((e) => e.getAttribute('aria-label') ?? e.className.split(' ')[0])).toEqual(['Move to…', 'Title', 'agent-badge', 'tag-editor']);
     expect(left.querySelector('input[aria-label="Add tag"]')).toBeTruthy();
     expect([...right.children].map((e) => e.getAttribute('aria-label') ?? e.className.split(' ')[0])).toEqual(['editor-dates', 'save-status', 'Move to Trash']);
   });

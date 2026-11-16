@@ -477,8 +477,8 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 
   return (
     <section className="editor-pane" aria-label="Editor">
-      {/* REDESIGN-BRIEF 2.3: one slim line (folder and tags on the left; dates, save status and Move to Trash on the
-          right), then the toolbar pill, the banners, and the paper with the title on it. */}
+      {/* Mock-up 07 (DEVIATIONS 47): one title row (folder / title, tags; dates, save status and Move to Trash on the
+          right), then the flat teal toolbar, the banners, and the paper with the body, with no gaps between them. */}
       <header className="editor-header">
         <div className="editor-row">
           <div className="slim-left">
@@ -498,6 +498,25 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
                 <span>In Trash · was in {location}</span>
               </span>
             )}
+            <span className="title-sep" aria-hidden>
+              /
+            </span>
+            <input
+              id="note-title"
+              className="title-input"
+              placeholder="Untitled"
+              value={title}
+              maxLength={200}
+              readOnly={locked}
+              onChange={(e) => onTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  editor?.commands.focus('start');
+                }
+              }}
+              aria-label="Title"
+            />
             {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
             {showTagRow && <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />}
           </div>
@@ -572,25 +591,9 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
           </span>
         </div>
       )}
-      {/* The paper: the title, then the body; it scrolls, the line and the toolbar above stay put. */}
+      {/* The paper: the body, full width; it scrolls, the title row and the toolbar above stay put. */}
       <div className="editor-scroll paper">
         <div className="paper-column">
-              <input
-                id="note-title"
-                className="title-input"
-                placeholder="Untitled"
-                value={title}
-                maxLength={200}
-                readOnly={locked}
-                onChange={(e) => onTitle(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    editor?.commands.focus('start');
-                  }
-                }}
-                aria-label="Title"
-              />
           <EditorContent editor={editor} className="editor-content" />
         </div>
       </div>
@@ -712,8 +715,9 @@ function Toolbar({
 }
 
 /**
- * The pill has fully rounded ends on one row and becomes a rounded rectangle when it wraps (REDESIGN-BRIEF 2.3).
- * CSS cannot tell that a flex row has wrapped, so this compares the bar's height with one row of its buttons.
+ * Marks the toolbar as wrapped (data-wrapped) when it takes more than one row. Since mock-up 07 the bar is flat
+ * either way, so no rule uses it now; it is kept as a hook. CSS cannot tell that a flex row has wrapped, so this
+ * compares the bar's height with one row of its buttons.
  */
 function usePillWrapped(): [RefObject<HTMLDivElement | null>, boolean] {
   const ref = useRef<HTMLDivElement | null>(null);
