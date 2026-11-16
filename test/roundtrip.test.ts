@@ -20,7 +20,7 @@ function types(node: any, out = new Set<string>()) {
   return out;
 }
 
-const ALL = ['doc', 'paragraph', 'text', 'heading', 'blockquote', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'codeBlock', 'horizontalRule', 'hardBreak', 'table', 'tableRow', 'tableHeader', 'tableCell', 'image', 'mark:bold', 'mark:italic', 'mark:strike', 'mark:code', 'mark:link'];
+const ALL = ['doc', 'paragraph', 'text', 'heading', 'blockquote', 'bulletList', 'orderedList', 'listItem', 'taskList', 'taskItem', 'codeBlock', 'horizontalRule', 'hardBreak', 'table', 'tableRow', 'tableHeader', 'tableCell', 'image', 'mark:bold', 'mark:italic', 'mark:strike', 'mark:code', 'mark:link', 'mark:textColor', 'mark:highlight'];
 
 describe('round trip', () => {
   it('a browser note with every element, including a table and an image, survives save, reload and search', async () => {
@@ -40,7 +40,7 @@ describe('round trip', () => {
     expect(reloaded.body).toEqual(loaded.body);
     expect(JSON.stringify(reloaded.body)).toContain(src);
     expect((await alice.get(src)).statusCode).toBe(200);
-    for (const word of ['xray', 'alpha', 'charlie', 'echo', 'golf', 'hotel', 'india', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'uniform']) {
+    for (const word of ['xray', 'alpha', 'charlie', 'echo', 'golf', 'hotel', 'india', 'kilo', 'lima', 'mike', 'november', 'oscar', 'papa', 'quebec', 'romeo', 'sierra', 'uniform', 'vermilion', 'saffron']) {
       const ids = (await alice.post('/api/search', { query: word })).json().results.map((r: any) => r.id);
       expect(ids, word).toEqual([n.id]);
     }
@@ -56,7 +56,8 @@ describe('round trip', () => {
     expect(r.isError).toBeFalsy();
     const id = /Created note ([0-9a-f-]{36})/.exec((r.content as any)[0].text)![1];
     const loaded = (await alice.get(`/api/notes/${id}`)).json();
-    const expected = ALL.filter((t) => t !== 'image'); // images become their alt text
+    // Images become their alt text; Markdown has no colour syntax, so agents cannot set colours.
+    const expected = ALL.filter((t) => t !== 'image' && t !== 'mark:textColor' && t !== 'mark:highlight');
     expect([...types(loaded.body)].sort()).toEqual([...expected].sort());
     const text = JSON.stringify(loaded.body);
     expect(text).toContain('tango picture');

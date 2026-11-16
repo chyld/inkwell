@@ -1,6 +1,6 @@
 // The one note-schema module (SPEC 6.2). Used by the editor, by server-side
 // validation of every save, and by the agent Markdown converter.
-import { getSchema, type AnyExtension, type JSONContent } from '@tiptap/core';
+import { getSchema, Mark, type AnyExtension, type JSONContent } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
 import Image from '@tiptap/extension-image';
@@ -66,6 +66,43 @@ const SafeImage = Image.extend({
   },
 }).configure({ inline: false, allowBase64: false });
 
+// ---- text colour and highlight ------------------------------------------
+// A note stores a colour's NAME only; the stylesheet maps each name to a light- and a dark-theme
+// value. Rendered as a data attribute, never an inline style. Pasted HTML gets a mark only when
+// it carries our own attribute with one of these names. Inline code excludes every other mark and
+// code blocks allow none, so colours never apply inside code.
+export const TEXT_COLORS = ['ruby', 'garnet', 'amber', 'emerald', 'teal', 'sapphire', 'amethyst', 'onyx'] as const;
+export const HIGHLIGHT_COLORS = ['topaz', 'coral', 'ruby', 'amethyst', 'sapphire', 'aqua', 'emerald', 'peridot'] as const;
+export type TextColor = (typeof TEXT_COLORS)[number];
+export type HighlightColor = (typeof HIGHLIGHT_COLORS)[number];
+
+type AttrSource = { getAttribute(n: string): string | null };
+
+function colorMark(name: string, tag: 'span' | 'mark', attr: string, allowed: readonly string[]) {
+  const ok = (v: unknown) => typeof v === 'string' && allowed.includes(v);
+  return Mark.create({
+    name,
+    addAttributes() {
+      return {
+        color: {
+          default: null,
+          parseHTML: (el: AttrSource) => el.getAttribute(attr),
+          renderHTML: (attrs: Record<string, unknown>) => (ok(attrs.color) ? { [attr]: attrs.color } : {}),
+        },
+      };
+    },
+    parseHTML() {
+      return [{ tag: `${tag}[${attr}]`, getAttrs: (el) => (ok((el as AttrSource).getAttribute(attr)) ? null : false) }];
+    },
+    renderHTML({ HTMLAttributes }) {
+      return [tag, HTMLAttributes, 0];
+    },
+  });
+}
+
+export const TextColorMark = colorMark('textColor', 'span', 'data-text-color', TEXT_COLORS);
+export const HighlightMark = colorMark('highlight', 'mark', 'data-highlight', HIGHLIGHT_COLORS);
+
 /** The extensions that define the note schema. The editor adds only behaviour, never node or mark types. */
 export const noteExtensions: AnyExtension[] = [
   StarterKit.configure({
@@ -88,6 +125,8 @@ export const noteExtensions: AnyExtension[] = [
   SafeImage,
   TaskList,
   TaskItem.configure({ nested: true }),
+  TextColorMark,
+  HighlightMark,
 ];
 
 let cachedSchema: Schema | null = null;
@@ -151,6 +190,8 @@ const MARK_ATTRS: Record<string, Record<string, AttrCheck>> = {
     class: (v) => isNull(v),
     title: optString(1000),
   },
+  textColor: { color: (v) => typeof v === 'string' && (TEXT_COLORS as readonly string[]).includes(v) },
+  highlight: { color: (v) => typeof v === 'string' && (HIGHLIGHT_COLORS as readonly string[]).includes(v) },
 };
 
 export class NoteValidationError extends Error {}
@@ -195,6 +236,7 @@ function walk(node: unknown, depth: number, imageIds: Set<string>) {
       if (typeof mm.type !== 'string' || !Object.hasOwn(MARK_ATTRS, mm.type)) fail(`mark type "${String(mm.type)}" is not allowed`);
       checkAttrs(mm.type, mm.attrs, MARK_ATTRS[mm.type]);
       if (mm.type === 'link' && mm.attrs === undefined) fail('link: href is required');
+      if ((mm.type === 'textColor' || mm.type === 'highlight') && (mm.attrs as { color?: unknown } | undefined)?.color === undefined) fail(`${mm.type}: color is required`);
     }
   }
   if (n.content !== undefined) {

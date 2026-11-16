@@ -3,7 +3,7 @@
 A private, self-hosted note-taking app for a handful of people (fewer than 10).
 Each person has their own notes and nobody can see anyone else's. Notes are
 written in a rich-text editor (headings, lists, task lists, code, quotes, links,
-tables and images), organised in nested folders and with tags, and found with
+tables, images, text colours and highlights), organised in nested folders and with tags, and found with
 full-text search. Deleted notes go to Trash until you empty it.
 
 An AI agent (Claude Code, Codex, Grok, Muse, …) can **add** notes to one user's

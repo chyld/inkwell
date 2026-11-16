@@ -16,6 +16,23 @@
   --mark: #ffe58a;
   --code-bg: #f1ebf3;
   --selection: rgba(138, 58, 168, 0.25);
+  /* text colours and highlights, palette 'Jewel' (a note stores the name; see DEVIATIONS) */
+  --tc-ruby: #9c012b;
+  --tc-garnet: #960157;
+  --tc-amber: #754701;
+  --tc-emerald: #02633c;
+  --tc-teal: #02605a;
+  --tc-sapphire: #0049b3;
+  --tc-amethyst: #6724ad;
+  --tc-onyx: #54505c;
+  --hl-topaz: #f2d68b;
+  --hl-coral: #ffccbf;
+  --hl-ruby: #ffcbd0;
+  --hl-amethyst: #e4d0fe;
+  --hl-sapphire: #c1daff;
+  --hl-aqua: #72e8fc;
+  --hl-emerald: #91ebbb;
+  --hl-peridot: #c5e292;
   --shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
   --radius: 8px;
   --backdrop: rgba(0, 0, 0, 0.35);
@@ -52,6 +69,22 @@
     --mark: #6b5a12;
     --code-bg: #2a2130;
     --selection: rgba(207, 140, 234, 0.3);
+    --tc-ruby: #fe898f;
+    --tc-garnet: #fa86b6;
+    --tc-amber: #ef9d32;
+    --tc-emerald: #48cd8c;
+    --tc-teal: #02cbc1;
+    --tc-sapphire: #83b2fe;
+    --tc-amethyst: #bf9bfe;
+    --tc-onyx: #b2afb9;
+    --hl-topaz: #4b3a00;
+    --hl-coral: #642a1c;
+    --hl-ruby: #652832;
+    --hl-amethyst: #493062;
+    --hl-sapphire: #1d3c68;
+    --hl-aqua: #00434b;
+    --hl-emerald: #00442c;
+    --hl-peridot: #304001;
     --shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
   }
 }
@@ -907,6 +940,129 @@ mark {
 }
 .ProseMirror-gapcursor:after {
   border-top-color: var(--text);
+}
+
+/* text colour and highlight marks (and their swatches): the note stores a name, the theme supplies the value */
+[data-text-color='ruby'] {
+  color: var(--tc-ruby);
+}
+[data-text-color='garnet'] {
+  color: var(--tc-garnet);
+}
+[data-text-color='amber'] {
+  color: var(--tc-amber);
+}
+[data-text-color='emerald'] {
+  color: var(--tc-emerald);
+}
+[data-text-color='teal'] {
+  color: var(--tc-teal);
+}
+[data-text-color='sapphire'] {
+  color: var(--tc-sapphire);
+}
+[data-text-color='amethyst'] {
+  color: var(--tc-amethyst);
+}
+[data-text-color='onyx'] {
+  color: var(--tc-onyx);
+}
+mark[data-highlight] {
+  color: inherit;
+  border-radius: 2px;
+}
+[data-highlight='topaz'] {
+  background: var(--hl-topaz);
+}
+[data-highlight='coral'] {
+  background: var(--hl-coral);
+}
+[data-highlight='ruby'] {
+  background: var(--hl-ruby);
+}
+[data-highlight='amethyst'] {
+  background: var(--hl-amethyst);
+}
+[data-highlight='sapphire'] {
+  background: var(--hl-sapphire);
+}
+[data-highlight='aqua'] {
+  background: var(--hl-aqua);
+}
+[data-highlight='emerald'] {
+  background: var(--hl-emerald);
+}
+[data-highlight='peridot'] {
+  background: var(--hl-peridot);
+}
+
+/* colour pickers in the toolbar */
+.color-tool {
+  position: relative;
+  display: inline-flex;
+}
+.tb.has-bar {
+  position: relative;
+}
+/* the colour in use at the cursor, as a bar under the icon */
+.color-bar {
+  position: absolute;
+  left: 6px;
+  right: 6px;
+  bottom: 1px;
+  height: 3px;
+  border-radius: 2px;
+}
+.color-bar.text-bar {
+  background: currentColor;
+}
+.color-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, 32px);
+  gap: 4px;
+  padding: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+.swatch[aria-pressed='true'] {
+  border: 2px solid var(--text);
+}
+.swatch-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.swatch-chip {
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.swatch-remove {
+  grid-column: 1 / -1;
+  width: auto;
+  height: 30px;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text-soft);
 }
 
 /* modal & notices */

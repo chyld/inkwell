@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  Baseline,
   BetweenHorizontalEnd,
   BetweenHorizontalStart,
   BetweenVerticalEnd,
@@ -13,6 +14,7 @@ import {
   Heading1,
   Heading2,
   Heading3,
+  Highlighter,
   ImagePlus,
   Italic,
   Link,
@@ -37,7 +39,8 @@ import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model';
 import { api, ApiError, NetworkError, type FolderNode, type Me, type Note, type NoteItem, type TagCount } from '../api';
 import { localDrafts, type Draft } from '../drafts';
 import { NoteSaver, type SaveStatus } from '../saver';
-import { noteExtensions, isAllowedHref, normalizeTag, TAGS_PER_NOTE } from '../../shared/schema';
+import { noteExtensions, isAllowedHref, normalizeTag, TAGS_PER_NOTE, TEXT_COLORS, HIGHLIGHT_COLORS } from '../../shared/schema';
+import { ColorPicker } from './ColorPicker';
 import { relativeTime } from '../util';
 import { useDialogs } from './Dialogs';
 import { findFolder, folderPath } from './Sidebar';
@@ -520,6 +523,8 @@ function Toolbar({ editor, onImage, uploading }: { editor: Editor; onImage: () =
   }
 
   const inTable = editor.isActive('table');
+  // Colours never apply inside code (inline code excludes other marks; code blocks allow none).
+  const inCode = editor.isActive('code') || editor.isActive('codeBlock');
   return (
     <div className="toolbar" role="toolbar" aria-label="Formatting">
       <div className="tb-group">
@@ -528,6 +533,10 @@ function Toolbar({ editor, onImage, uploading }: { editor: Editor; onImage: () =
         {b(<Strikethrough />, 'Strikethrough', editor.isActive('strike'), () => chain().toggleStrike().run())}
         {b(<Code />, 'Inline code', editor.isActive('code'), () => chain().toggleCode().run())}
         {b(<Link />, 'Link', editor.isActive('link'), link)}
+      </div>
+      <div className="tb-group">
+        <ColorPicker editor={editor} mark="textColor" colors={TEXT_COLORS} label="Text colour" removeLabel="Remove text colour" icon={<Baseline />} disabled={inCode} />
+        <ColorPicker editor={editor} mark="highlight" colors={HIGHLIGHT_COLORS} label="Highlight" removeLabel="Remove highlight" icon={<Highlighter />} disabled={inCode} />
       </div>
       <div className="tb-group">
         {b(<Heading1 />, 'Heading 1', editor.isActive('heading', { level: 1 }), () => chain().toggleHeading({ level: 1 }).run())}

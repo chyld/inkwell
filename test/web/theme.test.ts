@@ -2,6 +2,7 @@
 // are the agreed values, and the pairs the UI uses meet WCAG AA contrast in both themes.
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { HIGHLIGHT_COLORS, TEXT_COLORS } from '../../src/shared/schema';
 
 const css = readFileSync(new URL('../../src/web/styles.css', import.meta.url), 'utf8');
 const favicon = readFileSync(new URL('../../src/web/public/favicon.svg', import.meta.url), 'utf8');
@@ -59,3 +60,33 @@ describe('Plum colour scheme', () => {
     expect(favicon).not.toMatch(/#3b6fd8/i);
   });
 });
+
+describe("text colours and highlights, palette 'Jewel'", () => {
+  it('every name has a light and a dark token and a stylesheet rule that uses it', () => {
+    for (const n of TEXT_COLORS) {
+      expect(lightBlock, `light --tc-${n}`).toMatch(new RegExp(`--tc-${n}: #[0-9a-f]{6};`));
+      expect(darkBlock, `dark --tc-${n}`).toMatch(new RegExp(`--tc-${n}: #[0-9a-f]{6};`));
+      expect(css).toContain(`[data-text-color='${n}'] {\n  color: var(--tc-${n});`);
+    }
+    for (const n of HIGHLIGHT_COLORS) {
+      expect(lightBlock, `light --hl-${n}`).toMatch(new RegExp(`--hl-${n}: #[0-9a-f]{6};`));
+      expect(darkBlock, `dark --hl-${n}`).toMatch(new RegExp(`--hl-${n}: #[0-9a-f]{6};`));
+      expect(css).toContain(`[data-highlight='${n}'] {\n  background: var(--hl-${n});`);
+    }
+  });
+
+  it('meets WCAG AA: each text colour on --bg, --bg-soft and every highlight; --text and links on every highlight', () => {
+    for (const [theme, t] of Object.entries({ light, dark })) {
+      for (const c of TEXT_COLORS) {
+        for (const bg of ['bg', 'bg-soft', ...HIGHLIGHT_COLORS.map((h) => `hl-${h}`)]) {
+          expect(contrast(t[`tc-${c}`], t[bg]), `${theme}: ${c} on --${bg}`).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+      for (const h of HIGHLIGHT_COLORS) {
+        expect(contrast(t.text, t[`hl-${h}`]), `${theme}: --text on ${h}`).toBeGreaterThanOrEqual(4.5);
+        expect(contrast(t.accent, t[`hl-${h}`]), `${theme}: link on ${h}`).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+});
+
