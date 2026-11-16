@@ -1,10 +1,11 @@
 // The browser address: "/" for the app with no note open, "/n/<base62 id>" for an open note.
 import { decodeNoteId, notePath } from '../shared/noteAddress';
 
-export type Route = { kind: 'list' } | { kind: 'note'; id: string } | { kind: 'notFound' } | { kind: 'fonts' };
+export type Route = { kind: 'list' } | { kind: 'note'; id: string } | { kind: 'notFound' } | { kind: 'fonts' } | { kind: 'styles' };
 
 export function routeOf(pathname: string): Route {
   if (pathname === '/fonts' || pathname === '/fonts/') return { kind: 'fonts' };
+  if (pathname === '/styles' || pathname === '/styles/') return { kind: 'styles' };
   if (pathname.startsWith('/n/')) {
     const m = /^\/n\/([^/]+)\/?$/.exec(pathname);
     const id = m ? decodeNoteId(m[1]) : null;
@@ -48,3 +49,4 @@ export function noteTitle(title: string): string {
 }
 export const NOT_FOUND_TITLE = `Note not found – ${APP_TITLE}`;
 export const FONTS_TITLE = `Fonts – ${APP_TITLE}`;
+export const STYLES_TITLE = `Styles – ${APP_TITLE}`;

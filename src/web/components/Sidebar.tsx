@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
-import { ChevronDown, ChevronRight, Ellipsis, File, Folder, Inbox, Notebook, PanelLeftClose, Plus, Trash2, Type } from 'lucide-react';
+import { ChevronDown, ChevronRight, Ellipsis, File, Folder, Inbox, Notebook, PanelLeftClose, Paintbrush, Plus, Trash2, Type } from 'lucide-react';
 import { api, ApiError, type FolderNode, type Me, type TagCount } from '../api';
 import { formatBytes } from '../util';
 import { useDialogs } from './Dialogs';
@@ -12,8 +12,9 @@ export type View =
   | { kind: 'trash' }
   | { kind: 'folder'; id: string }
   | { kind: 'tag'; name: string }
-  /** The /fonts page (FONTS-SPEC 7): not a list of notes. */
-  | { kind: 'fonts' };
+  /** The /fonts page (FONTS-SPEC 7) and the /styles page (STYLES-SPEC 9): not lists of notes. */
+  | { kind: 'fonts' }
+  | { kind: 'styles' };
 
 export function sameView(a: View, b: View) {
   return a.kind === b.kind && (a as any).id === (b as any).id && (a as any).name === (b as any).name;
@@ -131,6 +132,7 @@ export function Sidebar({ me, folders, tags, view, onView, onFoldersChanged, onS
         <div className="sidebar-gap" />
         <ViewButton label="Trash" icon={<Trash2 />} active={view.kind === 'trash'} onClick={() => onView({ kind: 'trash' })} />
         <ViewButton label="Fonts" icon={<Type />} active={view.kind === 'fonts'} onClick={() => onView({ kind: 'fonts' })} />
+        <ViewButton label="Styles" icon={<Paintbrush />} active={view.kind === 'styles'} onClick={() => onView({ kind: 'styles' })} />
       </div>
       <div className="sidebar-footer">
         <div className="storage" title={`${formatBytes(me.storageUsed)} of ${formatBytes(me.storageLimit)} used`}>

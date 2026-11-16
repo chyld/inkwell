@@ -8,6 +8,7 @@ import { Sidebar, findFolder, sameView, type View } from './components/Sidebar';
 import { NoteList } from './components/NoteList';
 import { NoteEditorPane, NoteNotFound, activeSaver } from './components/NoteEditor';
 import { FontsPage } from './components/FontsPage';
+import { StylesPage } from './components/StylesPage';
 import { currentRoute, initHistory, notePath, setAddress } from './route';
 import { clearAllFonts } from './fonts/runtime';
 import { waitForUploads } from './components/images';
@@ -88,7 +89,8 @@ export function App() {
   );
 }
 
-type Screen = 'sidebar' | 'list' | 'editor' | 'fonts';
+type Screen = 'sidebar' | 'list' | 'editor' | 'fonts' | 'styles';
+type Page = 'notes' | 'fonts' | 'styles';
 
 function viewQuery(v: View): string {
   switch (v.kind) {
@@ -116,9 +118,9 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const [selected, setSelected] = useState<string | null>(initial.kind === 'note' ? initial.id : null);
   const [notFound, setNotFound] = useState(initial.kind === 'notFound');
   const [fresh, setFresh] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>(initial.kind === 'list' ? 'list' : initial.kind === 'fonts' ? 'fonts' : 'editor');
+  const [screen, setScreen] = useState<Screen>(initial.kind === 'list' ? 'list' : initial.kind === 'fonts' || initial.kind === 'styles' ? initial.kind : 'editor');
   /** The /fonts page takes the place of the note list and the editor (FONTS-SPEC 7). */
-  const [page, setPage] = useState<'notes' | 'fonts'>(initial.kind === 'fonts' ? 'fonts' : 'notes');
+  const [page, setPage] = useState<Page>(initial.kind === 'fonts' || initial.kind === 'styles' ? initial.kind : 'notes');
   useEffect(() => initHistory(), []);
   // Collapsed panels (wide screens only; on a narrow screen each panel is a screen of its own).
   const [layout, setLayout] = useState<Layout>(loadLayout);
@@ -234,7 +236,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   const onPopRef = useRef<() => void>(() => {});
   onPopRef.current = () => {
     const r = currentRoute();
-    if (r.kind === 'fonts') return void openFonts(true);
+    if (r.kind === 'fonts' || r.kind === 'styles') return void openPage(r.kind, true);
     setPage('notes');
     if (r.kind === 'note') void select(r.id, true);
     else if (r.kind === 'notFound') {
@@ -252,18 +254,22 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
     return () => window.removeEventListener('popstate', on);
   }, []);
 
-  /** The fonts page ("Browse fonts…" or the sidebar): the open note is saved and closed first, as on any navigation. */
-  async function openFonts(fromHistory = false) {
+  /**
+   * The /fonts and /styles pages (from the sidebar, "Browse fonts…" or "Manage styles…"): the open note is
+   * saved and closed first, as on any navigation; the page takes the place of the list and the editor.
+   */
+  async function openPage(p: 'fonts' | 'styles', fromHistory = false) {
     if (selected) await settleCurrent();
     setSelected(null);
     setNotFound(false);
-    setPage('fonts');
-    setScreen('fonts');
-    if (!fromHistory) setAddress('/fonts', 'push');
+    setPage(p);
+    setScreen(p);
+    if (!fromHistory) setAddress(`/${p}`, 'push');
   }
+  const openFonts = () => openPage('fonts');
 
-  /** The phone's Back control on the fonts page: to the notes. */
-  function leaveFonts() {
+  /** The phone's Back control on the fonts or styles page: to the notes. */
+  function leavePage() {
     setPage('notes');
     setScreen('list');
     setAddress('/', 'push');
@@ -276,9 +282,9 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
   }
 
   async function changeView(v: View) {
-    if (v.kind === 'fonts') return openFonts();
-    // Choosing anything else in the sidebar leaves the fonts page.
-    if (page === 'fonts') {
+    if (v.kind === 'fonts' || v.kind === 'styles') return openPage(v.kind);
+    // Choosing anything else in the sidebar leaves the fonts or styles page.
+    if (page !== 'notes') {
       setPage('notes');
       setAddress('/', 'push');
     }
@@ -444,20 +450,21 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
                 : 'Fonts';
 
   return (
-    <div className={`app screen-${screen}${layout.sidebar ? ' sidebar-collapsed' : ''}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page === 'fonts' ? ' fonts-open' : ''}`}>
+    <div className={`app screen-${screen}${layout.sidebar ? ' sidebar-collapsed' : ''}${layout.list && page === 'notes' ? ' list-collapsed' : ''}${page !== 'notes' ? ` ${page}-open` : ''}`}>
       {layout.sidebar && <PanelStrip id="sidebar-show" controls="sidebar" label="Show folders and tags" text="Folders" onClick={() => togglePanel('sidebar')} />}
       <Sidebar
         me={me}
         folders={folders}
         tags={tags}
-        view={page === 'fonts' ? { kind: 'fonts' } : view}
+        view={page !== 'notes' ? { kind: page } : view}
         onView={changeView}
         onFoldersChanged={refreshFolders}
         onSignOut={signOut}
         collapsed={layout.sidebar}
         onCollapse={() => togglePanel('sidebar')}
       />
-      {page === 'fonts' && <FontsPage onBack={leaveFonts} />}
+      {page === 'fonts' && <FontsPage onBack={leavePage} />}
+      {page === 'styles' && <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />}
       {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => togglePanel('list')} />}
       {page === 'notes' && <NoteList
         collapsed={layout.list}
@@ -478,7 +485,7 @@ function Main({ me, updateMe, onSignedOut }: { me: Me; updateMe: (m: Me) => void
         onEmptyTrash={emptyTrash}
         onBack={() => setScreen('sidebar')}
       />}
-      {page === 'fonts' ? null : selected ? (
+      {page !== 'notes' ? null : selected ? (
         <NoteEditorPane
           key={selected}
           noteId={selected}

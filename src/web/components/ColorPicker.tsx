@@ -16,8 +16,40 @@ interface Props {
   disabled: boolean;
 }
 
-/** Toolbar button with a popover of colour swatches (by name; the theme supplies the value) and Remove. */
-export function ColorPicker({ editor, mark, colors, label, removeLabel, icon, disabled }: Props) {
+/** The toolbar's colour menu: the core below, bound to the editor's selection. */
+export function ColorPicker({ editor, mark, ...rest }: Props) {
+  const raw = editor.getAttributes(mark).color;
+  return (
+    <ColorMenu
+      {...rest}
+      kind={mark}
+      current={typeof raw === 'string' ? raw : null}
+      onPick={(color) => {
+        const chain = editor.chain().focus();
+        if (color) chain.setMark(mark, { color }).run();
+        else chain.unsetMark(mark, { extendEmptyMarkRange: true }).run();
+      }}
+    />
+  );
+}
+
+interface MenuProps {
+  kind: 'textColor' | 'highlight';
+  colors: readonly string[];
+  current: string | null;
+  onPick: (color: string | null) => void;
+  label: string;
+  removeLabel: string;
+  /** The visible text of the last entry ("Remove" in the toolbar, "None" in the style form). */
+  removeText?: string;
+  icon: ReactNode;
+  disabled: boolean;
+  /** In a form, keep the focus on the menu's button after choosing (the editor is not involved). */
+  refocusAfterPick?: boolean;
+}
+
+/** A button with a popover of colour swatches (by name; the theme supplies the value) and Remove/None. */
+export function ColorMenu({ kind, colors, current: currentRaw, onPick, label, removeLabel, removeText = 'Remove', icon, disabled, refocusAfterPick = false }: MenuProps) {
   const [open, setOpen] = useState(false);
   const [focusIdx, setFocusIdx] = useState(0);
   const [shift, setShift] = useState(0);
@@ -26,9 +58,8 @@ export function ColorPicker({ editor, mark, colors, label, removeLabel, icon, di
   const popRef = useRef<HTMLDivElement>(null);
   const itemsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const popId = useId();
-  const attr = mark === 'textColor' ? 'data-text-color' : 'data-highlight';
-  const raw = editor.getAttributes(mark).color;
-  const current = typeof raw === 'string' && colors.includes(raw) ? raw : null;
+  const attr = kind === 'textColor' ? 'data-text-color' : 'data-highlight';
+  const current = currentRaw && colors.includes(currentRaw) ? currentRaw : null;
   const count = colors.length + 1; // the swatches, then Remove
 
   // On opening: focus the colour in use (or the first), keep the popover on screen, close on an outside click.
@@ -57,10 +88,8 @@ export function ColorPicker({ editor, mark, colors, label, removeLabel, icon, di
   }
 
   function apply(color: string | null) {
-    const chain = editor.chain().focus();
-    if (color) chain.setMark(mark, { color }).run();
-    else chain.unsetMark(mark, { extendEmptyMarkRange: true }).run();
-    close(false);
+    onPick(color);
+    close(refocusAfterPick);
   }
 
   function move(to: number) {
@@ -106,7 +135,7 @@ export function ColorPicker({ editor, mark, colors, label, removeLabel, icon, di
         onClick={() => (open ? close(true) : setOpen(true))}
       >
         {icon}
-        {current && <span className={'color-bar' + (mark === 'textColor' ? ' text-bar' : '')} {...{ [attr]: current }} aria-hidden />}
+        {current && <span className={'color-bar' + (kind === 'textColor' ? ' text-bar' : '')} {...{ [attr]: current }} aria-hidden />}
       </button>
       {open && (
         <div
@@ -137,7 +166,7 @@ export function ColorPicker({ editor, mark, colors, label, removeLabel, icon, di
               onFocus={() => setFocusIdx(i)}
               onClick={() => apply(c)}
             >
-              <span className={mark === 'textColor' ? 'swatch-dot' : 'swatch-chip'} {...{ [attr]: c }} />
+              <span className={kind === 'textColor' ? 'swatch-dot' : 'swatch-chip'} {...{ [attr]: c }} />
             </button>
           ))}
           <button
@@ -153,7 +182,7 @@ export function ColorPicker({ editor, mark, colors, label, removeLabel, icon, di
             onFocus={() => setFocusIdx(colors.length)}
             onClick={() => apply(null)}
           >
-            <Eraser /> Remove
+            <Eraser /> {removeText}
           </button>
         </div>
       )}

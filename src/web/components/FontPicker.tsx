@@ -35,8 +35,42 @@ interface Props {
   notice: (message: string) => void;
 }
 
-/** The toolbar's font menu (FONTS-SPEC 8.2): the user's collection, then "Default font" and "Browse fonts…". */
+/** The toolbar's font menu (FONTS-SPEC 8.2): the core below, bound to the editor's selection. */
 export function FontPicker({ editor, disabled, onBrowse, notice }: Props) {
+  return (
+    <FontMenu
+      state={fontStateOf(editor)}
+      disabled={disabled}
+      onBrowse={onBrowse}
+      onChoose={(id) => {
+        if (id) {
+          const used = fontsInDoc(editor.state.doc);
+          if (!used.has(id) && used.size >= NOTE_FONTS_MAX) {
+            notice(NOTE_FONTS_REFUSED);
+            return false;
+          }
+          editor.chain().focus().setMark('fontFamily', { font: id }).run();
+        } else editor.chain().focus().unsetMark('fontFamily', { extendEmptyMarkRange: true }).run();
+        return true;
+      }}
+    />
+  );
+}
+
+interface MenuProps {
+  state: FontState;
+  disabled: boolean;
+  onBrowse: () => void;
+  /** Apply a choice (null: the default font). False: refused; the focus goes back to the button. */
+  onChoose: (id: string | null) => boolean;
+  /** List the current font even when it is not in the collection (the style form). */
+  listCurrent?: boolean;
+  /** In a form, keep the focus on the menu's button after choosing (the editor is not involved). */
+  refocusAfterChoose?: boolean;
+}
+
+/** A font menu: "Inter" first, then the user's collection drawn in their preview faces, then "Browse fonts…". */
+export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = false, refocusAfterChoose = false }: MenuProps) {
   const [open, setOpen] = useState(false);
   const [collection, setCollection] = useState<string[] | null>(null);
   const [focusIdx, setFocusIdx] = useState(0);
@@ -46,8 +80,8 @@ export function FontPicker({ editor, disabled, onBrowse, notice }: Props) {
   const popRef = useRef<HTMLDivElement>(null);
   const itemsRef = useRef<(HTMLButtonElement | null)[]>([]);
   const popId = useId();
-  const state = fontStateOf(editor);
-  const fonts = (collection ?? []).filter((id) => fontById(id));
+  const fromCollection = (collection ?? []).filter((id) => fontById(id));
+  const fonts = listCurrent && state.kind === 'one' && fontById(state.id) && !fromCollection.includes(state.id) ? [...fromCollection, state.id] : fromCollection;
   const previewStyle = usePreviews('menu', fonts, open);
   // Items: the default font (Inter) first, then the collection, then "Browse fonts…".
   const count = fonts.length + 2;
@@ -91,16 +125,8 @@ export function FontPicker({ editor, disabled, onBrowse, notice }: Props) {
   }
 
   function choose(id: string | null) {
-    if (id) {
-      const used = fontsInDoc(editor.state.doc);
-      if (!used.has(id) && used.size >= NOTE_FONTS_MAX) {
-        close(true);
-        notice(NOTE_FONTS_REFUSED);
-        return;
-      }
-      editor.chain().focus().setMark('fontFamily', { font: id }).run();
-    } else editor.chain().focus().unsetMark('fontFamily', { extendEmptyMarkRange: true }).run();
-    close(false);
+    const done = onChoose(id);
+    close(!done || refocusAfterChoose);
   }
 
   function move(to: number) {
