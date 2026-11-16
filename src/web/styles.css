@@ -904,18 +904,20 @@ mark {
   color: var(--text-soft);
 }
 .slim-left {
-  flex: 1 1 0;
+  flex: 1 1 0; /* everything left of the dates, which keep their natural width */
   display: flex;
   align-items: center;
   gap: 6px;
-  min-width: auto; /* its own minimum: the shortened title and the narrowest tags */
+  min-width: 0;
+  /* Nothing can run under the right-hand group: what does not fit is clipped (with room for focus rings). */
+  overflow: clip;
+  overflow-clip-margin: 4px;
 }
 .slim-right {
-  flex: 0 1 auto;
+  flex: none;
   display: flex;
   align-items: center;
   gap: 10px;
-  min-width: 0; /* shrinks before it could overlap: the dates are cut short first */
 }
 .folder-button,
 .editor-trashed {
@@ -1079,11 +1081,11 @@ mark {
 /* the title: the first thing on the paper, large and bold */
 /* the title, in the title row: bold, taking the free width, cut short with an ellipsis */
 /* the title, in the title row: as wide as its own text (field-sizing; the size attribute is the fallback), at least
-   8 characters; it is the first thing to shorten (with an ellipsis while not focused) when the row runs out of room */
+   3 characters; it is the only item that shrinks, so it shortens first (ellipsis while not focused) */
 .title-input {
-  flex: 0 1000 auto;
+  flex: 0 1 auto;
   field-sizing: content;
-  min-width: 8ch;
+  min-width: 3ch;
   max-width: 100%;
   margin: 0;
   border: none !important;
@@ -1098,6 +1100,11 @@ mark {
   outline: none;
   background: transparent !important;
 }
+/* The global 'input:not([type])' rule gives inputs width: 100%, which outranks .title-input and overrides
+   field-sizing (a definite width wins); the title must keep an automatic width to size to its text. */
+.editor-header .title-input {
+  width: auto;
+}
 .title-input::placeholder {
   color: var(--text-soft);
 }
@@ -1109,10 +1116,15 @@ mark {
   margin: 0 2px;
   background: var(--border);
 }
-/* the tags follow the title; they wrap inside their own box once the title has shortened */
+/* the tags follow the title on one line; they never shrink (so the title shortens first), but are capped so that,
+   with a short title and the folder, a long list wraps inside its own box */
 .editor-header .tag-editor {
-  flex: 0 1 auto;
-  min-width: auto;
+  flex: 0 0 auto;
+  max-width: calc(100% - 190px);
+  min-width: 0;
+}
+.editor-header .folder-button {
+  flex-shrink: 0; /* its natural width (still at most 35% of the row) */
 }
 /* tags as soft coral blocks; the remove cross shows on hover and focus, and is always reachable */
 .editor-header .tag-chip,
@@ -2411,6 +2423,9 @@ mark[data-highlight] {
   .slim-left {
     flex: 1 1 100%;
     flex-wrap: wrap;
+  }
+  .editor-header .tag-editor {
+    max-width: 100%; /* on a phone the tags may take a line of their own */
   }
   .slim-right {
     flex: 1 1 100%;
