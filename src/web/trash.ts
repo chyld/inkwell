@@ -5,16 +5,18 @@ import type { DraftStore } from './drafts';
 export interface EmptyTrashDeps {
   userId: string;
   drafts: DraftStore;
-  /** Ids of every note in Trash. */
-  trashedIds(): Promise<string[]>;
+  /** Which of these notes (the ones with a draft on this device) are in Trash. Not called when there are none. */
+  trashedAmong(ids: string[]): Promise<string[]>;
   confirm(message: string): Promise<boolean>;
   /** DELETE /api/trash. */
   emptyTrash(): Promise<{ deleted: number; deletedIds: string[] }>;
 }
 
 export async function emptyTrashFlow(d: EmptyTrashDeps): Promise<boolean> {
-  const inTrash = new Set(await d.trashedIds());
-  const withDrafts = d.drafts.list(d.userId).filter((id) => inTrash.has(id)).length;
+  // Only the notes with a draft here matter, and usually there are none: then nothing is fetched (before, the
+  // whole of Trash was downloaded to find them).
+  const drafted = d.drafts.list(d.userId);
+  const withDrafts = drafted.length ? (await d.trashedAmong(drafted)).length : 0;
   const ok = await d.confirm(
     'Permanently delete every note in Trash? This cannot be undone.' +
       (withDrafts

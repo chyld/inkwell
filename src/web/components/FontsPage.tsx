@@ -38,6 +38,7 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [view, setView] = useState({ scrollTop: 0, height: 0, width: 0 });
   const [focused, setFocused] = useState<number | null>(null);
+  const total = useMemo(availableCount, []); // the whole catalogue: counted once per opening, not per render
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
 
@@ -146,7 +147,7 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
             ))}
           </select>
           <p className="fonts-count" role="status" aria-live="polite">
-            {matching.length} of {availableCount()}
+            {matching.length} of {total}
           </p>
         </div>
         <div className="fonts-collection" aria-label="Your fonts">

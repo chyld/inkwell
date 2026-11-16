@@ -174,16 +174,21 @@ export function previewFamily(id: string, loaded: boolean): string {
   return loaded && FONT_ID_RE.test(id) ? `"preview-${id}", ${fallback}` : fallback;
 }
 
-/** Register what a component renders with the shared loader; re-renders when previews load. */
+const noSubscription = () => () => {};
+
+/**
+ * Register what a component renders with the shared loader. It re-renders only when one of its own ids loads or
+ * is released (not on every completion), and not at all while inactive (a closed menu).
+ */
 export function usePreviews(source: string, ids: string[], active = true) {
   const loader = previewLoader();
-  useSyncExternalStore(loader.subscribe, loader.getVersion);
   const key = ids.join(',');
+  const loadedKey = useSyncExternalStore(active ? loader.subscribe : noSubscription, () => (active ? ids.filter((id) => loader.isLoaded(id)).join(',') : ''));
   useEffect(() => {
     if (!active) return;
     loader.setRendered(source, ids);
     return () => loader.setRendered(source, []);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loader, source, key, active]);
-  return useMemo(() => (id: string) => ({ fontFamily: previewFamily(id, loader.isLoaded(id)) }), [loader, loader.getVersion()]);
+  return useMemo(() => (id: string) => ({ fontFamily: previewFamily(id, loader.isLoaded(id)) }), [loader, loadedKey]);
 }

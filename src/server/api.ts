@@ -128,13 +128,13 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions) {
 
   api.delete('/notes/:id', async (req) => {
     store.deleteNote(req.user!.id, (req.params as { id: string }).id);
-    store.cleanupImages();
+    store.cleanupImages(req.user!.id); // only this user's links changed
     return { ok: true };
   });
 
   api.delete('/trash', async (req) => {
     const deletedIds = store.emptyTrash(req.user!.id);
-    store.cleanupImages();
+    store.cleanupImages(req.user!.id);
     return { deleted: deletedIds.length, deletedIds };
   });
 

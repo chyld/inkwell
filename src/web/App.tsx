@@ -414,15 +414,18 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
       emptied = await emptyTrashFlow({
         userId: me.id,
         drafts: localDrafts,
-        trashedIds: async () => {
-          const ids: string[] = [];
-          let cursor: string | null = null;
-          do {
-            const r: { notes: NoteItem[]; nextCursor: string | null } = await api('GET', `/notes?view=trash${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`);
-            ids.push(...r.notes.map((n) => n.id));
-            cursor = r.nextCursor;
-          } while (cursor);
-          return ids;
+        trashedAmong: async (ids) => {
+          // One request per note with a draft on this device. A note that no longer exists is not in Trash; any
+          // other failure stops Empty Trash with a notice, as a failed Trash listing did.
+          const notes = await Promise.all(
+            ids.map((id) =>
+              api<{ trashedAt: string | null }>('GET', `/notes/${id}`).catch((e) => {
+                if (e instanceof ApiError && e.status === 404) return null;
+                throw e;
+              }),
+            ),
+          );
+          return ids.filter((_, i) => notes[i]?.trashedAt);
         },
         confirm: (message) => dialogs.confirm({ title: 'Empty Trash', message, confirmLabel: 'Empty Trash', danger: true }),
         emptyTrash: () => api('DELETE', '/trash'),

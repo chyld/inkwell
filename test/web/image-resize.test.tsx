@@ -167,6 +167,21 @@ describe('dragging', () => {
     expect(img().getAttribute('width')).toBe('400');
   });
 
+  it('a drag reads the layout once, at its start, not after each move (CLEANUP-PLAN pass 1 item 5)', async () => {
+    await open([p('before'), image(), p('after')]);
+    await selectImage();
+    const h = handle();
+    const reads = vi.spyOn(HTMLImageElement.prototype, 'getBoundingClientRect');
+    await pointer(h, 'pointerdown', 0, 0);
+    const atStart = reads.mock.calls.length;
+    for (let i = 1; i <= 5; i++) await pointer(h, 'pointermove', -20 * i, 0);
+    expect(reads.mock.calls.length - atStart).toBe(0); // before: one per move
+    expect(img().getAttribute('width')).toBe('500'); // the moves still resize, live
+    expect(slider().getAttribute('aria-valuetext')).toBe('500 × 250 pixels');
+    await pointer(h, 'pointerup', -100, 0);
+    expect(attrs()).toMatchObject({ width: 500, height: 250 });
+  });
+
   it('every corner, by either axis; a click without moving stores nothing', async () => {
     await open([p('before'), image({ width: 400, height: 200 }), p('after')]);
     await selectImage();

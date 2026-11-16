@@ -82,7 +82,8 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
   const popId = useId();
   const fromCollection = (collection ?? []).filter((id) => fontById(id));
   const fonts = listCurrent && state.kind === 'one' && fontById(state.id) && !fromCollection.includes(state.id) ? [...fromCollection, state.id] : fromCollection;
-  const previewStyle = usePreviews('menu', fonts, open);
+  // Its own source: the toolbar's menu and the style form's can be on screen together.
+  const previewStyle = usePreviews(`menu-${popId}`, fonts, open);
   // Items: the default font (Inter) first, then the collection, then "Browse fonts…".
   const count = fonts.length + 2;
   const currentIdx = state.kind === 'one' ? (fonts.includes(state.id) ? fonts.indexOf(state.id) + 1 : -1) : state.kind === 'none' ? 0 : -1;

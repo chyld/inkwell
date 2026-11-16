@@ -947,36 +947,34 @@ export class Store {
   }
 
   /**
-   * Delete images older than 24 hours that no note of their owner (Trash
-   * included) references. Row first, then file.
+   * Delete images older than 24 hours that no note of their owner (Trash included) references. Row first, then
+   * file. With a user, only that user's images (a permanent delete changes one user's links); without, everyone's
+   * (start-up, daily, after a data copy). One transaction for all of them.
    */
-  cleanupImages(): number {
+  cleanupImages(userId?: string): number {
     const cutoff = this.now() - IMAGE_GRACE_MS;
-    const victims = stmt(this.db, 'SELECT id, user_id FROM images i WHERE created_at < ? AND NOT EXISTS (SELECT 1 FROM note_images ni WHERE ni.image_id = i.id)')
-      .all(cutoff) as { id: string; user_id: string }[];
-    let n = 0;
+    const victims = this.tx(() => {
+      // While `data copy` runs (in this or another process), deleting is postponed to a later clean-up, so no
+      // image the copy's snapshot refers to disappears. Checked inside the transaction: see dataCopy for why that
+      // closes the race. Under the write lock no save can link an image meanwhile, so the NOT EXISTS below is the
+      // final check.
+      if (this.copyInProgress()) return [];
+      const unlinked = 'created_at < ? AND NOT EXISTS (SELECT 1 FROM note_images ni WHERE ni.image_id = images.id)';
+      return (
+        userId === undefined
+          ? stmt(this.db, `DELETE FROM images WHERE ${unlinked} RETURNING id, user_id`).all(cutoff)
+          : stmt(this.db, `DELETE FROM images WHERE user_id = ? AND ${unlinked} RETURNING id, user_id`).all(userId, cutoff)
+      ) as { id: string; user_id: string }[];
+    });
     for (const v of victims) {
-      const removed = this.tx(() => {
-        // While `data copy` runs (in this or another process), deleting is postponed to a later
-        // clean-up, so no image the copy's snapshot refers to disappears. Checked inside the
-        // transaction: see dataCopy for why that closes the race.
-        if (this.copyInProgress()) return false;
-        // Re-check inside the transaction in case a save linked it meanwhile.
-        const still = stmt(this.db, 'SELECT 1 FROM note_images WHERE image_id = ?').get(v.id);
-        if (still) return false;
-        return stmt(this.db, 'DELETE FROM images WHERE id = ?').run(v.id).changes > 0;
-      });
-      if (removed) {
-        n++;
-        try {
-          fs.rmSync(this.imagePath(v.user_id, v.id), { force: true });
-        } catch {
-          // The row is gone; a file that cannot be removed now is removed by the
-          // start-up reconciliation (files without a row).
-        }
+      try {
+        fs.rmSync(this.imagePath(v.user_id, v.id), { force: true });
+      } catch {
+        // The row is gone; a file that cannot be removed now is removed by the
+        // start-up reconciliation (files without a row).
       }
     }
-    return n;
+    return victims.length;
   }
 
   /** Start-up reconciliation: temp files, files without rows, rows without files. */

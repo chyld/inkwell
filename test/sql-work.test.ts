@@ -1,6 +1,6 @@
 // Measured SQL work per request (CLEANUP-PLAN pass 1, items 1 and 2). Counts come from better-sqlite3's verbose
 // hook (statements executed) and a wrapper on prepare (statements compiled), so they include the session check.
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client, doc, makeEnv, p, upload, userClient, type Env } from './helpers.js';
 import sharp from 'sharp';
 
@@ -176,3 +176,26 @@ describe('the same answers, with less work', () => {
     expect(env.sql.executed.filter((q) => /FROM images/.test(q))).toHaveLength(1);
   });
 });
+
+describe('image clean-up (item 5)', () => {
+  it('a permanent delete cleans up only that user\'s images, in one statement; the daily run does everyone', async () => {
+    const png = await sharp({ create: { width: 4, height: 4, channels: 3, background: '#3366cc' } }).png().toBuffer();
+    const bob = await userClient(env, 'bob');
+    const alices = [];
+    for (let i = 0; i < 3; i++) alices.push((await upload(c, `a${i}.png`, 'image/png', png)).json());
+    const bobs = (await upload(bob, 'b.png', 'image/png', png)).json();
+    env.clock.t += 25 * 60 * 60 * 1000; // past the 24-hour grace
+    const n = (await c.post('/api/notes', { folderId: null })).json();
+    await c.post(`/api/notes/${n.id}/trash`);
+    const copyChecks = vi.spyOn(env.store as any, 'copyInProgress');
+    env.sql.reset();
+    expect((await c.del(`/api/notes/${n.id}`)).statusCode).toBe(200);
+    expect(env.sql.executed.filter((q) => /FROM images/.test(q))).toHaveLength(1); // before: a SELECT, then a check and a DELETE per image
+    expect(copyChecks).toHaveBeenCalledTimes(1); // before: once per image
+    expect((await c.get(alices[0].src)).statusCode).toBe(404);
+    expect((await bob.get(bobs.src)).statusCode).toBe(200); // another user's is left to the daily run
+    expect(env.store.cleanupImages()).toBe(1);
+    expect((await bob.get(bobs.src)).statusCode).toBe(404);
+  });
+});
+

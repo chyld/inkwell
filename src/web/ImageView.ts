@@ -138,11 +138,12 @@ export class ImageView implements NodeView {
   }
 
   /** The slider's current value, spoken as "320 × 180 pixels". */
-  private updateSlider(size?: Size) {
+  /** With both values known (during a drag) nothing is measured: no layout read after each move's write. */
+  private updateSlider(size?: Size, maxWidth?: number) {
     if (!this.slider) return;
-    const m = this.measure();
-    const s = size ?? m.shown;
-    this.slider.setAttribute('aria-valuemax', String(Math.max(IMAGE_MIN_WIDTH, m.maxWidth)));
+    const m = size && maxWidth !== undefined ? null : this.measure();
+    const s = size ?? m!.shown;
+    this.slider.setAttribute('aria-valuemax', String(Math.max(IMAGE_MIN_WIDTH, maxWidth ?? m!.maxWidth)));
     this.slider.setAttribute('aria-valuenow', String(s.width));
     this.slider.setAttribute('aria-valuetext', `${sizeText(s)} pixels`);
     if (this.readout) this.readout.textContent = sizeText(s);
@@ -166,7 +167,7 @@ export class ImageView implements NodeView {
       /* not every environment has pointer capture */
     }
     this.dom.classList.add('resizing');
-    this.updateSlider(m.shown);
+    this.updateSlider(m.shown, m.maxWidth);
     this.showReadout(true);
     document.addEventListener('keydown', this.onDragKey, true);
   }
@@ -177,7 +178,7 @@ export class ImageView implements NodeView {
     e.preventDefault();
     d.size = dragSize({ width: d.width, ratio: d.ratio, corner: d.corner, maxWidth: d.maxWidth }, e.clientX - d.x, e.clientY - d.y);
     this.render(this.node, d.size); // live, as attributes; nothing is stored until release
-    this.updateSlider(d.size);
+    this.updateSlider(d.size, d.maxWidth);
   };
 
   private onUp = (e: PointerEvent) => {
