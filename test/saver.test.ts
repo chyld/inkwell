@@ -236,3 +236,25 @@ describe('NoteSaver round 2', () => {
   });
 });
 
+
+describe('the draft while typing goes on (BUGFIX-LIST item 7)', () => {
+  it('10 s of typing, a keystroke every 250 ms: the draft is never more than 2 s behind, and is not written per keystroke', () => {
+    let now = 1_000_000;
+    const drafts = memDrafts();
+    const writes: number[] = [];
+    const set = drafts.set;
+    drafts.set = (u, n, d) => (writes.push(now), set(u, n, d));
+    const s = new NoteSaver('u', 'n1', 1, { put: async () => ({ version: 2 }), drafts, onStatus: () => {}, onConflict: () => {}, setTimer: () => ({}), clearTimer: () => {}, now: () => now });
+    let text = '';
+    for (let i = 0; i < 40; i++) {
+      text += 'x';
+      s.change('t', doc(p(text)));
+      const age = now - writes[writes.length - 1];
+      expect(age, `keystroke ${i}`).toBeLessThan(2000 + 250); // before: only the first keystroke's draft
+      now += 250;
+    }
+    expect(writes.length).toBeGreaterThanOrEqual(5);
+    expect(writes.length).toBeLessThanOrEqual(6); // one per 2 s, not 40
+    expect(JSON.stringify(drafts.get('u', 'n1')!.body)).toContain('x'.repeat(33));
+  });
+});

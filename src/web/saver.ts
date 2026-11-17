@@ -14,9 +14,13 @@ export interface SaverDeps {
   onUnauthorized?(): void;
   setTimer?: (fn: () => void, ms: number) => unknown;
   clearTimer?: (h: unknown) => void;
+  /** The clock (tests); default Date.now. */
+  now?: () => number;
 }
 
 export const DEBOUNCE_MS = 1000;
+/** While typing goes on, the draft is never older than this. */
+export const DRAFT_EVERY_MS = 2000;
 export const RETRY_DELAYS_MS = [2000, 5000, 15000];
 
 export class NoteSaver {
@@ -47,6 +51,7 @@ export class NoteSaver {
   private latest: { title: string; body: unknown } | null = null;
   /** True when the stored draft is older than the latest change. */
   private draftStale = false;
+  private draftWrittenAt = 0;
   private latestSeq = 0;
   private confirmedSeq = 0;
   private inFlight: Promise<void> | null = null;
@@ -62,6 +67,7 @@ export class NoteSaver {
   private readonly owner = Math.random().toString(36).slice(2) + Date.now().toString(36);
   private setTimer: (fn: () => void, ms: number) => unknown;
   private clearTimer: (h: unknown) => void;
+  private now: () => number;
 
   constructor(
     readonly userId: string,
@@ -73,6 +79,7 @@ export class NoteSaver {
     NoteSaver.live.add(this);
     this.setTimer = deps.setTimer ?? ((fn, ms) => setTimeout(fn, ms));
     this.clearTimer = deps.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>));
+    this.now = deps.now ?? Date.now;
   }
 
   get version() {
@@ -97,7 +104,9 @@ export class NoteSaver {
     if (this.disposed) return;
     this.latest = { title, body };
     this.latestSeq++;
-    if (immediate || this.latestSeq === this.confirmedSeq + 1) this.writeDraft();
+    // The draft is written with the first change, and while typing goes on (the save waits for a pause) whenever
+    // it is DRAFT_EVERY_MS old, so a tab killed without warning loses at most that much (BUGFIX-LIST item 7).
+    if (immediate || this.latestSeq === this.confirmedSeq + 1 || this.now() - this.draftWrittenAt >= DRAFT_EVERY_MS) this.writeDraft();
     else this.draftStale = true;
     if (this.blocked === 'conflict' || this.blocked === 'gone') {
       this.deps.onStatus('unsaved');
@@ -125,6 +134,7 @@ export class NoteSaver {
     this.draftStale = false;
     const latest = this.resolved();
     if (!latest || !this.hasUnconfirmed()) return;
+    this.draftWrittenAt = this.now();
     this.deps.drafts.set(this.userId, this.noteId, { title: latest.title, body: latest.body, version: this.base, savedAt: Date.now(), owner: this.owner });
   }
 
