@@ -56,6 +56,14 @@ export function usePopoverMenu({ placementDeps = [], closeOnFocusOut = true }: {
       'aria-controls': open ? popId : undefined,
       onMouseDown: keepFocus,
       onClick: () => (open ? close(true) : setOpen(true)),
+      // Shift+Tab from the menu comes back here with the menu still open: Escape closes it, and only it (not a
+      // dialog or the style form around it) (as BUGFIX-LIST-2 item 9).
+      onKeyDown: (e: KeyboardEvent) => {
+        if (e.key !== 'Escape' || !open) return;
+        e.preventDefault();
+        e.stopPropagation();
+        close(true);
+      },
     },
     /** The popover element (its class, role and name are the menu's own). */
     popoverProps: {

@@ -181,19 +181,21 @@ function FolderItem({
           <span className="label">{folder.name}</span>
           {folder.noteCount > 0 && <span className="count">{folder.noteCount}</span>}
         </button>
-        <div className="menu-anchor" ref={menuRef}>
+        {/* While the menu is open its keys and its blur belong to the button too: Shift+Tab from the first item goes
+            to the button, and Escape there closes the menu, not the Folders panel (BUGFIX-LIST-2 item 9). */}
+        <div
+          className="menu-anchor"
+          ref={menuRef}
+          onKeyDown={menu ? onMenuKey : undefined}
+          onBlur={(e) => {
+            if (menu && !menuRef.current?.contains(e.relatedTarget as Node | null)) setMenu(false); // Tab out of it closes it
+          }}
+        >
           <button ref={buttonRef} className="icon-button folder-menu-button" aria-label={`Actions for ${folder.name}`} title="Folder actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
             <Ellipsis />
           </button>
           {menu && (
-            <div
-              className="menu"
-              role="menu"
-              onKeyDown={onMenuKey}
-              onBlur={(e) => {
-                if (!menuRef.current?.contains(e.relatedTarget as Node | null)) setMenu(false); // Tab out of it closes it
-              }}
-            >
+            <div className="menu" role="menu">
               <button role="menuitem" onClick={() => (closeMenu(), newFolder(folder.id))}>
                 New subfolder
               </button>

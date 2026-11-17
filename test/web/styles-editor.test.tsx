@@ -253,6 +253,38 @@ describe('Save selection as style (criterion 11)', () => {
   }
   const content = () => [p(t('plain '), t('fancy', [m.bold, m.underline, m.font('caveat'), m.size(22), m.color('sapphire'), m.hl('aqua')]), t(' tail', [m.italic]))];
 
+  // BUGFIX-LIST-2 item 8: the menu entry that opened the form is gone once the menu closes; the focus comes back to
+  // the Styles button instead of being lost on the page.
+  it('on close, the focus is back on the Styles button', async () => {
+    await open(content());
+    await click(stylesButton());
+    await waitFor(() => !!button(view!.container, 'Save selection as style…'), 2000, 'menu');
+    const entry = button(view!.container, 'Save selection as style…')!;
+    entry.focus(); // as a real click does
+    await click(entry);
+    await waitFor(() => !!form(), 2000, 'form');
+    expect(form()!.contains(document.activeElement)).toBe(true);
+    await click(button(form()!, 'Cancel'));
+    expect(form()).toBeNull();
+    expect(document.activeElement).toBe(stylesButton()); // before: the page body
+  });
+
+  // The same mistake as BUGFIX-LIST-2 item 9, in every toolbar menu: Shift+Tab from the menu reaches its button with
+  // the menu still open; Escape there closes the menu and goes no further (in the style form it closed the form).
+  it('Escape on the Styles button with the menu open closes only the menu', async () => {
+    await open(content());
+    await click(stylesButton());
+    await waitFor(() => !!button(view!.container, 'Save selection as style…'), 2000, 'menu');
+    const outer = vi.fn();
+    window.addEventListener('keydown', outer);
+    stylesButton().focus();
+    await act(async () => void stylesButton().dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })));
+    window.removeEventListener('keydown', outer);
+    expect(button(view!.container, 'Save selection as style…')).toBeUndefined();
+    expect(outer).not.toHaveBeenCalled();
+    expect(document.activeElement).toBe(stylesButton());
+  });
+
   it('from the first selected text, forward and backward, and at a boundary between two formats', async () => {
     await open(content());
     for (const [anchor, head] of [

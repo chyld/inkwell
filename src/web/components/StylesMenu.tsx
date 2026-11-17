@@ -125,7 +125,9 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
               'Save selection as style…',
               () => {
                 const from = styleFromText(editor);
-                close(false);
+                // The focus goes to the Styles button first, so the form gives it back there when it closes (this
+                // entry is gone with the menu) (BUGFIX-LIST-2 item 8).
+                close(true);
                 setForm({ ...from, name: '' });
               },
               'font-item font-browse',

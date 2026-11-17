@@ -84,6 +84,7 @@ export function ToolbarMenu({ name, icon, rows, current = null, kind }: Props) {
         aria-label={label}
         aria-haspopup="menu"
         onKeyDown={(e) => {
+          m.buttonProps.onKeyDown(e);
           if (e.key === 'ArrowDown' && !m.open) {
             e.preventDefault();
             m.setOpen(true);

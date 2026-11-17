@@ -241,6 +241,23 @@ describe('the folder actions menu by keyboard (BUGFIX-LIST item 17)', () => {
     expect(document.activeElement).toBe(actions);
   });
 
+  // BUGFIX-LIST-2 item 9: Shift+Tab from the first item goes to the Actions button (the menu stays open); Escape
+  // there closes the menu, not the Folders panel.
+  it('Shift+Tab back to its button, then Escape, closes only the menu', async () => {
+    const c = await open();
+    await click(railButton(c, 'Folders'));
+    const actions = button(panel()!, 'Actions for Work')!;
+    actions.focus();
+    await click(actions);
+    expect(document.activeElement?.textContent).toBe('New subfolder');
+    await act(async () => actions.focus()); // what Shift+Tab does from the first item
+    expect(panel()!.querySelector('.menu')).not.toBeNull();
+    await key('Escape');
+    expect(panel()).not.toBeNull(); // before: the whole Folders panel closed
+    expect(panel()!.querySelector('.menu')).toBeNull();
+    expect(document.activeElement).toBe(actions);
+  });
+
   it('after a dialog opened from it, the focus is back on its button', async () => {
     const c = await open();
     await click(railButton(c, 'Folders'));
