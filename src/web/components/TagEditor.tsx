@@ -6,23 +6,35 @@ import type { TagCount } from '../api';
 import { normalizeTag, TAGS_PER_NOTE } from '../../shared/noteRules';
 import { useDialogs } from './Dialogs';
 
-export function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[]; allTags: TagCount[]; readOnly: boolean; onChange: (t: string[]) => void }) {
+/** A change to the note's tags, applied to the latest list (which may hold changes not yet on screen). */
+export type TagChange = (current: string[]) => string[];
+
+export function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[]; allTags: TagCount[]; readOnly: boolean; onChange: (change: TagChange) => void }) {
   const [value, setValue] = useState('');
   const dialogs = useDialogs();
   const listId = useMemo(() => `tags-${Math.random().toString(36).slice(2)}`, []);
-  function add(raw: string) {
-    const t = normalizeTag(raw);
+  /** Add one or several tags (pasted "a,b,c" adds a and b at once): one change, one request. */
+  function add(raws: string[]) {
     setValue('');
-    if (!t) {
-      if (raw.trim()) dialogs.notice('A tag is 1-50 characters and cannot contain commas.');
-      return;
+    const wanted: string[] = [];
+    for (const raw of raws) {
+      const t = normalizeTag(raw);
+      if (t) wanted.push(t);
+      else if (raw.trim()) dialogs.notice('A tag is 1-50 characters and cannot contain commas.');
     }
-    if (tags.includes(t)) return;
-    if (tags.length >= TAGS_PER_NOTE) {
-      dialogs.notice(`A note can have at most ${TAGS_PER_NOTE} tags.`);
-      return;
-    }
-    onChange([...tags, t]);
+    if (!wanted.length) return;
+    onChange((current) => {
+      const next = [...current];
+      for (const t of wanted) {
+        if (next.includes(t)) continue;
+        if (next.length >= TAGS_PER_NOTE) {
+          dialogs.notice(`A note can have at most ${TAGS_PER_NOTE} tags.`);
+          break;
+        }
+        next.push(t);
+      }
+      return next;
+    });
   }
   return (
     <div className="tag-editor">
@@ -30,7 +42,7 @@ export function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[
         <span key={t} className="tag-chip">
           #{t}
           {!readOnly && (
-            <button className="chip-x" aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => onChange(tags.filter((x) => x !== t))}>
+            <button className="chip-x" aria-label={`Remove tag ${t}`} title={`Remove tag ${t}`} onClick={() => onChange((current) => current.filter((x) => x !== t))}>
               <X />
             </button>
           )}
@@ -46,16 +58,20 @@ export function TagEditor({ tags, allTags, readOnly, onChange }: { tags: string[
             value={value}
             onChange={(e) => {
               const v = e.target.value;
-              if (v.includes(',')) v.split(',').forEach((p, i, a) => (i < a.length - 1 ? add(p) : setValue(p)));
-              else setValue(v);
+              if (v.includes(',')) {
+                // Everything before the last comma is added; what follows stays in the box.
+                const parts = v.split(',');
+                add(parts.slice(0, -1));
+                setValue(parts[parts.length - 1]);
+              } else setValue(v);
             }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                add(value);
-              } else if (e.key === 'Backspace' && !value && tags.length) onChange(tags.slice(0, -1));
+                add([value]);
+              } else if (e.key === 'Backspace' && !value && tags.length) onChange((current) => current.slice(0, -1));
             }}
-            onBlur={() => value.trim() && add(value)}
+            onBlur={() => value.trim() && add([value])}
           />
           <datalist id={listId}>
             {allTags

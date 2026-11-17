@@ -325,12 +325,38 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     }
   }
 
-  async function setNoteTags(next: string[]) {
-    const r = await act(() => api<{ tags: string[] }>('PATCH', `/notes/${note.id}`, { tags: next }));
-    if (r) {
-      setTags(r.tags);
-      props.onMeta(note.id, { tags: r.tags });
-      props.onTagsChanged();
+  // Tag changes (BUGFIX-LIST item 3): each change is applied to the latest list asked for, not to the list on
+  // screen (several tags pasted or typed quickly all count), and one PATCH is in flight at a time; changes made
+  // meanwhile go next, as one list, in order.
+  const confirmedTags = useRef(note.tags);
+  const wantedTags = useRef<string[] | null>(null);
+  const sendingTags = useRef(false);
+  function changeTags(change: (current: string[]) => string[]) {
+    const base = wantedTags.current ?? confirmedTags.current;
+    const next = change(base);
+    if (next.length === base.length && next.every((t, i) => t === base[i])) return;
+    wantedTags.current = next;
+    void sendTags();
+  }
+  async function sendTags() {
+    if (sendingTags.current) return;
+    sendingTags.current = true;
+    try {
+      while (wantedTags.current) {
+        const list = wantedTags.current;
+        const r = await act(() => api<{ tags: string[] }>('PATCH', `/notes/${note.id}`, { tags: list }));
+        if (!r) {
+          wantedTags.current = null; // refused or failed: later changes start from what the server has
+          break;
+        }
+        if (wantedTags.current === list) wantedTags.current = null;
+        confirmedTags.current = r.tags;
+        setTags(r.tags);
+        props.onMeta(note.id, { tags: r.tags });
+        props.onTagsChanged();
+      }
+    } finally {
+      sendingTags.current = false;
     }
   }
 
@@ -424,7 +450,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
             />
             {(showTagRow || note.origin.type === 'agent') && <span className="title-divider" aria-hidden />}
             {note.origin.type === 'agent' && <span className="agent-badge">by {note.origin.name}</span>}
-            {showTagRow && <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={setNoteTags} />}
+            {showTagRow && <TagEditor tags={tags} allTags={props.allTags} readOnly={locked} onChange={changeTags} />}
           </div>
           <div className="slim-right">
             <span className="editor-dates" title={`Created ${created.toLocaleString()} · Updated ${updated.toLocaleString()}`}>
