@@ -6,7 +6,7 @@ import { stmt } from '../db.js';
 import { AppError, badRequest, quotaExceeded } from '../errors.js';
 import { hashPassword, verifyPassword, dummyVerify } from '../passwords.js';
 import { DAY, HOUR } from '../units.js';
-import { charLength } from '../../shared/schema.js';
+import { nameProblem } from '../../shared/schema.js';
 import { iso, StorePart } from './context.js';
 import { copyInProgress } from './dataCopy.js';
 
@@ -212,7 +212,7 @@ export class IdentityStore extends StorePart {
   addAgent(rawUsername: string, rawName: string): { token: string; name: string; username: string } {
     const user = this.requireUser(rawUsername);
     const name = String(rawName ?? '').trim();
-    if (name.length === 0 || charLength(name) > 50 || /[\u0000-\u001f\u007f]/.test(name)) {
+    if (nameProblem(name, 50)) {
       throw badRequest('Agent name must be 1-50 characters.');
     }
     const token = 'nta_' + crypto.randomBytes(32).toString('base64url');

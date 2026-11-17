@@ -4,14 +4,13 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createMcpHandler, isLegacyRequest, McpServer, WebStandardStreamableHTTPServerTransport, type McpRequestContext } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import type { AuthInfo } from '@modelcontextprotocol/server';
-import type { AppOptions } from './app.js';
-import { errorBody } from './app.js';
+import { errorBody, type AppOptions } from './http.js';
 import { MiB } from './units.js';
 import { AppError } from './errors.js';
 import type { AgentAuth, Store } from './store.js';
 import { normalizeTags } from './store.js';
 import { markdownToDoc } from './markdown.js';
-import { charLength, MAX_TITLE_CHARS, NoteValidationError, utf8Length, validateBody } from '../shared/schema.js';
+import { charLength, cleanTitleText, MAX_TITLE_CHARS, NoteValidationError, utf8Length, validateBody } from '../shared/schema.js';
 
 export const MAX_CONTENT_BYTES = 100_000;
 export const MAX_AGENT_TAGS = 10;
@@ -34,7 +33,7 @@ class ToolInputError extends Error {}
 
 function cleanAgentTitle(raw: unknown): string {
   if (typeof raw !== 'string') throw new ToolInputError('title must be a string.');
-  const t = raw.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/[\r\n\t]+/g, ' ').trim();
+  const t = cleanTitleText(raw).trim();
   const n = charLength(t);
   if (n < 1 || n > MAX_TITLE_CHARS) throw new ToolInputError(`title must be 1-${MAX_TITLE_CHARS} characters.`);
   return t;

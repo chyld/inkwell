@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_FONT_FAMILY, DEFAULT_MONO_FAMILY, fallbackFamily } from '../src/shared/fonts.js';
-import { PAGE_CSP } from '../src/server/app.js';
+import { PAGE_CSP } from '../src/server/http.js';
 import { makeEnv, type Env } from './helpers.js';
 
 const WEB = path.join(import.meta.dirname, '../src/web');

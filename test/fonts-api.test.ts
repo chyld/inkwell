@@ -3,7 +3,7 @@
 // "last used" (5.2). No network: the upstream fetcher is replaced.
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadConfig, ConfigError } from '../src/server/config.js';
-import { PAGE_CSP } from '../src/server/app.js';
+import { PAGE_CSP } from '../src/server/http.js';
 import { FONT_CATALOGUE, fontById } from '../src/shared/fonts.js';
 import type { Timers } from '../src/server/fonts/service.js';
 import { makeEnv, userClient, HOST, type Client, type Env } from './helpers.js';

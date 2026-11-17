@@ -7,7 +7,7 @@ import sharp, { type Metadata } from 'sharp';
 import type { FastifyInstance } from 'fastify';
 import multipart from '@fastify/multipart';
 import { AppError, badRequest } from './errors.js';
-import type { AppOptions } from './app.js';
+import type { AppOptions } from './http.js';
 import { MiB } from './units.js';
 import { imageSrc } from '../shared/noteRules.js';
 

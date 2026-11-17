@@ -104,3 +104,28 @@ export function normalizeTag(raw: unknown): string | null {
   if (/[\u0000-\u001f\u007f]/.test(t)) return null;
   return t;
 }
+
+// ---- names and titles: one place for the rules (folders, agents, styles; user and agent titles) ----
+
+/** The text a title keeps: control characters removed; each run of tabs, newlines and carriage returns one space. */
+export function cleanTitleText(raw: string): string {
+  return raw.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/[\r\n\t]+/g, ' ');
+}
+
+/**
+ * What is wrong with a trimmed name that must be 1 to max characters, checked in this order, or null. Folder and
+ * agent names refuse the C0 control characters and DEL; style names refuse every control character (\p{Cc}, which
+ * adds U+0080-U+009F), as they always have.
+ */
+export function nameProblem(name: string, max: number, { c1 = false }: { c1?: boolean } = {}): 'empty' | 'long' | 'control' | null {
+  if (name.length === 0) return 'empty';
+  if (charLength(name) > max) return 'long';
+  if ((c1 ? /\p{Cc}/u : /[\u0000-\u001f\u007f]/).test(name)) return 'control';
+  return null;
+}
+
+/** Two names are the same when these are (folders, styles): trimmed, then lower-cased with toLowerCase(). */
+export function nameKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+

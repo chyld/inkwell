@@ -6,6 +6,9 @@ import {
   MAX_TITLE_CHARS,
   TAGS_PER_NOTE,
   charLength,
+  cleanTitleText,
+  nameKey,
+  nameProblem,
   normalizeTag,
   validateBody,
   NoteValidationError,
@@ -63,7 +66,7 @@ const sortTags = (tags: string[]) => [...tags].sort((a, b) => Buffer.compare(Buf
 
 function cleanTitle(raw: unknown): string {
   if (typeof raw !== 'string') throw badRequest('Title must be a string.');
-  const t = raw.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').replace(/[\r\n\t]+/g, ' ');
+  const t = cleanTitleText(raw);
   if (charLength(t) > MAX_TITLE_CHARS) throw badRequest(`Title must be at most ${MAX_TITLE_CHARS} characters.`);
   return t;
 }
@@ -71,9 +74,10 @@ function cleanTitle(raw: unknown): string {
 function folderName(raw: unknown): { name: string; key: string } {
   if (typeof raw !== 'string') throw badRequest('Folder name must be a string.');
   const name = raw.trim();
-  if (name.length === 0 || charLength(name) > 100) throw badRequest('Folder name must be 1-100 characters.');
-  if (/[\u0000-\u001f\u007f]/.test(name)) throw badRequest('Folder name contains characters that are not allowed.');
-  return { name, key: name.toLowerCase() };
+  const problem = nameProblem(name, 100);
+  if (problem === 'empty' || problem === 'long') throw badRequest('Folder name must be 1-100 characters.');
+  if (problem === 'control') throw badRequest('Folder name contains characters that are not allowed.');
+  return { name, key: nameKey(name) };
 }
 
 export function normalizeTags(raw: unknown, max = TAGS_PER_NOTE): string[] {

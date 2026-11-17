@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
-import { SESSION_COOKIE, errorBody, type AppOptions } from './app.js';
+import { SESSION_COOKIE, errorBody, type AppOptions } from './http.js';
 import { AppError } from './errors.js';
 import { SignInLimiter } from './ratelimit.js';
 import { normalizeUsername } from './store.js';

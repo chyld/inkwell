@@ -1,57 +1,25 @@
+// The composition root: builds the Fastify app from its parts (logging, headers, errors, static files, /api, /mcp).
+// Shared HTTP pieces live in http.ts, so no route module imports this file.
 import Fastify, { LogController, type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Writable } from 'node:stream';
-import type { Config } from './config.js';
-import type { SessionUser, Store } from './store.js';
 import { AppError } from './errors.js';
 import { stmt } from './db.js';
 import { registerApi } from './api.js';
-import { FontService, type Timers } from './fonts/service.js';
-import type { Fetcher } from './fonts/upstream.js';
+import { FontService } from './fonts/service.js';
 import { registerMcp } from './mcp.js';
 import { MiB } from './units.js';
+import { errorBody, pathOf, PAGE_CSP, type AppOptions } from './http.js';
 
-declare module 'fastify' {
-  interface FastifyRequest {
-    user?: SessionUser;
-  }
-}
-
-export interface AppOptions {
-  config: Config;
-  store: Store;
-  /** Where log lines go (default stdout). */
-  logStream?: Writable;
-  logLevel?: string;
-  /** Font fetching (FONTS-SPEC 5.1); tests replace the upstream fetcher and the timers. */
-  fonts?: { fetcher?: Fetcher; timers?: Timers };
-}
+export type { AppOptions } from './http.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
     /** The font fetcher (FONTS-SPEC 5.1), reachable for tests that observe its queue. */
     fontService: FontService;
   }
-}
-
-export const SESSION_COOKIE = 'notes_session';
-export { MiB };
-
-export const PAGE_CSP =
-  "default-src 'self'; script-src 'self'; img-src 'self'; style-src 'self' 'unsafe-inline'; " +
-  "connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
-
-export function errorBody(code: string, message: string, extra: Record<string, unknown> = {}) {
-  return { error: { code, message, ...extra } };
-}
-
-/** Path without query string. */
-export function pathOf(url: string): string {
-  const i = url.indexOf('?');
-  return i === -1 ? url : url.slice(0, i);
 }
 
 export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {

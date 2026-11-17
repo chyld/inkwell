@@ -5,7 +5,7 @@ import type { FastifyInstance } from 'fastify';
 import { stmt, type DB } from './db.js';
 import { AppError, badRequest, notFound } from './errors.js';
 import { isFontId } from '../shared/fonts.js';
-import { HIGHLIGHT_COLORS, TEXT_COLORS, charLength, isFontSize } from '../shared/schema.js';
+import { HIGHLIGHT_COLORS, TEXT_COLORS, isFontSize, nameKey, nameProblem } from '../shared/schema.js';
 
 export const STYLES_MAX = 50;
 export const STYLE_NAME_MAX = 50;
@@ -27,9 +27,7 @@ export type StyleInput = Omit<Style, 'id'>;
 const FIELDS = ['name', 'font', 'size', 'bold', 'italic', 'underline', 'strike', 'textColor', 'highlight'] as const;
 
 /** The same names: trimmed, then lower-cased with JavaScript's toLowerCase() (as folders do). */
-export function styleNameKey(name: string): string {
-  return name.trim().toLowerCase();
-}
+export const styleNameKey = nameKey;
 
 /**
  * Check a create/replace body: exactly the name and the eight settings, each valid. The 400's message
@@ -44,9 +42,10 @@ export function parseStyleInput(raw: unknown): StyleInput {
 
   if (typeof b.name !== 'string') throw bad('name', 'must be text.');
   const name = b.name.trim();
-  if (name.length === 0) throw badRequest('Give the style a name.', 'invalid_name');
-  if (charLength(name) > STYLE_NAME_MAX) throw badRequest(`A style name can be at most ${STYLE_NAME_MAX} characters.`, 'invalid_name');
-  if (/\p{Cc}/u.test(name)) throw badRequest('The style name contains characters that are not allowed.', 'invalid_name');
+  const problem = nameProblem(name, STYLE_NAME_MAX, { c1: true });
+  if (problem === 'empty') throw badRequest('Give the style a name.', 'invalid_name');
+  if (problem === 'long') throw badRequest(`A style name can be at most ${STYLE_NAME_MAX} characters.`, 'invalid_name');
+  if (problem === 'control') throw badRequest('The style name contains characters that are not allowed.', 'invalid_name');
   if (b.font !== null && !isFontId(b.font)) throw bad('font', 'must be null or a font from the catalogue.');
   if (!isFontSize(b.size)) throw bad('size', 'must be a whole number from 8 to 96.');
   for (const k of ['bold', 'italic', 'underline', 'strike'] as const) if (typeof b[k] !== 'boolean') throw bad(k, 'must be true or false.');

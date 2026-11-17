@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { PAGE_CSP } from '../src/server/app.js';
+import { PAGE_CSP } from '../src/server/http.js';
 import { markdownToDoc } from '../src/server/markdown.js';
 import { noteSchema, validateBody } from '../src/shared/schema.js';
 import { fontById } from '../src/shared/fonts.js';
