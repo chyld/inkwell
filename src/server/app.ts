@@ -96,13 +96,17 @@ export async function buildApp(opts: AppOptions): Promise<FastifyInstance> {
   if (haveWeb) {
     await app.register(fastifyStatic, { root: config.webDir, index: false, wildcard: false, serve: true, cacheControl: false });
     app.addHook('onSend', async (req, reply, payload) => {
-      if (req.url.startsWith('/assets/')) reply.header('cache-control', 'public, max-age=31536000, immutable');
+      // Only a file that was found is immutable; a miss must not be cached (BUGFIX-LIST item 2).
+      if (req.url.startsWith('/assets/') && reply.statusCode === 200) reply.header('cache-control', 'public, max-age=31536000, immutable');
       return payload;
     });
   }
 
   app.setNotFoundHandler((req: FastifyRequest, reply: FastifyReply) => {
     const p = pathOf(req.url);
+    // A missing /assets/ file (a chunk of an earlier build) is a 404: answering it with the page would make the
+    // browser run HTML as a script.
+    if (p.startsWith('/assets/')) return reply.status(404).header('cache-control', 'no-store').send(errorBody('not_found', 'Not found.'));
     if (haveWeb && (req.method === 'GET' || req.method === 'HEAD') && !p.startsWith('/api/') && p !== '/api' && p !== '/mcp') {
       reply.header('cache-control', 'no-cache');
       return reply.type('text/html; charset=utf-8').send(fs.createReadStream(indexFile));

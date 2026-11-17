@@ -8,6 +8,7 @@ import { findFolder, sameView, type RailView, type View } from './components/fol
 import { Rail } from './components/Rail';
 import { NoteList } from './components/NoteList';
 import { NoteNotFound } from './components/NoteNotFound';
+import { ScreenErrorBoundary } from './components/ScreenError';
 import { currentRoute, initHistory, notePath, setAddress } from './route';
 import { clearAllFonts } from './fonts/clearing';
 import { waitForUploads } from './components/images';
@@ -454,14 +455,18 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}`}>
       <Rail me={me} folders={folders} tags={tags} view={page !== 'notes' ? { kind: page } : view} onView={changeView} onFoldersChanged={refreshFolders} onSignOut={signOut} onNewNote={() => void newNote(true)} />
       {page === 'fonts' && (
-        <Suspense fallback={<section className="browse-page fonts-page" aria-label="Fonts" aria-busy="true" />}>
-          <FontsPage onBack={leavePage} />
-        </Suspense>
+        <ScreenErrorBoundary label="Fonts">
+          <Suspense fallback={<section className="browse-page fonts-page" aria-label="Fonts" aria-busy="true" />}>
+            <FontsPage onBack={leavePage} />
+          </Suspense>
+        </ScreenErrorBoundary>
       )}
       {page === 'styles' && (
-        <Suspense fallback={<section className="browse-page styles-page" aria-label="Styles" aria-busy="true" />}>
-          <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />
-        </Suspense>
+        <ScreenErrorBoundary label="Styles">
+          <Suspense fallback={<section className="browse-page styles-page" aria-label="Styles" aria-busy="true" />}>
+            <StylesPage onBack={leavePage} onBrowseFonts={() => void openFonts()} />
+          </Suspense>
+        </ScreenErrorBoundary>
       )}
       {page === 'notes' && layout.list && <PanelStrip id="list-show" controls="note-list" label="Show note list" text={heading} onClick={() => toggleList()} />}
       {page === 'notes' && <NoteList
@@ -483,6 +488,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
         onEmptyTrash={emptyTrash}
       />}
       {page !== 'notes' ? null : selected ? (
+        <ScreenErrorBoundary label="Editor">
         <Suspense fallback={<section className="editor-pane" aria-label="Editor" aria-busy="true" />}>
         <NoteEditorPane
           key={selected}
@@ -500,6 +506,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
           onManageStyles={() => void openPage('styles')}
         />
         </Suspense>
+        </ScreenErrorBoundary>
       ) : notFound ? (
         <NoteNotFound onBack={() => void closeNote('push')} onAllNotes={allNotes} />
       ) : (
