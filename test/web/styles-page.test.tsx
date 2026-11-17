@@ -445,3 +445,27 @@ describe('/styles routing (criterion 15)', () => {
     expect(location.pathname).toBe('/');
   });
 });
+
+describe('the style form and the keyboard focus (BUGFIX-LIST item 16)', () => {
+  it('Tab stays inside the form; on close the focus is back on New style', async () => {
+    await openPage();
+    const opener = button(view!.container, /New style/)!;
+    opener.focus();
+    await click(opener);
+    const tab = async (shift = false) =>
+      act(async () => {
+        (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: shift, bubbles: true }));
+      });
+    expect(dialog()!.contains(document.activeElement)).toBe(true);
+    await tab(true); // from Name, the first control, Shift+Tab wraps to the last
+    expect(dialog()!.contains(document.activeElement)).toBe(true); // before: Tab was left to the page behind
+    expect(document.activeElement?.textContent).toBe('Save');
+    await tab(); // and back to the first
+    expect(document.activeElement).toBe(dialog()!.querySelector('input:not([aria-label])'));
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(opener); // before: the page body
+  });
+});

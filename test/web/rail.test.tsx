@@ -218,3 +218,40 @@ describe('the account menu', () => {
     await waitFor(() => /Sign in/.test(c.textContent ?? ''), 3000, 'signed out');
   });
 });
+
+describe('the folder actions menu by keyboard (BUGFIX-LIST item 17)', () => {
+  const key = (k: string) => act(async () => void (document.activeElement as HTMLElement).dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true })));
+  it('opens on its first item; the arrows move and wrap; Escape closes only the menu, the focus back on its button', async () => {
+    const c = await open();
+    await click(railButton(c, 'Folders'));
+    const actions = button(panel()!, 'Actions for Work')!;
+    actions.focus();
+    await click(actions);
+    expect(document.activeElement?.textContent).toBe('New subfolder'); // before: still on the button
+    await key('ArrowDown');
+    expect(document.activeElement?.textContent).toBe('Rename…');
+    await key('ArrowUp');
+    await key('ArrowUp'); // wraps
+    expect(document.activeElement?.textContent).toBe('Delete…');
+    await key('Home');
+    expect(document.activeElement?.textContent).toBe('New subfolder');
+    await key('Escape');
+    expect(panel()!.querySelector('.menu')).toBeNull(); // before: open, and the whole Folders panel closed instead
+    expect(panel()).not.toBeNull();
+    expect(document.activeElement).toBe(actions);
+  });
+
+  it('after a dialog opened from it, the focus is back on its button', async () => {
+    const c = await open();
+    await click(railButton(c, 'Folders'));
+    const actions = button(panel()!, 'Actions for Work')!;
+    actions.focus();
+    await click(actions);
+    const rename = button(panel()!, 'Rename…')!;
+    rename.focus(); // the item has the focus when it is chosen (by keyboard, or a click in a browser)
+    await click(rename);
+    await waitFor(() => !!document.querySelector('.modal'), 2000, 'rename dialog');
+    await click([...document.querySelectorAll('.modal button')].find((x) => x.textContent === 'Cancel'));
+    expect(document.activeElement).toBe(actions);
+  });
+});

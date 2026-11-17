@@ -6,6 +6,7 @@ import { FONT_SIZE_MAX, FONT_SIZE_MIN, HIGHLIGHT_COLORS, TEXT_COLORS } from '../
 import { api, ApiError, type Style, type StyleDraft } from '../api';
 import { ColorMenu } from './ColorPicker';
 import { FontMenu } from './FontPicker';
+import { useModalFocus } from './modalFocus';
 import { SampleFontsProvider, StyleSample, useSampleFonts } from './StyleSample';
 import { parseSize, SizeStepper } from './SizeStepper';
 
@@ -44,6 +45,8 @@ function StyleFormBody({ initial, id, title, onSaved, onClose, onBrowseFonts }: 
   const fonts = useSampleFonts();
   const set = <K extends keyof StyleDraft>(k: K, value: StyleDraft[K]) => setV((x) => ({ ...x, [k]: value }));
 
+  const boxRef = useRef<HTMLDivElement>(null);
+  const keepTabInside = useModalFocus(boxRef); // Tab stays inside; the focus goes back on close (BUGFIX-LIST item 16)
   useEffect(() => {
     nameRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
@@ -88,7 +91,7 @@ function StyleFormBody({ initial, id, title, onSaved, onClose, onBrowseFonts }: 
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal style-form" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+      <div className="modal style-form" role="dialog" aria-modal="true" aria-labelledby={titleId} ref={boxRef} tabIndex={-1} onKeyDown={keepTabInside}>
         <h2 id={titleId}>{title}</h2>
         <form
           onSubmit={(e) => {

@@ -1,5 +1,5 @@
 // Views, folder helpers and the folder tree (shown in the rail's Folders panel, Rail.tsx).
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { ChevronDown, ChevronRight, Ellipsis, Folder } from 'lucide-react';
 import { api, type FolderNode } from '../api';
 import { useDialogs } from './Dialogs';
@@ -98,6 +98,7 @@ function FolderItem({
   const [open, setOpen] = useState(true);
   const [menu, setMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const active = view.kind === 'folder' && view.id === folder.id;
 
   useEffect(() => {
@@ -106,17 +107,38 @@ function FolderItem({
       if (!menuRef.current?.contains(e.target as Node)) setMenu(false);
     };
     document.addEventListener('mousedown', close);
+    // Opened, the focus goes to its first item (BUGFIX-LIST item 17).
+    menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
     return () => document.removeEventListener('mousedown', close);
   }, [menu]);
 
-  async function rename() {
+  /** Close the menu with the focus back on its button: also before a dialog opens, so the dialog gives the
+   *  focus back there (the item that opened it is gone). */
+  function closeMenu() {
     setMenu(false);
+    buttonRef.current?.focus();
+  }
+  // Escape closes the menu (and only the menu, not the Folders panel); the arrows, Home and End move between its
+  // items, wrapping (BUGFIX-LIST item 17).
+  function onMenuKey(e: KeyboardEvent) {
+    const items = [...(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])];
+    const i = items.indexOf(document.activeElement as HTMLElement);
+    const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: items.length - 1 }[e.key as string];
+    if (e.key === 'Escape') closeMenu();
+    else if (to !== undefined && items.length) items[(to + items.length) % items.length].focus();
+    else return;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+
+  async function rename() {
+    closeMenu();
     const name = await dialogs.prompt({ title: 'Rename folder', label: 'Name', initial: folder.name, confirmLabel: 'Rename' });
     if (name === null || name === folder.name) return;
     await run(() => api('PATCH', `/folders/${folder.id}`, { name }));
   }
   async function move() {
-    setMenu(false);
+    closeMenu();
     const pick = await dialogs.pickFolder({
       title: `Move “${folder.name}” to…`,
       folders: all,
@@ -128,7 +150,7 @@ function FolderItem({
     await run(() => api('PATCH', `/folders/${folder.id}`, { parentId: pick.id }));
   }
   async function remove() {
-    setMenu(false);
+    closeMenu();
     const ok = await dialogs.confirm({
       title: 'Delete folder',
       message: `Delete “${folder.name}”? Only an empty folder can be deleted; notes from it that are in Trash become unfiled.`,
@@ -160,12 +182,19 @@ function FolderItem({
           {folder.noteCount > 0 && <span className="count">{folder.noteCount}</span>}
         </button>
         <div className="menu-anchor" ref={menuRef}>
-          <button className="icon-button folder-menu-button" aria-label={`Actions for ${folder.name}`} title="Folder actions" aria-haspopup="menu" onClick={() => setMenu(!menu)}>
+          <button ref={buttonRef} className="icon-button folder-menu-button" aria-label={`Actions for ${folder.name}`} title="Folder actions" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
             <Ellipsis />
           </button>
           {menu && (
-            <div className="menu" role="menu">
-              <button role="menuitem" onClick={() => (setMenu(false), newFolder(folder.id))}>
+            <div
+              className="menu"
+              role="menu"
+              onKeyDown={onMenuKey}
+              onBlur={(e) => {
+                if (!menuRef.current?.contains(e.relatedTarget as Node | null)) setMenu(false); // Tab out of it closes it
+              }}
+            >
+              <button role="menuitem" onClick={() => (closeMenu(), newFolder(folder.id))}>
                 New subfolder
               </button>
               <button role="menuitem" onClick={rename}>

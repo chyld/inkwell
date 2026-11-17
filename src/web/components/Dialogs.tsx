@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { File, Folder, FolderRoot, Inbox, X } from 'lucide-react';
 import type { FolderNode } from '../api';
+import { useModalFocus } from './modalFocus';
 
 type Pending =
   | { kind: 'confirm'; title: string; message: string; confirmLabel: string; danger: boolean; resolve: (v: boolean) => void }
@@ -81,6 +82,9 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
     else pending.resolve(null);
     close();
   };
+  const boxRef = useRef<HTMLDivElement>(null);
+  // The field, the confirm button, or a picker's current choice takes the focus (BUGFIX-LIST item 16).
+  const keepTabInside = useModalFocus(boxRef, (box) => box.querySelector<HTMLElement>('.picker-row.current'));
   useEffect(() => {
     inputRef.current?.focus();
     inputRef.current?.select();
@@ -94,7 +98,7 @@ function Modal({ pending, close }: { pending: Pending; close: () => void }) {
 
   return (
     <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && cancel()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" ref={boxRef} tabIndex={-1} onKeyDown={keepTabInside}>
         <h2 id="modal-title">{pending.title}</h2>
         {pending.kind === 'confirm' && (
           <>
