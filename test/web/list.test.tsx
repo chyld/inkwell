@@ -7,7 +7,7 @@ import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
 import { decls } from '../css';
-import { button, click, mockFetch, railButton, render, waitFor } from './harness';
+import { button, click, mockFetch, railButton, render, resetPage, signedInBackend, waitFor } from './harness';
 const ID = (n: number) => `0000000${n}-0000-4000-8000-000000000000`;
 const item = (n: number, over: Record<string, unknown> = {}) => ({ id: ID(n), title: `Note ${n}`, snippet: `Snippet of note ${n}, long enough to need cutting on one line`, folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' }, ...over });
 let pages: Record<string, { notes: unknown[]; nextCursor: string | null }>;
@@ -21,22 +21,17 @@ beforeEach(() => {
     'all&cursor=c2': { notes: [item(3)], nextCursor: null },
     trash: { notes: [item(4, { trashedAt: '2026-01-03T00:00:00Z' })], nextCursor: null },
   };
-  mockFetch((method, path, b) => {
-    if (method === 'GET' && path === '/api/session') return { status: 200, json: { id: 'u1', username: 'alice' } };
-    if (path === '/api/me') return { status: 200, json: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1, inboxId: 'inbox' } };
-    if (path === '/api/folders') return { status: 200, json: { folders: [] } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [] } };
+  mockFetch(signedInBackend((method, path, b) => {
     if (method === 'POST' && path === '/api/search') return { status: 200, json: { results: [item(2, { title: `Found ${b.query}` })] } };
     const m = /^\/api\/notes\?view=(.*)$/.exec(path);
     if (m && pages[m[1]]) return { status: 200, json: pages[m[1]] };
     if (path.startsWith('/api/notes/') && method === 'GET') return { status: 200, json: { ...item(1), body: { type: 'doc', content: [{ type: 'paragraph' }] }, version: 1 } };
     return { status: 500, json: { error: { code: 'x', message: `unexpected ${method} ${path}` } } };
-  });
+  }));
 });
 afterEach(async () => {
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 async function open() {

@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
-import { click, editorOf, mockFetch, railButton, render, requests, waitFor } from './harness';
+import { click, editorOf, mockFetch, railButton, render, requests, resetPage, signedInBackend, waitFor } from './harness';
 
 const NOTE = '55555555-5555-4555-8555-555555555555';
 const item = { id: NOTE, title: 'Draft', snippet: 'x', folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } };
@@ -18,11 +18,7 @@ beforeEach(() => {
   localStorage.clear();
   used = 1000;
   version = 1;
-  mockFetch((method, path) => {
-    if (method === 'GET' && path === '/api/session') return { status: 200, json: { id: 'u1', username: 'alice' } };
-    if (path === '/api/me') return { status: 200, json: { id: 'u1', username: 'alice', storageUsed: used, storageLimit: 1024 * 1024 * 1024, inboxId: 'inbox' } };
-    if (path === '/api/folders') return { status: 200, json: { folders: [] } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [] } };
+  mockFetch(signedInBackend((method, path) => {
     if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [item], nextCursor: null } };
     if (path === `/api/notes/${NOTE}` && method === 'GET') return { status: 200, json: { ...item, body: { type: 'doc', content: [{ type: 'paragraph' }] }, version } };
     if (path === `/api/notes/${NOTE}` && method === 'PUT') {
@@ -30,12 +26,11 @@ beforeEach(() => {
       return { status: 200, json: { version: ++version, updatedAt: '2026-01-02T00:00:00Z' } };
     }
     return { status: 500, json: { error: { code: 'x', message: `unexpected ${method} ${path}` } } };
-  });
+  }, { me: () => ({ storageUsed: used, storageLimit: 1024 * 1024 * 1024 }) }));
 });
 afterEach(async () => {
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 const meRequests = () => requests.filter((r) => r.method === 'GET' && r.path === '/api/me').length;

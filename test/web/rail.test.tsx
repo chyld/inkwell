@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
-import { button, click, mockFetch, railButton, render, requests, waitFor } from './harness';
+import { button, click, mockFetch, railButton, render, requests, resetPage, signedInBackend, waitFor } from './harness';
 
 const folder = (id: string, name: string, noteCount: number, children: unknown[] = [], isInbox = false, parentId: string | null = null) => ({ id, name, parentId, isInbox, noteCount, children });
 let folders: unknown[];
@@ -17,29 +17,34 @@ beforeEach(() => {
   localStorage.clear();
   signedIn = true;
   folders = [folder('inbox', 'Inbox', 2, [], true), folder('f1', 'Work', 3, [folder('f2', 'Sub', 1, [], false, 'f1')])];
-  mockFetch((method, path, b) => {
-    if (method === 'GET' && path === '/api/session') return signedIn ? { status: 200, json: { id: 'u1', username: 'alice' } } : { status: 401, json: { error: { code: 'unauthorized', message: 'Sign in.' } } };
-    if (method === 'DELETE' && path === '/api/session') {
-      signedIn = false;
-      return { status: 200, json: { ok: true } };
-    }
-    if (path === '/api/me') return { status: 200, json: { id: 'u1', username: 'alice', storageUsed: 12 * 1024 * 1024, storageLimit: 1024 * 1024 * 1024, inboxId: 'inbox' } };
-    if (path === '/api/folders' && method === 'GET') return { status: 200, json: { folders } };
-    if (path === '/api/folders' && method === 'POST') {
-      const f = folder('f3', b.name, 0);
-      folders = [...folders, f];
-      return { status: 201, json: f };
-    }
-    if (path.startsWith('/api/folders/') && method === 'PATCH') return { status: 200, json: { ok: true } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [{ name: 'idea', count: 4 }, { name: 'todo', count: 1 }] } };
-    if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [], nextCursor: null } };
-    return { status: 500, json: { error: { code: 'x', message: `unexpected ${method} ${path}` } } };
-  });
+  mockFetch(
+    signedInBackend(
+      (method, path, b) => {
+        if (method === 'DELETE' && path === '/api/session') {
+          signedIn = false;
+          return { status: 200, json: { ok: true } };
+        }
+        if (path === '/api/folders' && method === 'POST') {
+          const f = folder('f3', b.name, 0);
+          folders = [...folders, f];
+          return { status: 201, json: f };
+        }
+        if (path.startsWith('/api/folders/') && method === 'PATCH') return { status: 200, json: { ok: true } };
+        if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [], nextCursor: null } };
+        return { status: 500, json: { error: { code: 'x', message: `unexpected ${method} ${path}` } } };
+      },
+      {
+        signedIn: () => signedIn,
+        me: { storageUsed: 12 * 1024 * 1024, storageLimit: 1024 * 1024 * 1024 },
+        folders: () => folders,
+        tags: [{ name: 'idea', count: 4 }, { name: 'todo', count: 1 }],
+      },
+    ),
+  );
 });
 afterEach(async () => {
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 async function open() {

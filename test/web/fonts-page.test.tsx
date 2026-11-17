@@ -10,7 +10,7 @@ import { AVAILABLE, matchFonts } from '../../src/web/components/FontsPage';
 import { ROW_HEIGHT } from '../../src/web/fonts/grid';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { clearAllFonts, fontRulesText } from '../../src/web/fonts/runtime';
-import { button, click, mockFetch, render, requests, settle, waitFor, railButton, signOut } from './harness';
+import { button, click, mockFetch, render, requests, resetPage, settle, signedInBackend, waitFor, railButton, signOut } from './harness';
 import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
 
 let view: Awaited<ReturnType<typeof render>> | null = null;
@@ -43,15 +43,14 @@ beforeEach(() => {
   user = 'u1';
 });
 afterEach(async () => {
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 function server(opts: { signedIn?: boolean; full?: boolean } = {}) {
   let signedIn = opts.signedIn ?? true;
   const NOTE = '99999999-9999-4999-8999-999999999999';
-  mockFetch((method, path, b) => {
+  mockFetch(signedInBackend((method, path, b) => {
     if (method === 'POST' && path === '/api/session') {
       signedIn = true;
       return { status: 200, json: { id: user, username: 'alice' } };
@@ -61,10 +60,6 @@ function server(opts: { signedIn?: boolean; full?: boolean } = {}) {
       signedIn = false;
       return { status: 200, json: { ok: true } };
     }
-    if (path === '/api/session') return { status: 200, json: { id: user, username: 'alice' } };
-    if (path === '/api/me') return { status: 200, json: { id: user, username: user === 'u1' ? 'alice' : 'bob', storageUsed: 0, storageLimit: 1, inboxId: 'inbox' } };
-    if (path === '/api/folders') return { status: 200, json: { folders: [] } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [] } };
     if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [{ id: NOTE, title: 'A note', snippet: '', folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } }], nextCursor: null } };
     if (path === `/api/notes/${NOTE}` && method === 'GET')
       return { status: 200, json: { id: NOTE, title: 'A note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'in lora', marks: [{ type: 'fontFamily', attrs: { font: 'lora' } }] }] }] }, version: 1, folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } } };
@@ -83,7 +78,7 @@ function server(opts: { signedIn?: boolean; full?: boolean } = {}) {
     const faces = /^\/api\/fonts\/faces\/([a-z0-9-]+)$/.exec(path);
     if (faces) return { status: 200, json: { faces: [{ weight: '400', style: 'normal', unicodeRange: 'U+0000-00FF', file: HASH(7) }] } };
     return { status: 500, json: { error: { code: 'x', message: `unexpected ${method} ${path}` } } };
-  });
+  }, { signedIn: () => signedIn, user: () => ({ id: user, username: 'alice' }), me: () => ({ username: user === 'u1' ? 'alice' : 'bob' }) }));
 }
 
 async function start(path = '/') {

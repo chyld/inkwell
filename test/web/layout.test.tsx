@@ -6,27 +6,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
 import { LAYOUT_KEY, loadLayout } from '../../src/web/layout';
-import { button, click, mockFetch, render, waitFor } from './harness';
+import { button, click, mockFetch, render, resetPage, signedInBackend, waitFor } from './harness';
 
 let view: Awaited<ReturnType<typeof render>> | null = null;
 beforeEach(() => {
   setExpectedUser(null);
   sessionStorage.clear();
   localStorage.clear();
-  mockFetch((method, path) => {
-    if (method === 'GET' && path === '/api/session') return { status: 200, json: { id: 'u1', username: 'alice' } };
-    if (path === '/api/me') return { status: 200, json: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1, inboxId: 'inbox' } };
-    if (path === '/api/folders') return { status: 200, json: { folders: [] } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [] } };
-    if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [], nextCursor: null } };
-    return { status: 500, json: { error: { code: 'x', message: 'unexpected' } } };
-  });
+  mockFetch(
+    signedInBackend((method, path) => {
+      if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [], nextCursor: null } };
+      return { status: 500, json: { error: { code: 'x', message: 'unexpected' } } };
+    }),
+  );
 });
 afterEach(async () => {
   vi.restoreAllMocks();
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 async function open() {

@@ -9,7 +9,7 @@ import { App } from '../../src/web/App';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { clearAllFonts } from '../../src/web/fonts/runtime';
 import { currentStyles, resetStyles } from '../../src/web/stylesStore';
-import { button, click, mockFetch, render, requests, settle, waitFor, railButton } from './harness';
+import { button, click, mockFetch, render, requests, resetPage, settle, signedInBackend, waitFor, railButton } from './harness';
 import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
 
 type S = { id: string; name: string; font: string | null; size: number; bold: boolean; italic: boolean; underline: boolean; strike: boolean; textColor: string | null; highlight: string | null };
@@ -25,16 +25,12 @@ const sorted = (l: S[]) => [...l].sort((a, b) => (a.name.trim().toLowerCase() < 
 
 function server(opts: { signedIn?: boolean } = {}) {
   let signedIn = opts.signedIn ?? true;
-  mockFetch((method, path, b) => {
+  mockFetch(signedInBackend((method, path, b) => {
     if (method === 'POST' && path === '/api/session') {
       signedIn = true;
       return { status: 200, json: { id: user, username: 'alice' } };
     }
     if (!signedIn) return { status: 401, json: { error: { code: 'unauthorized', message: 'Please sign in.' } } };
-    if (path === '/api/session') return { status: 200, json: { id: user, username: 'alice' } };
-    if (path === '/api/me') return { status: 200, json: { id: user, username: 'alice', storageUsed: 0, storageLimit: 1, inboxId: 'inbox' } };
-    if (path === '/api/folders') return { status: 200, json: { folders: [] } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [] } };
     if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [{ id: NOTE, title: 'A note', snippet: '', folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } }], nextCursor: null } };
     if (path === `/api/notes/${NOTE}` && method === 'GET') return { status: 200, json: { id: NOTE, title: 'A note', body: noteBody, version: 1, folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } } };
     if (method === 'PUT' && path === `/api/notes/${NOTE}`) {
@@ -69,7 +65,7 @@ function server(opts: { signedIn?: boolean } = {}) {
       return { status: 200, json: { ok: true } };
     }
     return { status: 500, json: { error: { code: 'x', message: `unexpected ${method} ${path}` } } };
-  });
+  }, { signedIn: () => signedIn, user: () => ({ id: user, username: 'alice' }) }));
 }
 
 let view: Awaited<ReturnType<typeof render>> | null = null;
@@ -90,9 +86,8 @@ beforeEach(() => {
   resetStyles();
 });
 afterEach(async () => {
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 async function start(path = '/styles') {

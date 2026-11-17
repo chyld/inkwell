@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
-import { button, click, editorOf, mockFetch, railButton, render, waitFor } from './harness';
+import { button, click, editorOf, mockFetch, railButton, render, resetPage, signedInBackend, waitFor } from './harness';
 
 const NOTE = '66666666-6666-4666-8666-666666666666';
 const item = { id: NOTE, title: 'Iconic', snippet: 'x', folderId: 'f1', tags: ['t'], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } };
@@ -21,21 +21,21 @@ beforeEach(() => {
   setExpectedUser(null);
   sessionStorage.clear();
   localStorage.clear();
-  mockFetch((method, path) => {
-    if (method === 'GET' && path === '/api/session') return { status: 200, json: { id: 'u1', username: 'alice' } };
-    if (path === '/api/me') return { status: 200, json: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1, inboxId: 'inbox' } };
-    if (path === '/api/folders') return { status: 200, json: { folders: [folder('inbox', 'Inbox', [], true), folder('f1', 'Work', [folder('f2', 'Sub')])] } };
-    if (path === '/api/tags') return { status: 200, json: { tags: [{ name: 't', count: 1 }] } };
-    if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [item], nextCursor: null } };
-    if (path === `/api/notes/${NOTE}` && method === 'GET') return { status: 200, json: note };
-    if (method === 'PUT') return { status: 200, json: { version: 2, updatedAt: '2026-01-02T00:00:00Z' } };
-    return { status: 500, json: { error: { code: 'x', message: 'unexpected' } } };
-  });
+  mockFetch(
+    signedInBackend(
+      (method, path) => {
+        if (path.startsWith('/api/notes?')) return { status: 200, json: { notes: [item], nextCursor: null } };
+        if (path === `/api/notes/${NOTE}` && method === 'GET') return { status: 200, json: note };
+        if (method === 'PUT') return { status: 200, json: { version: 2, updatedAt: '2026-01-02T00:00:00Z' } };
+        return { status: 500, json: { error: { code: 'x', message: 'unexpected' } } };
+      },
+      { folders: [folder('inbox', 'Inbox', [], true), folder('f1', 'Work', [folder('f2', 'Sub')])], tags: [{ name: 't', count: 1 }] },
+    ),
+  );
 });
 afterEach(async () => {
-  await view?.unmount();
+  await resetPage(view);
   view = null;
-  document.body.innerHTML = '';
 });
 
 function checkButtons(root: ParentNode) {

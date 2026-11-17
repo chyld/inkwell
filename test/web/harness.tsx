@@ -2,6 +2,7 @@
 import { act, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { vi } from 'vitest';
+import { setExpectedUser } from '../../src/web/api';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -21,6 +22,48 @@ export function mockFetch(handler: Handler) {
     if (r === 'network-error') throw new TypeError('Failed to fetch');
     return new Response(r.json === undefined ? '' : JSON.stringify(r.json), { status: r.status, headers: { 'content-type': 'application/json' } });
   }) as any;
+}
+
+type Value<T> = T | (() => T);
+const valueOf = <T,>(v: Value<T>): T => (typeof v === 'function' ? (v as () => T)() : v);
+
+export interface SignedIn {
+  /** The signed-in user (GET /api/session); default alice, u1. */
+  user?: Value<{ id: string; username: string }>;
+  /** False: GET /api/session answers 401 (signed out). */
+  signedIn?: Value<boolean>;
+  /** Fields of GET /api/me over the user's defaults (storage 0 of 1, inbox 'inbox'). */
+  me?: Value<Record<string, unknown>>;
+  folders?: Value<unknown[]>;
+  tags?: Value<unknown[]>;
+}
+
+/**
+ * The backend of a signed-in app: GET /api/session, /api/me, /api/folders and /api/tags answered from `opts`;
+ * every other request goes to the test's own handler (which keeps its own answer for anything unexpected). While
+ * signed out, GET /api/session answers 401 and everything else goes to the test's handler.
+ */
+export function signedInBackend(own: Handler, opts: SignedIn = {}): Handler {
+  return (method, path, body, headers) => {
+    const signedOut = opts.signedIn !== undefined && !valueOf(opts.signedIn);
+    if (signedOut && method === 'GET' && path === '/api/session') return { status: 401, json: { error: { code: 'unauthorized', message: 'Sign in.' } } };
+    if (method === 'GET' && !signedOut) {
+      const user = valueOf(opts.user ?? { id: 'u1', username: 'alice' });
+      if (path === '/api/session') return { status: 200, json: user };
+      if (path === '/api/me') return { status: 200, json: { ...user, storageUsed: 0, storageLimit: 1, inboxId: 'inbox', ...valueOf(opts.me ?? {}) } };
+      if (path === '/api/folders') return { status: 200, json: { folders: valueOf(opts.folders ?? []) } };
+      if (path === '/api/tags') return { status: 200, json: { tags: valueOf(opts.tags ?? []) } };
+    }
+    return own(method, path, body, headers);
+  };
+}
+
+/** What every app test resets after itself: the page, the tab's user and its session storage. */
+export async function resetPage(view: { unmount: () => Promise<void> } | null) {
+  await view?.unmount();
+  document.body.innerHTML = '';
+  sessionStorage.clear();
+  setExpectedUser(null);
 }
 
 export async function render(el: ReactElement): Promise<{ root: Root; container: HTMLElement; unmount: () => Promise<void> }> {
