@@ -7,7 +7,7 @@ import { NoteSaver, activeSaver, type SaveStatus } from '../saver';
 import { noteExtensions, fontsInDoc } from '../../shared/schema';
 import { Toolbar } from './Toolbar';
 import { TagEditor } from './TagEditor';
-import { fixPastedTables, limitPastedFonts } from '../paste';
+import { fixPastedAttrs, fixPastedTables, limitPastedFonts } from '../paste';
 import { ImageResizeKeys, ResizableImage } from '../ImageView';
 import { FontSession } from '../fonts/runtime';
 import { NOTE_FONTS_MAX } from '../../shared/fonts';
@@ -196,7 +196,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     shouldRerenderOnTransaction: false,
     editorProps: {
       attributes: { class: 'prose', 'aria-label': 'Note body' },
-      transformPasted: (slice) => (editorRef.current ? limitPastedFonts(fixPastedTables(slice, editorRef.current), editorRef.current) : slice),
+      transformPasted: (slice) => (editorRef.current ? limitPastedFonts(fixPastedTables(fixPastedAttrs(slice), editorRef.current), editorRef.current) : slice),
       handlePaste: (_view, event) => upload.handleFiles(event.clipboardData?.files),
       handleDrop: (view, event) => {
         const files = (event as DragEvent).dataTransfer?.files;

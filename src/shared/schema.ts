@@ -257,6 +257,13 @@ const MARK_ATTRS: Record<string, Record<string, AttrCheck>> = {
   fontSize: { size: (v) => isFontSize(v) },
 };
 
+/** Whether the validator accepts this value of a node's or mark's attribute (pasted content is held to it). */
+export function attrAllowed(kind: 'node' | 'mark', type: string, key: string, value: unknown): boolean {
+  const checks = kind === 'node' ? NODE_ATTRS[type] : MARK_ATTRS[type];
+  const check = checks && Object.hasOwn(checks, key) ? checks[key] : undefined;
+  return !!check && check(value);
+}
+
 export class NoteValidationError extends Error {}
 
 function fail(msg: string): never {

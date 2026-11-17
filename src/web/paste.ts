@@ -4,6 +4,7 @@ import { Fragment, Slice, type Node as PMNode } from '@tiptap/pm/model';
 import type { Editor } from '@tiptap/react';
 import { NOTE_FONTS_MAX } from '../shared/fonts';
 import { fontsInDoc } from '../shared/noteRules';
+import { attrAllowed } from '../shared/schema';
 
 /**
  * A paste that would bring the note past 50 fonts keeps the fonts already in the note (and new ones up
@@ -41,6 +42,41 @@ export function limitPastedFonts(slice: Slice, editor: Editor): Slice {
   const kids: PMNode[] = [];
   slice.content.forEach((c) => kids.push(mapNode(c)));
   return dropped ? new Slice(Fragment.fromArray(kids), slice.openStart, slice.openEnd) : slice;
+}
+
+/**
+ * Pasted HTML can give attributes values the server's validator refuses (a link or image title over 1000
+ * characters, a code block's long language name, a list starting below 0), and then every save of the note fails.
+ * Each such attribute takes its default (BUGFIX-LIST-2 item 10, as item 6 did for a link's class and target).
+ */
+export function fixPastedAttrs(slice: Slice): Slice {
+  const fixed = (kind: 'node' | 'mark', type: string, attrs: Record<string, unknown>, spec: Record<string, { default?: unknown }> | undefined) => {
+    let out: Record<string, unknown> | null = null;
+    for (const [k, v] of Object.entries(attrs)) {
+      if (attrAllowed(kind, type, k, v)) continue;
+      out ??= { ...attrs };
+      out[k] = spec?.[k]?.default ?? null;
+    }
+    return out;
+  };
+  let changed = false;
+  const mapNode = (node: PMNode): PMNode => {
+    const marks = node.marks.map((m) => {
+      const a = fixed('mark', m.type.name, m.attrs, m.type.spec.attrs as never);
+      if (!a) return m;
+      changed = true;
+      return m.type.create(a);
+    });
+    const attrs = fixed('node', node.type.name, node.attrs, node.type.spec.attrs as never);
+    if (attrs) changed = true;
+    if (node.isText) return marks.some((m, i) => m !== node.marks[i]) ? node.mark(marks) : node;
+    const kids: PMNode[] = [];
+    node.forEach((c) => kids.push(mapNode(c)));
+    return node.type.create(attrs ?? node.attrs, Fragment.from(kids), marks);
+  };
+  const kids: PMNode[] = [];
+  slice.content.forEach((c) => kids.push(mapNode(c)));
+  return changed ? new Slice(Fragment.from(kids), slice.openStart, slice.openEnd) : slice;
 }
 
 /** Convert header cells outside a table's first row into normal cells (pasted tables). */
