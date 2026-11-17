@@ -288,3 +288,18 @@ describe('two tabs on one note (BUGFIX-LIST item 8)', () => {
     s.dispose();
   });
 });
+
+describe('closing an editor with changes not yet in its draft (BUGFIX-LIST item 9)', () => {
+  it('a conflicted saver disposed (e.g. its note closed by Empty Trash) first writes its latest changes as the draft', async () => {
+    const n = (await c.post('/api/notes', {})).json();
+    await c.put(`/api/notes/${n.id}`, { title: 'theirs', body: doc(p('theirs')), version: 1 }); // another tab saved: version 2
+    const s = makeSaver(n.id, 1);
+    s.saver.change('mine', doc(p('first')), true);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(s.saver.isConflicted()).toBe(true);
+    s.saver.change('mine', doc(p('first and later edits')));
+    expect(JSON.stringify(s.drafts.get('u', n.id)!.body)).not.toContain('later edits'); // not written yet
+    s.saver.dispose();
+    expect(JSON.stringify(s.drafts.get('u', n.id)!.body)).toContain('first and later edits'); // before: lost
+  });
+});

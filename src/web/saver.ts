@@ -308,6 +308,9 @@ export class NoteSaver {
   }
 
   dispose() {
+    // Whatever closes the editor (a conflicted note closed by Empty Trash, a switch, sign-out before it removes the
+    // drafts) first keeps the pending changes as a draft (BUGFIX-LIST item 9).
+    if (!this.disposed && this.draftStale) this.writeDraft();
     this.disposed = true;
     NoteSaver.live.delete(this);
     if (this.debounce) this.clearTimer(this.debounce);
