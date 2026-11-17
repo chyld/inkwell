@@ -18,6 +18,7 @@ import { folderPath } from './folders';
 import { useImageUpload } from './images';
 import { NoteNotFound } from './NoteNotFound';
 import { selectionFromPaper } from '../paperClick';
+import { HeaderCellsInFirstRow } from '../tableRules';
 
 interface Props {
   noteId: string;
@@ -552,4 +553,4 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
 export const FONT_SCAN_MS = 250;
 
 // The note schema with the web-only image resize view (same node, same attributes) and its Tab key.
-const EDITOR_EXTENSIONS = [...noteExtensions.map((e) => (e.name === 'image' ? ResizableImage : e)), ImageResizeKeys];
+export const EDITOR_EXTENSIONS = [...noteExtensions.map((e) => (e.name === 'image' ? ResizableImage : e)), ImageResizeKeys, HeaderCellsInFirstRow];

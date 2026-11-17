@@ -4,6 +4,7 @@ import { getSchema, Mark, type AnyExtension, type JSONContent } from '@tiptap/co
 import StarterKit from '@tiptap/starter-kit';
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table';
 import Image from '@tiptap/extension-image';
+import Link from '@tiptap/extension-link';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import type { Node as PMNode, Schema } from '@tiptap/pm/model';
 import { NOTE_FONTS_MAX, isFontId } from './fonts.js';
@@ -149,18 +150,33 @@ export const FontSizeMark = Mark.create({
 });
 
 /** The extensions that define the note schema. The editor adds only behaviour, never node or mark types. */
+/**
+ * The link mark, reading pasted HTML only as the validator accepts it (BUGFIX-LIST item 6): a web page's `class`
+ * is dropped, a `target` other than `_blank` and a `rel` longer than 100 characters give way to the defaults
+ * (target _blank, our rel). An attribute that parses to null takes its default.
+ */
+const SafeLink = Link.extend({
+  addAttributes() {
+    const parent = this.parent?.() ?? {};
+    return {
+      ...parent,
+      target: { ...parent.target, parseHTML: (el: AttrSource) => (el.getAttribute('target') === '_blank' ? '_blank' : null) },
+      rel: { ...parent.rel, parseHTML: (el: AttrSource) => { const r = el.getAttribute('rel'); return r && r.length <= 100 ? r : null; } },
+      class: { ...parent.class, parseHTML: () => null },
+    };
+  },
+});
+
 export const noteExtensions: AnyExtension[] = [
-  StarterKit.configure({
-    heading: { levels: [1, 2, 3] },
-    link: {
-      openOnClick: false,
-      autolink: true,
-      linkOnPaste: true,
-      defaultProtocol: 'https',
-      protocols: [],
-      isAllowedUri: (url: string) => isAllowedHref(url),
-      HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' },
-    },
+  StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false }),
+  SafeLink.configure({
+    openOnClick: false,
+    autolink: true,
+    linkOnPaste: true,
+    defaultProtocol: 'https',
+    protocols: [],
+    isAllowedUri: (url: string) => isAllowedHref(url),
+    HTMLAttributes: { rel: 'noopener noreferrer nofollow', target: '_blank' },
   }),
   Table.configure({ resizable: false }),
   TableRow,
