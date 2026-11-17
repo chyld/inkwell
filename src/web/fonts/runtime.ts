@@ -125,6 +125,7 @@ export class FaceLoader {
   private active = 0;
   /** For tests: the most /faces requests seen in flight at once. */
   maxActive = 0;
+  private epoch = 0;
 
   constructor(
     private deps: FaceLoaderDeps,
@@ -169,13 +170,17 @@ export class FaceLoader {
     this.gate.start();
     this.active++;
     this.maxActive = Math.max(this.maxActive, this.active);
+    // A request still in flight at sign-out (reset) registers nothing and is not asked again (BUGFIX-LIST item 11).
+    const epoch = this.epoch;
     try {
       const r = await this.deps.getFaces(job.id);
+      if (epoch !== this.epoch) return job.resolve(false);
       if (!isNoteFontRegistered(job.id)) registerNoteFont(job.id, r.faces);
       job.resolve(true);
     } catch (e) {
       const status = (e as { status?: number })?.status;
-      if (status === 429) {
+      if (epoch !== this.epoch) job.resolve(false);
+      else if (status === 429) {
         // Pause every font request until the time given, then ask again.
         this.gate.pause((e as { extra?: { retryAfter?: unknown } }).extra?.retryAfter);
         this.queue.unshift(job);
@@ -188,6 +193,7 @@ export class FaceLoader {
 
   /** Sign-out (the gate's pause is reset with it). */
   reset() {
+    this.epoch++;
     for (const j of this.queue) j.resolve(false);
     this.queue = [];
   }

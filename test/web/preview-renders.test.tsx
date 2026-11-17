@@ -59,3 +59,21 @@ describe('preview completions', () => {
     await view.unmount();
   });
 });
+
+describe('a failed preview still on screen (BUGFIX-LIST item 12)', () => {
+  it('is not asked again when the rendered set changes around it (scrolling, a search, a chip)', async () => {
+    const fails: Map<string, (e: unknown) => void> = new Map();
+    const asked: string[] = [];
+    loader = new PreviewLoader({ fetchPreview: (id) => (asked.push(id), new Promise((_ok, fail) => fails.set(id, fail))), now: () => 0, setTimeout: () => 0 });
+    setPreviewLoader(loader);
+    const view = await render(<Probe name="grid" ids={[a, b]} />);
+    await settle();
+    await act(async () => fails.get(a)!(new Error('broken file')));
+    await settle();
+    await act(async () => view.root.render(<Probe name="grid" ids={[a, b, c]} />)); // one more card rendered
+    await settle();
+    expect(asked.filter((x) => x === a)).toHaveLength(1); // before: asked again at once
+    expect(asked).toContain(c);
+    await view.unmount();
+  });
+});

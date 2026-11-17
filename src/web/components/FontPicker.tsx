@@ -12,15 +12,17 @@ export type FontState = { kind: 'none' } | { kind: 'one'; id: string } | { kind:
 /** The font at the cursor, or across the selection ("mixed" when it has more than one, or text with and without one). */
 export function fontStateOf(editor: Editor): FontState {
   const { state } = editor;
-  const { from, to, empty, $from } = state.selection;
+  const { empty, $from, ranges } = state.selection;
   const fontOf = (marks: readonly { type: { name: string }; attrs: Record<string, unknown> }[]) =>
     (marks.find((m) => m.type.name === 'fontFamily')?.attrs.font as string | undefined) ?? '';
   let seen = new Set<string>();
   if (empty) seen.add(fontOf(state.storedMarks ?? $from.marks()));
+  // Each range of the selection (a table cell selection has one per cell), not the unselected cells between them.
   else
-    state.doc.nodesBetween(from, to, (n) => {
-      if (n.isText) seen.add(fontOf(n.marks));
-    });
+    for (const r of ranges)
+      state.doc.nodesBetween(r.$from.pos, r.$to.pos, (n) => {
+        if (n.isText) seen.add(fontOf(n.marks));
+      });
   if (seen.size === 0) seen = new Set(['']);
   if (seen.size > 1) return { kind: 'mixed' };
   const id = [...seen][0];

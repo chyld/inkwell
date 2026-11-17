@@ -3,11 +3,15 @@
 import { useEffect, useState } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { Mark, Node as PMNode } from '@tiptap/pm/model';
+import type { Selection } from '@tiptap/pm/state';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, defaultSizeOf } from '../../shared/noteRules';
 import { parseSize, SizeStepper } from './SizeStepper';
 
 const clamp = (n: number) => Math.min(FONT_SIZE_MAX, Math.max(FONT_SIZE_MIN, n));
 const markSize = (marks: readonly Mark[]) => marks.find((m) => m.type.name === 'fontSize')?.attrs.size as number | undefined;
+/** The selection's ranges in document order: a table cell selection has one per cell, and the unselected cells
+ *  between them are not part of it (BUGFIX-LIST item 13). */
+const sortedRanges = (sel: Selection) => [...sel.ranges].map((r) => ({ from: r.$from.pos, to: r.$to.pos })).sort((a, b) => a.from - b.from);
 
 export interface SizeState {
   /** The effective size at the cursor, or at the start of the selection. */
@@ -19,15 +23,16 @@ export interface SizeState {
 
 export function sizeStateOf(editor: Editor): SizeState {
   const { state } = editor;
-  const { from, to, empty, $from } = state.selection;
+  const { empty, $from } = state.selection;
   if (empty) {
     const s = markSize(state.storedMarks ?? $from.marks()) ?? defaultSizeOf($from.parent);
     return { current: s, min: s, max: s };
   }
   const sizes: number[] = [];
-  state.doc.nodesBetween(from, to, (node: PMNode, _pos: number, parent: PMNode | null) => {
-    if (node.isText && parent) sizes.push(markSize(node.marks) ?? defaultSizeOf(parent));
-  });
+  for (const r of sortedRanges(state.selection))
+    state.doc.nodesBetween(r.from, r.to, (node: PMNode, _pos: number, parent: PMNode | null) => {
+      if (node.isText && parent) sizes.push(markSize(node.marks) ?? defaultSizeOf(parent));
+    });
   if (sizes.length === 0) {
     const s = defaultSizeOf($from.parent);
     return { current: s, min: s, max: s };
@@ -51,15 +56,16 @@ export function applySize(editor: Editor, next: (size: number) => number) {
     const rest = marks.filter((m) => m.type !== type);
     tr.setStoredMarks(size === def ? rest : [...rest, type.create({ size })]);
   } else {
-    state.doc.nodesBetween(from, to, (node: PMNode, pos: number, parent: PMNode | null) => {
-      if (!node.isText || !parent) return;
-      const a = Math.max(pos, from);
-      const b = Math.min(pos + node.nodeSize, to);
-      const def = defaultSizeOf(parent);
-      const size = clamp(next(markSize(node.marks) ?? def));
-      if (size === def) tr.removeMark(a, b, type);
-      else tr.addMark(a, b, type.create({ size }));
-    });
+    for (const { from: rf, to: rt } of sortedRanges(state.selection))
+      state.doc.nodesBetween(rf, rt, (node: PMNode, pos: number, parent: PMNode | null) => {
+        if (!node.isText || !parent) return;
+        const a = Math.max(pos, rf);
+        const b = Math.min(pos + node.nodeSize, rt);
+        const def = defaultSizeOf(parent);
+        const size = clamp(next(markSize(node.marks) ?? def));
+        if (size === def) tr.removeMark(a, b, type);
+        else tr.addMark(a, b, type.create({ size }));
+      });
   }
   editor.view.dispatch(tr);
 }

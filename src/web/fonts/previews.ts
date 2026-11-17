@@ -30,6 +30,7 @@ export class PreviewLoader {
   /** What each source (grid, chips, menu) renders now, top to bottom. */
   private sources = new Map<string, string[]>();
   private tick = 0;
+  private epoch = 0;
   private listeners = new Set<() => void>();
   /** For tests: the most previews seen loading at once. */
   maxLoading = 0;
@@ -105,16 +106,25 @@ export class PreviewLoader {
     this.maxLoading = Math.max(this.maxLoading, this.loading.size);
     let face: FontFaceLike | null = null;
     const e = fontEnv();
+    // A request still in flight at sign-out (reset) registers nothing and records nothing (BUGFIX-LIST item 11).
+    const epoch = this.epoch;
+    const stale = () => epoch !== this.epoch;
     try {
       const hash = await this.deps.fetchPreview(id);
+      if (stale()) return;
       if (!FONT_HASH_RE.test(hash) || !e) throw new Error('unusable');
       face = new e.FontFace(`preview-${id}`, fileUrl(hash), { display: 'swap' });
       e.fonts.add(face);
       await face.load();
+      if (stale()) {
+        e.fonts.delete(face);
+        return;
+      }
       this.loaded.set(id, { face, lastRendered: this.tick });
       this.releaseBeyondLimit();
     } catch (err) {
       if (face && e) e.fonts.delete(face);
+      if (stale()) return;
       // A 429 pauses every font request until the time given; the card stays a candidate.
       if (err instanceof ApiError && err.status === 429) this.gate.pause(err.extra.retryAfter);
       else this.failed.add(id);
@@ -138,6 +148,7 @@ export class PreviewLoader {
 
   /** Sign-out: every preview face is removed. */
   reset() {
+    this.epoch++; // requests in flight now are dropped when they finish
     const e = fontEnv();
     for (const l of this.loaded.values()) e?.fonts.delete(l.face);
     this.loaded.clear();
@@ -176,11 +187,15 @@ export function usePreviews(source: string, ids: string[], active = true) {
   const loader = previewLoader();
   const key = ids.join(',');
   const loadedKey = useSyncExternalStore(active ? loader.subscribe : noSubscription, () => (active ? ids.filter((id) => loader.isLoaded(id)).join(',') : ''));
+  // The rendered ids change in place (no empty moment between, which would let a failed card still on screen retry
+  // at once: BUGFIX-LIST item 12); the source is cleared only on unmount or when it becomes inactive.
   useEffect(() => {
-    if (!active) return;
-    loader.setRendered(source, ids);
-    return () => loader.setRendered(source, []);
+    if (active) loader.setRendered(source, ids);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loader, source, key, active]);
+  useEffect(() => {
+    if (!active) return;
+    return () => loader.setRendered(source, []);
+  }, [loader, source, active]);
   return useMemo(() => (id: string) => ({ fontFamily: previewFamily(id, loader.isLoaded(id)) }), [loader, loadedKey]);
 }

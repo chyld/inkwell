@@ -42,7 +42,14 @@ export class FontRequestGate {
     const s = Number(retryAfter);
     const ms = (Number.isFinite(s) && s > 0 ? s : 1) * 1000;
     this.pausedUntil = Math.max(this.pausedUntil, this.deps.now() + ms);
-    this.deps.setTimeout(() => this.wake(), ms);
+    this.deps.setTimeout(() => this.pauseEnded(), ms);
+  }
+
+  /** The pause's timer: a timer that fires a little early (clock skew) waits again for the rest (BUGFIX-LIST item 14). */
+  private pauseEnded() {
+    const left = this.pausedUntil - this.deps.now();
+    if (left > 0) this.deps.setTimeout(() => this.pauseEnded(), left);
+    else this.wake();
   }
 
   /** Sign-out: no pause carries over. Requests in flight still finish (and free their slot). */

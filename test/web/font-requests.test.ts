@@ -6,8 +6,8 @@ import { FONT_CATALOGUE } from '../../src/shared/fonts';
 import { ApiError } from '../../src/web/api';
 import { PreviewLoader } from '../../src/web/fonts/previews';
 import { FontRequestGate, FONT_REQUEST_LIMIT } from '../../src/web/fonts/requests';
-import { clearAllFonts, FaceLoader } from '../../src/web/fonts/runtime';
-import { HASH, installFontEnv } from './fonts-env';
+import { clearAllFonts, FaceLoader, isNoteFontRegistered } from '../../src/web/fonts/runtime';
+import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
 
 let now: number;
 let timers: { at: number; fn: () => void }[];
@@ -71,5 +71,43 @@ describe('one limit and one pause for previews and faces', () => {
     expect(faces.size).toBe(0);
     await advance(1);
     expect(faces.size).toBe(1);
+  });
+});
+
+describe('requests in flight at sign-out (BUGFIX-LIST item 11)', () => {
+  it('a preview and a face that answer after reset() register nothing', async () => {
+    const { p, f } = setup();
+    p.setRendered('grid', ids.slice(0, 1));
+    const done = f.ensure(ids[10], {});
+    await flush();
+    p.reset();
+    f.reset();
+    previews.get(ids[0])!.ok(HASH(2));
+    faces.get(ids[10])!.ok();
+    await flush();
+    expect(p.isLoaded(ids[0])).toBe(false);
+    expect(registeredFamilies()).not.toContain(`preview-${ids[0]}`);
+    expect(isNoteFontRegistered(ids[10])).toBe(false); // before: registered for the next user
+    expect(await done).toBe(false);
+  });
+});
+
+describe('the 429 pause (BUGFIX-LIST item 14)', () => {
+  it('a timer that fires a little early waits again; the loaders are woken once the pause is over', () => {
+    let t = 0;
+    const scheduled: { at: number; fn: () => void }[] = [];
+    const gate = new FontRequestGate({ now: () => t, setTimeout: (fn, ms) => scheduled.push({ at: t + ms, fn }) });
+    let wakes = 0;
+    gate.onWake(() => wakes++);
+    gate.pause(2);
+    t = 1999; // the timer fires 1 ms early
+    scheduled.shift()!.fn();
+    expect(wakes).toBe(0);
+    expect(gate.canStart()).toBe(false);
+    expect(scheduled).toHaveLength(1); // before: no second timer, so nothing woke the loaders again
+    t = scheduled[0].at;
+    scheduled.shift()!.fn();
+    expect(wakes).toBe(1);
+    expect(gate.canStart()).toBe(true);
   });
 });
