@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { App } from '../../src/web/App';
 import { encodeNoteId } from '../../src/shared/noteAddress';
-import { editorOf, mockFetch, render, requests, resetPage, settle, signedInBackend, waitFor } from './harness';
+import { editorOf, mockFetch, railButton, render, requests, resetPage, settle, signedInBackend, waitFor } from './harness';
 
 const A = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const B = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
@@ -55,5 +55,36 @@ describe('navigations that finish late', () => {
     await settle();
     expect(location.pathname).toBe(path(A));
     expect(title()).toBe('Alpha'); // before the fix: Bravo, under the address of A
+  });
+
+  // BUGFIX-LIST-2 item 4 (review b04): Back, then All notes on the rail before the save ends. The rail cancels the
+  // opening of B, so A stays open, and the address must name A again.
+  it('Back then a rail view during a slow save: the address names the note that stays open', async () => {
+    view = await render(<App />);
+    await waitFor(() => title() === 'Alpha' && !!editorOf(view!.container), 4000, 'note A open');
+    await act(async () => void editorOf(view!.container).commands.insertContent(' edited'));
+    await travel(path(B)); // Back
+    await waitFor(() => requests.some((r) => r.method === 'PUT'), 3000, 'the save of A');
+    await act(async () => railButton(view!.container, 'All notes').click());
+    await act(async () => finishSave());
+    await settle();
+    await settle();
+    expect(title()).toBe('Alpha');
+    expect(location.pathname).toBe(path(A)); // before: B's address, with A on screen
+  });
+
+  // The same with New note whose POST fails (this backend answers it with 404): nothing new opens, A stays.
+  it('Back then a New note that fails during a slow save: the address names the note that stays open', async () => {
+    view = await render(<App />);
+    await waitFor(() => title() === 'Alpha' && !!editorOf(view!.container), 4000, 'note A open');
+    await act(async () => void editorOf(view!.container).commands.insertContent(' edited'));
+    await travel(path(B)); // Back
+    await waitFor(() => requests.some((r) => r.method === 'PUT'), 3000, 'the save of A');
+    await act(async () => railButton(view!.container, 'New note').click());
+    await act(async () => finishSave());
+    await waitFor(() => requests.some((r) => r.method === 'POST' && r.path === '/api/notes'), 3000, 'the POST');
+    await settle();
+    expect(title()).toBe('Alpha');
+    expect(location.pathname).toBe(path(A));
   });
 });

@@ -95,4 +95,21 @@ describe('a new note in a tag view (BUGFIX-LIST item 20)', () => {
     expect(listTitles()).toHaveLength(1); // before: 2, the new note listed
     expect(listTitles()[0]).toContain('Tagged');
   });
+
+  // BUGFIX-LIST-2 item 4: New in All notes, then a tag view chosen before the POST returns.
+  it('made from All notes while the user switched to a tag view, is not listed in that view', async () => {
+    await start();
+    let release: () => void = () => {};
+    holdPost = new Promise((r) => (release = r));
+    await click(railButton(view!.container, 'New note'));
+    await waitFor(() => requests.some((r) => r.method === 'POST' && r.path === '/api/notes'), 3000, 'the POST sent');
+    await click(railButton(view!.container, 'Tags'));
+    await click(document.querySelector('.rail-panel .tag-chip'));
+    await waitFor(() => view!.container.querySelectorAll('#note-list .note-item').length === 1, 3000, 'the #work list');
+    await act(async () => release());
+    await settle();
+    expect(made).toBe(1);
+    expect(view!.container.querySelector('.list-header h2')?.textContent).toBe('#work');
+    expect(listTitles()).toHaveLength(1); // before: 2, the untagged new note listed under #work
+  });
 });

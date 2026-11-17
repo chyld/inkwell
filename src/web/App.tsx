@@ -239,8 +239,16 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   // that waited for a slow save cannot override the one the user made since (BUGFIX-LIST item 4).
   const navSeq = useRef(0);
   const creatingNote = useRef(false);
+  /** The view shown now, for code that resumes after an await. */
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const startNav = () => ++navSeq.current;
   const superseded = (n: number) => n !== navSeq.current;
+  /** A navigation that cancels a Back or Forward still waiting for a save, and opens nothing itself: the note open
+   *  stays, and the address that history already changed names it again (BUGFIX-LIST-2 item 5). */
+  const keepAddress = () => {
+    if (!notFound) setAddress(selected ? notePath(selected) : '/', 'replace');
+  };
 
   /** Open a note: from the list, or from Back/Forward (which must not add history entries). */
   async function select(id: string, fromHistory = false) {
@@ -326,6 +334,8 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     startNav();
     // Choosing anything else on the rail leaves the fonts or styles page (the screen below is the list).
     if (page !== 'notes') setAddress('/', 'push');
+    // It also cancels a Back or Forward still waiting for a save (BUGFIX-LIST-2 item 5).
+    else keepAddress();
     if (!sameView(v, view)) {
       setView(v);
       setItems([]);
@@ -366,7 +376,9 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     try {
       const n = await api<NoteItem & { version: number }>('POST', '/notes', { folderId });
       // Listed in the view it belongs to; a tag view lists notes with that tag, and a new note has none (item 20).
-      if (ctx.kind !== 'tag') setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
+      // Only if that view is still the one shown: the user may have chosen another while the POST was on its way
+      // (BUGFIX-LIST-2 item 4).
+      if (ctx.kind !== 'tag' && sameView(viewRef.current, ctx)) setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
       if (superseded(nav)) return; // made, and listed, but not opened over where the user went meanwhile
       setQuery('');
       setFresh(n.id);
@@ -377,6 +389,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
       refreshFolders();
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
+      if (!superseded(nav)) keepAddress(); // no new note: what was open stays (BUGFIX-LIST-2 item 5)
     }
   }
 
