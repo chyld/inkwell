@@ -266,6 +266,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     syncFonts();
     setTitle(current.title);
     titleRef.current = current.title;
+    s.takeOverDraft(); // restored here: this editor replaces it from now on, and clears it once saved
     s.change(current.title, editor.getJSON(), true);
   }
 

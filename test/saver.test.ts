@@ -190,10 +190,12 @@ describe('NoteSaver review fixes', () => {
     const tabA = new NoteSaver('u', 'n1', 1, { put: a.put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
     const tabB = new NoteSaver('u', 'n1', 1, { put: deferredPut().put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
     tabA.change('A', doc(p('from A')), true);
-    tabB.change('B', doc(p('from B'))); // debounced: only the draft is written so far
-    expect(drafts.get('u', 'n1')!.title).toBe('B');
+    tabB.change('B', doc(p('from B'))); // debounced; A's draft is not overwritten (BUGFIX-LIST item 8)
+    expect(drafts.get('u', 'n1')!.title).toBe('A');
     a.calls[0].resolve({ version: 2 });
     await tick();
+    expect(drafts.get('u', 'n1')).toBeNull(); // A cleared only its own draft
+    NoteSaver.writeAllDrafts(); // B's next chance (here pagehide) writes B's
     expect(drafts.get('u', 'n1')?.title).toBe('B');
     expect(tabB.hasUnconfirmed()).toBe(true);
   });
@@ -256,5 +258,33 @@ describe('the draft while typing goes on (BUGFIX-LIST item 7)', () => {
     expect(writes.length).toBeGreaterThanOrEqual(5);
     expect(writes.length).toBeLessThanOrEqual(6); // one per 2 s, not 40
     expect(JSON.stringify(drafts.get('u', 'n1')!.body)).toContain('x'.repeat(33));
+  });
+});
+
+describe('two tabs on one note (BUGFIX-LIST item 8)', () => {
+  const quiet = { onStatus: () => {}, onConflict: () => {}, setTimer: () => ({}), clearTimer: () => {} };
+  it("a tab's edits and successful save leave another tab's draft as it was", async () => {
+    const drafts = memDrafts();
+    const a = new NoteSaver('u', 'n1', 1, { ...quiet, drafts, put: () => new Promise(() => {}) }); // A's save never confirms (a conflict, offline)
+    a.change('A', doc(p('A typed this')));
+    expect(drafts.get('u', 'n1')!.title).toBe('A');
+    const b = new NoteSaver('u', 'n1', 1, { ...quiet, drafts, put: async () => ({ version: 2 }) });
+    b.change('B', doc(p('B typed this')), true); // written and sent at once; the save confirms
+    await new Promise((r) => setTimeout(r, 20));
+    expect(b.hasUnconfirmed()).toBe(false);
+    expect(drafts.get('u', 'n1')?.title).toBe('A'); // before: replaced by B's, then deleted by B's save
+    a.dispose();
+    b.dispose();
+  });
+
+  it('a restored draft is taken over: this tab replaces it and clears it once saved', async () => {
+    const drafts = memDrafts();
+    drafts.set('u', 'n1', { title: 'old', body: doc(p('old')), version: 1, savedAt: 0, owner: 'an earlier opening' });
+    const s = new NoteSaver('u', 'n1', 1, { ...quiet, drafts, put: async () => ({ version: 2 }) });
+    s.takeOverDraft();
+    s.change('old', doc(p('old')), true);
+    await new Promise((r) => setTimeout(r, 20));
+    expect(drafts.get('u', 'n1')).toBeNull();
+    s.dispose();
   });
 });

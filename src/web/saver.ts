@@ -52,6 +52,7 @@ export class NoteSaver {
   /** True when the stored draft is older than the latest change. */
   private draftStale = false;
   private draftWrittenAt = 0;
+  private takingOver = false;
   private latestSeq = 0;
   private confirmedSeq = 0;
   private inFlight: Promise<void> | null = null;
@@ -130,10 +131,23 @@ export class NoteSaver {
     return this.latest;
   }
 
+  /** The user restored the stored draft into this editor: it is this editor's now, to replace and to clear. */
+  takeOverDraft() {
+    this.takingOver = true;
+  }
+
   private writeDraft() {
     this.draftStale = false;
     const latest = this.resolved();
     if (!latest || !this.hasUnconfirmed()) return;
+    // Two tabs on one note share one draft: a tab overwrites only a draft it wrote (or took over), so another tab's
+    // unsaved work is never replaced and then deleted by this tab's save (BUGFIX-LIST item 8).
+    const stored = this.deps.drafts.get(this.userId, this.noteId);
+    if (stored && stored.owner !== this.owner && !this.takingOver) {
+      this.draftStale = true; // written at the next chance (a keystroke, the send, pagehide) once that one is gone
+      return;
+    }
+    this.takingOver = false;
     this.draftWrittenAt = this.now();
     this.deps.drafts.set(this.userId, this.noteId, { title: latest.title, body: latest.body, version: this.base, savedAt: Date.now(), owner: this.owner });
   }
