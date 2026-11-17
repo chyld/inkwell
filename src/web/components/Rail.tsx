@@ -10,6 +10,7 @@ import { formatBytes } from '../util';
 import { useDialogs } from './Dialogs';
 import { FolderTree, type RailView, type View } from './folders';
 import { ApiError } from '../api';
+import { InkwellMark } from './InkwellMark';
 
 type Panel = 'folders' | 'tags' | 'account';
 
@@ -137,6 +138,10 @@ export function Rail({ me, folders, tags, view, onView, onFoldersChanged, onSign
   return (
     <nav id="rail" className="rail" aria-label="Navigation">
       <div className="rail-group">
+        {/* The app's mark heads the rail on a wide screen (hidden in the phone's bottom bar, which has no room). */}
+        <span className="rail-logo" role="img" aria-label="Inkwell" title="Inkwell">
+          <InkwellMark size={26} />
+        </span>
         <button type="button" className="rail-button rail-new" aria-label="New note" title="New note" onClick={() => (close(false), onNewNote())}>
           <Plus />
         </button>

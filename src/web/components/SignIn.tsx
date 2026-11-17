@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, ApiError, setExpectedUser, type Me } from '../api';
+import { InkwellMark } from './InkwellMark';
 
 export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   const [username, setUsername] = useState('');
@@ -25,7 +26,10 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   return (
     <main className="signin">
       <form className="signin-card" onSubmit={submit}>
-        <h1>Inkwell</h1>
+        <h1 className="signin-brand">
+          <InkwellMark size={40} />
+          Inkwell
+        </h1>
         <label className="field">
           <span>Username</span>
           <input autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />

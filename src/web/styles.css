@@ -334,6 +334,26 @@ mark {
   margin: 0 0 6px;
   font-size: 1.6rem;
 }
+.signin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* the Inkwell mark: neck in the surrounding text colour, a coral bottle, a drop in the coral's ink */
+.inkwell-mark {
+  flex: none;
+  display: block;
+}
+.inkwell-neck {
+  fill: currentColor;
+}
+.inkwell-bottle {
+  fill: var(--accent);
+}
+.inkwell-drop {
+  fill: var(--accent-text);
+}
 .field {
   display: flex;
   flex-direction: column;
@@ -430,6 +450,14 @@ mark {
   width: 36px;
   height: 36px;
   border-radius: 10px;
+  color: var(--rail-icon);
+}
+.rail-logo {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 30px;
+  margin-bottom: 4px;
   color: var(--rail-icon);
 }
 .rail-button svg.lucide {
@@ -2316,6 +2344,9 @@ mark[data-highlight] {
   .rail-group {
     flex-direction: row;
     gap: 2px;
+  }
+  .rail-logo {
+    display: none; /* the bottom bar keeps its room for the buttons */
   }
   .rail-button {
     width: 40px;
