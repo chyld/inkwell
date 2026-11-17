@@ -74,6 +74,8 @@ describe('a lazy screen that cannot be loaded', () => {
 
   it('App wraps the editor, /fonts and /styles in the boundary', () => {
     const src = fs.readFileSync(path.join(__dirname, '../../src/web/App.tsx'), 'utf8');
-    for (const label of ['Editor', 'Fonts', 'Styles']) expect(src, label).toContain(`<ScreenErrorBoundary label="${label}">`);
+    for (const label of ['Fonts', 'Styles']) expect(src, label).toContain(`<ScreenErrorBoundary label="${label}">`);
+    // One boundary per note (BUGFIX-LIST-2 item 10): a failed note does not stay on screen over the next one.
+    expect(src).toContain('<ScreenErrorBoundary key={selected} label="Editor">');
   });
 });

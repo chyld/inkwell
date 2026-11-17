@@ -561,7 +561,9 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
         onEmptyTrash={emptyTrash}
       />}
       {page !== 'notes' ? null : selected ? (
-        <ScreenErrorBoundary label="Editor">
+        // One per note: a note whose editor fails to render does not keep the next note from opening (BUGFIX-LIST-2
+        // item 10). A missing chunk still fails for every note (the import's failure is kept), so Reload is needed.
+        <ScreenErrorBoundary key={selected} label="Editor">
         <Suspense fallback={<section className="editor-pane" aria-label="Editor" aria-busy="true" />}>
         <NoteEditorPane
           key={selected}
