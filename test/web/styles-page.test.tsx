@@ -101,7 +101,7 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   history.replaceState(null, '', '/');
-  document.title = 'Notes';
+  document.title = 'Inkwell';
   styles = { u1: [], u2: [] };
   user = 'u1';
   collection = ['lora'];
@@ -240,7 +240,7 @@ describe('the /styles page (criterion 14)', () => {
     expect(cards()[1].querySelector('.style-card-name [data-font-size]')!.getAttribute('data-font-size')).toBe('16');
     expect(button(view!.container, 'Edit Everything')).toBeTruthy();
     expect(button(view!.container, 'Delete Nothing')).toBeTruthy();
-    expect(document.title).toBe('Styles – Notes');
+    expect(document.title).toBe('Styles – Inkwell');
   });
 
   it('New style at 50: focusable, aria-disabled, does nothing, with the text beside it', async () => {
@@ -365,11 +365,11 @@ describe('/styles routing (criterion 15)', () => {
     expect(entry.getAttribute('aria-current')).toBe('page');
     expect(view!.container.querySelector('.ProseMirror')).toBeNull(); // closed
     expect(JSON.stringify(noteBody)).toContain('edited'); // saved first
-    expect(document.title).toBe('Styles – Notes');
+    expect(document.title).toBe('Styles – Inkwell');
     await click(railButton(view!.container, 'All notes'));
     await waitFor(() => !page(), 2000, 'left');
     expect(location.pathname).toBe('/');
-    expect(document.title).toBe('Notes');
+    expect(document.title).toBe('Inkwell');
   });
 
   it('the button names a matching style; a rename and an edit on /styles reach it; the note is not changed (DEVIATIONS 43)', async () => {

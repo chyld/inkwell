@@ -1,6 +1,6 @@
-# Notes
+# Inkwell
 
-A private, self-hosted note-taking app for a handful of people (fewer than 10).
+Inkwell is a private, self-hosted note-taking app for a handful of people (fewer than 10).
 Each person has their own notes and nobody can see anyone else's. Notes are
 written in a rich-text editor (headings, lists, task lists, code, quotes, links,
 tables, resizable images, underline, text colours, highlights, fonts, text sizes and saved
@@ -28,6 +28,11 @@ An agent cannot read, list, search, change or delete anything.
 
 It runs as two Docker containers: `app` (Node.js: web app, API, MCP endpoint and
 SQLite database) and `caddy` (HTTPS with an automatic Let's Encrypt certificate).
+
+Inkwell was called Notes while it was being built. The names the setup relies on
+keep that word, so an existing installation needs no changes: the `notes`
+command, the `NOTES_…` settings, the `notes-data` volume and the `nta_` token
+prefix.
 
 > **There are no backups.** Nothing is backed up automatically or on a schedule.
 > If the VPS disk is lost, every note is lost. To keep a copy, make one by hand
@@ -242,9 +247,9 @@ token `nta_EXAMPLEexampleEXAMPLEexampleEXAMPLEexample12`. Then:
 ### Claude Code
 
 ```sh
-claude mcp add --transport http --scope user notes https://chyld-notes.duckdns.org/mcp \
+claude mcp add --transport http --scope user inkwell https://chyld-notes.duckdns.org/mcp \
   --header "Authorization: Bearer nta_EXAMPLEexampleEXAMPLEexampleEXAMPLEexample12"
-claude mcp list        # "notes" should show as connected
+claude mcp list        # "inkwell" should show as connected
 ```
 
 Then ask Claude Code, for example, "put a summary of this in my notes".
@@ -256,7 +261,7 @@ shell profile (`~/.bashrc`, `~/.zshrc`) so it is set whenever Codex runs:
 
 ```sh
 export NOTES_MCP_TOKEN=nta_EXAMPLEexampleEXAMPLEexampleEXAMPLEexample12
-codex mcp add notes --url https://chyld-notes.duckdns.org/mcp --bearer-token-env-var NOTES_MCP_TOKEN
+codex mcp add inkwell --url https://chyld-notes.duckdns.org/mcp --bearer-token-env-var NOTES_MCP_TOKEN
 codex mcp list
 ```
 
@@ -267,7 +272,7 @@ call is refused with "MCP tool call requires approval".
 ### Grok
 
 ```sh
-grok mcp add notes https://chyld-notes.duckdns.org/mcp --transport http \
+grok mcp add inkwell https://chyld-notes.duckdns.org/mcp --transport http \
   --header "Authorization: Bearer nta_EXAMPLEexampleEXAMPLEexampleEXAMPLEexample12"
 grok mcp doctor        # checks configuration and connectivity
 ```
@@ -278,11 +283,11 @@ Muse can read the token from an environment variable (as for Codex):
 
 ```sh
 export NOTES_MCP_TOKEN=nta_EXAMPLEexampleEXAMPLEexampleEXAMPLEexample12
-muse mcp add notes --url https://chyld-notes.duckdns.org/mcp --bearer-token-env-var NOTES_MCP_TOKEN --user
-muse mcp get notes
+muse mcp add inkwell --url https://chyld-notes.duckdns.org/mcp --bearer-token-env-var NOTES_MCP_TOKEN --user
+muse mcp get inkwell
 ```
 
-(`muse mcp add notes --url … -H "Authorization: Bearer nta_…" --user` is the
+(`muse mcp add inkwell --url … -H "Authorization: Bearer nta_…" --user` is the
 alternative that stores the token in Muse's user settings.)
 
 ### Checking a token by hand

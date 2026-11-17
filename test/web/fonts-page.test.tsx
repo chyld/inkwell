@@ -38,7 +38,7 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   history.replaceState(null, '', '/');
-  document.title = 'Notes';
+  document.title = 'Inkwell';
   collections = { u1: [], u2: [] };
   user = 'u1';
 });
@@ -280,7 +280,7 @@ describe('the collection (criterion 3)', () => {
 });
 
 describe('routing (criterion 21)', () => {
-  it('the sidebar entry opens the page (marked current, title "Fonts – Notes"); choosing anything else leaves it', async () => {
+  it('the sidebar entry opens the page (marked current, title "Fonts – Inkwell"); choosing anything else leaves it', async () => {
     server();
     await start('/');
     await waitFor(() => !!view!.container.querySelector('.note-item'), 3000, 'notes');
@@ -288,7 +288,7 @@ describe('routing (criterion 21)', () => {
     await click(fontsEntry);
     await waitFor(() => !!page(), 2000, 'page');
     expect(location.pathname).toBe('/fonts');
-    expect(document.title).toBe('Fonts – Notes');
+    expect(document.title).toBe('Fonts – Inkwell');
     expect(fontsEntry.getAttribute('aria-current')).toBe('page');
     expect(view!.container.querySelector('.note-list')).toBeNull();
     const all = railButton(view!.container, 'All notes');
@@ -296,7 +296,7 @@ describe('routing (criterion 21)', () => {
     await click(all);
     await waitFor(() => !page(), 2000, 'left');
     expect(location.pathname).toBe('/');
-    expect(document.title).toBe('Notes');
+    expect(document.title).toBe('Inkwell');
     expect(view!.container.querySelector('.note-list')).toBeTruthy();
   });
 

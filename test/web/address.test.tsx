@@ -91,7 +91,7 @@ beforeEach(() => {
   sessionStorage.clear();
   localStorage.clear();
   visit('/');
-  document.title = 'Notes';
+  document.title = 'Inkwell';
 });
 afterEach(async () => {
   await view?.unmount();
@@ -113,19 +113,19 @@ describe('note addresses', () => {
     await waitFor(() => titleInput()?.value === 'Alpha', 3000, 'Alpha open');
     expect(location.pathname).toBe(path(A));
     expect(history.length).toBe(len + 1);
-    expect(document.title).toBe('Alpha – Notes');
+    expect(document.title).toBe('Alpha – Inkwell');
     await act(async () => {
       const el = titleInput()!;
       const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
       set.call(el, 'Alpha renamed');
       el.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    await waitFor(() => document.title === 'Alpha renamed – Notes', 2000, 'title follows edits');
+    await waitFor(() => document.title === 'Alpha renamed – Inkwell', 2000, 'title follows edits');
 
     await click(button(view!.container, 'New note'));
     await waitFor(() => location.pathname === path(NEW), 3000, 'new note address');
     expect(history.length).toBe(len + 2);
-    await waitFor(() => document.title === 'Untitled – Notes', 2000, 'untitled');
+    await waitFor(() => document.title === 'Untitled – Inkwell', 2000, 'untitled');
   });
 
   it('Back and Forward move between opened notes and the list, flushing edits like a click, without new entries', async () => {
@@ -154,7 +154,7 @@ describe('note addresses', () => {
     await travel('/');
     await waitFor(() => !titleInput(), 3000, 'closed');
     expect(view!.container.querySelector('.editor-pane.empty')?.textContent).toContain('Select a note');
-    expect(document.title).toBe('Notes');
+    expect(document.title).toBe('Inkwell');
     // Forward again.
     await travel(path(A));
     await waitFor(() => titleInput()?.value === 'Alpha', 3000, 'forward to Alpha');
@@ -198,7 +198,7 @@ describe('note addresses', () => {
       requests.length = 0;
       await start();
       await waitFor(() => notFoundText().includes('This note was not found'), 3000, 'not found for ' + p);
-      expect(document.title).toBe('Note not found – Notes');
+      expect(document.title).toBe('Note not found – Inkwell');
       await settle();
       // No loop: at most one request for the note, and the address is left alone.
       expect(requests.filter((r) => r.path.startsWith('/api/notes/')).length).toBeLessThanOrEqual(1);

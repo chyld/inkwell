@@ -137,7 +137,7 @@ describe('notes CLI against a running app', () => {
     const token = /\n\s+(nta_[A-Za-z0-9_-]{43})\n/.exec(r.out)![1];
     for (const client of ['Claude Code:', 'Codex', 'Grok:', 'Muse']) expect(r.out).toContain(client);
     expect(r.out).toContain(`https://${HOST}/mcp`);
-    expect(r.out).toContain(`claude mcp add --transport http --scope user notes https://${HOST}/mcp --header "Authorization: Bearer ${token}"`);
+    expect(r.out).toContain(`claude mcp add --transport http --scope user inkwell https://${HOST}/mcp --header "Authorization: Bearer ${token}"`);
     expect((await mcpList(token)).status).toBe(200);
     // Only the hash is stored.
     expect(JSON.stringify(env.store.db.prepare('SELECT * FROM agents').all())).not.toContain(token);

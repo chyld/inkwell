@@ -43,7 +43,7 @@ export function initHistory() {
 
 export { notePath };
 
-export const APP_TITLE = 'Notes';
+export const APP_TITLE = 'Inkwell';
 export function noteTitle(title: string): string {
   return `${title.trim() || 'Untitled'} – ${APP_TITLE}`;
 }

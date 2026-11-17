@@ -25,7 +25,7 @@ export async function registerApi(api: FastifyInstance, opts: AppOptions & { fon
   // CSRF (SPEC 5): state-changing requests must carry Origin == https://<NOTES_HOST>.
   api.addHook('onRequest', async (req, reply) => {
     if (UNSAFE.has(req.method) && req.headers.origin !== config.origin) {
-      return reply.status(403).send(errorBody('bad_origin', 'This request did not come from the notes app.'));
+      return reply.status(403).send(errorBody('bad_origin', 'This request did not come from the Inkwell app.'));
     }
   });
 

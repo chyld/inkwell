@@ -61,6 +61,9 @@ describe('MCP endpoint with the SDK client', () => {
       expect(caps.tools!.listChanged).toBeFalsy();
       const tools = await client.listTools();
       expect(tools.tools.map((t) => t.name)).toEqual(['create_note']);
+      // The app's name as agents see it.
+      expect(client.getServerVersion()?.name).toBe('inkwell');
+      expect(tools.tools[0].description).toMatch(/^Create a new note in the user’s Inkwell app\./);
       if (mode === 'legacy') {
         await client.ping();
         expect(client.getNegotiatedProtocolVersion()).toMatch(/^2025-/);

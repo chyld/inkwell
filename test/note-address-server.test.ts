@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { encodeNoteId } from '../src/shared/noteAddress.js';
 import { makeEnv, userClient, type Env } from './helpers.js';
 
-const INDEX = '<!doctype html><title>Notes</title><div id="root"></div>';
+const INDEX = '<!doctype html><title>Inkwell</title><div id="root"></div>';
 let env: Env;
 let web: string;
 beforeAll(async () => {

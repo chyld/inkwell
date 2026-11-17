@@ -9,7 +9,7 @@ import { AppError } from '../server/errors.js';
 import { checkPasswordRules, generatePassword } from '../server/passwords.js';
 import { clientInstructions } from '../server/clients.js';
 
-const USAGE = `Usage: notes <command>
+const USAGE = `Usage: notes <command>    (administers the Inkwell app on this server)
 
   user add <username> [--generate]   Create a user and their Inbox (prompts for a password twice,
                                      or --generate prints a random one once)

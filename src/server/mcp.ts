@@ -25,7 +25,7 @@ const ALLOWED_NOTIFICATIONS = new Set(['notifications/initialized']);
 const TOOL = 'create_note';
 
 const DESCRIPTION =
-  'Create a new note in the user’s Notes app. The note is placed in the user’s Inbox folder and marked as created by this agent. ' +
+  'Create a new note in the user’s Inkwell app. The note is placed in the user’s Inbox folder and marked as created by this agent. ' +
   'Content is Markdown (CommonMark with GFM tables, task lists and strikethrough). Raw HTML is shown as text, images become their alt text, ' +
   'and only http, https and mailto links are kept. Notes cannot be read, listed, changed or deleted through this server.';
 
@@ -64,7 +64,7 @@ export function createNoteFromAgent(store: Store, agent: AgentAuth, args: { titl
 }
 
 function buildServer(store: Store, agent: AgentAuth): McpServer {
-  const server = new McpServer({ name: 'notes', version: '1.0.0' }, { capabilities: { tools: { listChanged: false } } });
+  const server = new McpServer({ name: 'inkwell', version: '1.0.0' }, { capabilities: { tools: { listChanged: false } } });
   server.registerTool(
     TOOL,
     {

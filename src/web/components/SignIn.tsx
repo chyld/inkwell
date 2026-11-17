@@ -25,7 +25,7 @@ export function SignIn({ onSignedIn }: { onSignedIn: (me: Me) => void }) {
   return (
     <main className="signin">
       <form className="signin-card" onSubmit={submit}>
-        <h1>Notes</h1>
+        <h1>Inkwell</h1>
         <label className="field">
           <span>Username</span>
           <input autoComplete="username" autoCapitalize="none" spellCheck={false} value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus />

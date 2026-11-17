@@ -11,7 +11,7 @@ let env: Env;
 let web: string;
 beforeAll(async () => {
   web = fs.mkdtempSync(path.join(os.tmpdir(), 'notes-web-'));
-  fs.writeFileSync(path.join(web, 'index.html'), '<!doctype html><title>Notes</title>');
+  fs.writeFileSync(path.join(web, 'index.html'), '<!doctype html><title>Inkwell</title>');
   fs.mkdirSync(path.join(web, 'assets'));
   fs.writeFileSync(path.join(web, 'assets', 'NoteEditor-abc123.js'), 'export {};');
   env = await makeEnv({ NOTES_WEB_DIR: web });

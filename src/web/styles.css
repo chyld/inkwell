@@ -1,4 +1,4 @@
-/* The app's own fonts (Inter for text, JetBrains Mono for code), bundled and served by the notes server.
+/* The app's own fonts (Inter for text, JetBrains Mono for code), bundled and served by the Inkwell server.
    Declared under their real names: a family named by @font-face uses only these faces, never an installed
    copy, so every device draws the same. Variable (weight axis), upright and italic, Latin and Latin
    Extended slices; the browser loads only the slices and styles a page uses. Sources: README section 13. */
