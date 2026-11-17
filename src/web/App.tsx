@@ -144,16 +144,42 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   }, [layout]);
   const listSeq = useRef(0);
 
-  const refreshFolders = useCallback(() => {
-    api<{ folders: FolderNode[] }>('GET', '/folders').then((r) => setFolders(r.folders), () => {});
-  }, []);
-  const refreshTags = useCallback(() => {
-    api<{ tags: TagCount[] }>('GET', '/tags').then((r) => setTags(r.tags), () => {});
-  }, []);
+  // The folders and the tags (the rail's panels). A failure keeps what is shown, says so once, and tries again,
+  // 2 s after the first failure and then less often, up to every 30 s, until it works (BUGFIX-LIST item 19). A
+  // newer refresh replaces a pending retry; sign-out (the shell unmounts, or the session ends) stops them.
+  const sideRetry = useRef({ folders: { timer: null as ReturnType<typeof setTimeout> | null, failures: 0 }, tags: { timer: null as ReturnType<typeof setTimeout> | null, failures: 0 } });
+  const loadSide = useCallback(
+    function load(which: 'folders' | 'tags') {
+      const r = sideRetry.current[which];
+      if (r.timer) clearTimeout(r.timer);
+      r.timer = null;
+      const epoch = currentAuthEpoch();
+      const got =
+        which === 'folders'
+          ? api<{ folders: FolderNode[] }>('GET', '/folders').then((x) => setFolders(x.folders))
+          : api<{ tags: TagCount[] }>('GET', '/tags').then((x) => setTags(x.tags));
+      got.then(
+        () => (r.failures = 0),
+        (e) => {
+          if (epoch !== currentAuthEpoch() || (e instanceof ApiError && e.status === 401)) return; // signed out
+          if (r.failures++ === 0) dialogs.notice(`Your ${which} could not be loaded: ${e instanceof ApiError ? e.message : 'could not reach the server.'} Trying again.`);
+          r.timer = setTimeout(() => load(which), Math.min(30_000, 2000 * 2 ** (r.failures - 1)));
+        },
+      );
+    },
+    [dialogs],
+  );
+  const refreshFolders = useCallback(() => loadSide('folders'), [loadSide]);
+  const refreshTags = useCallback(() => loadSide('tags'), [loadSide]);
 
   useEffect(() => {
     refreshFolders();
     refreshTags();
+    const retry = sideRetry.current;
+    return () => {
+      for (const r of [retry.folders, retry.tags]) if (r.timer) clearTimeout(r.timer);
+      retry.folders.timer = retry.tags.timer = null;
+    };
   }, [refreshFolders, refreshTags]);
 
   const searching = query.trim().length > 0 && view.kind !== 'trash';
@@ -212,6 +238,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   // Every navigation takes a number; one that a later navigation superseded stops after each wait, so a navigation
   // that waited for a slow save cannot override the one the user made since (BUGFIX-LIST item 4).
   const navSeq = useRef(0);
+  const creatingNote = useRef(false);
   const startNav = () => ++navSeq.current;
   const superseded = (n: number) => n !== navSeq.current;
 
@@ -313,6 +340,17 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
    */
   async function newNote(anywhere = false) {
     if (view.kind === 'trash' && !anywhere) return;
+    // One at a time: a double click on New, or the shortcut pressed again, while one is being made makes no second
+    // note (BUGFIX-LIST item 18).
+    if (creatingNote.current) return;
+    creatingNote.current = true;
+    try {
+      await makeNote();
+    } finally {
+      creatingNote.current = false;
+    }
+  }
+  async function makeNote() {
     const ctx: View = view.kind === 'trash' ? { kind: 'all' } : view;
     const epoch = currentAuthEpoch();
     const nav = startNav();
@@ -327,7 +365,8 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     const folderId = ctx.kind === 'folder' ? ctx.id : ctx.kind === 'inbox' ? me.inboxId : null;
     try {
       const n = await api<NoteItem & { version: number }>('POST', '/notes', { folderId });
-      setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
+      // Listed in the view it belongs to; a tag view lists notes with that tag, and a new note has none (item 20).
+      if (ctx.kind !== 'tag') setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
       if (superseded(nav)) return; // made, and listed, but not opened over where the user went meanwhile
       setQuery('');
       setFresh(n.id);
@@ -348,7 +387,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.altKey && (e.key.toLowerCase() === 'n' || e.code === 'KeyN')) {
         e.preventDefault();
-        void newNoteRef.current();
+        if (!e.repeat) void newNoteRef.current(); // a held key makes one note (BUGFIX-LIST item 18)
       }
     };
     window.addEventListener('keydown', onKey);

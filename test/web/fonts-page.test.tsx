@@ -47,6 +47,22 @@ afterEach(async () => {
   view = null;
 });
 
+let failCollection = false;
+describe('a collection that cannot be loaded on /fonts (as BUGFIX-LIST item 15)', () => {
+  it('no "No fonts yet", and a notice says so', async () => {
+    failCollection = true;
+    try {
+      await openFonts();
+      await waitFor(() => requests.some((r) => r.path === '/api/fonts/collection'), 2000, 'the collection fetch');
+      await act(async () => new Promise((r) => setTimeout(r, 50)));
+      expect(view!.container.querySelector('.fonts-collection-empty')).toBeNull(); // before: "No fonts yet"
+      expect(document.body.textContent).toContain('Your fonts could not be loaded'); // before: nothing
+    } finally {
+      failCollection = false;
+    }
+  });
+});
+
 function server(opts: { signedIn?: boolean; full?: boolean } = {}) {
   let signedIn = opts.signedIn ?? true;
   const NOTE = '99999999-9999-4999-8999-999999999999';
@@ -64,7 +80,7 @@ function server(opts: { signedIn?: boolean; full?: boolean } = {}) {
     if (path === `/api/notes/${NOTE}` && method === 'GET')
       return { status: 200, json: { id: NOTE, title: 'A note', body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'in lora', marks: [{ type: 'fontFamily', attrs: { font: 'lora' } }] }] }] }, version: 1, folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' } } };
     if (method === 'PUT' && path.startsWith('/api/notes/')) return { status: 200, json: { version: 2, updatedAt: '2026-01-02T00:00:00Z' } };
-    if (path === '/api/fonts/collection') return { status: 200, json: collections[user] };
+    if (path === '/api/fonts/collection') return failCollection ? { status: 500, json: { error: { code: 'internal', message: 'Something went wrong on the server.' } } } : { status: 200, json: collections[user] };
     const m = /^\/api\/fonts\/collection\/([a-z0-9-]+)$/.exec(path);
     if (m && method === 'PUT') {
       if (opts.full || collections[user].length >= 50) return { status: 409, json: { error: { code: 'collection_full', message: 'You can keep at most 50 fonts. Remove one to add another.' } } };

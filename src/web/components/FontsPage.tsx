@@ -35,6 +35,7 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<'' | FontCategory>('');
   const [collection, setCollection] = useState<string[]>([]);
+  const [collectionLoaded, setCollectionLoaded] = useState(false);
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [view, setView] = useState({ scrollTop: 0, height: 0, width: 0 });
   const [focused, setFocused] = useState<number | null>(null);
@@ -52,8 +53,13 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     let alive = true;
     api<string[]>('GET', '/fonts/collection').then(
-      (ids) => alive && setCollection(Array.isArray(ids) ? ids : []),
-      () => {},
+      (ids) => {
+        if (!alive) return;
+        setCollection(Array.isArray(ids) ? ids : []);
+        setCollectionLoaded(true);
+      },
+      // Not "No fonts yet" for a collection that could not be loaded: a notice says so (as the font menu does, item 15).
+      (e) => alive && dialogs.notice(`Your fonts could not be loaded: ${e instanceof ApiError ? e.message : 'could not reach the server.'}`),
     );
     return () => {
       alive = false;
@@ -154,7 +160,7 @@ export function FontsPage({ onBack }: { onBack: () => void }) {
           <span className="fonts-collection-count">
             {chipIds.length} of {COLLECTION_MAX}
           </span>
-          {chipIds.length === 0 && <span className="fonts-collection-empty">No fonts yet. Add some from the list below.</span>}
+          {collectionLoaded && chipIds.length === 0 && <span className="fonts-collection-empty">No fonts yet. Add some from the list below.</span>}
           {chipIds.map((id) => {
             const f = fontById(id)!;
             return (
