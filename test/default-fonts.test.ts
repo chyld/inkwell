@@ -7,9 +7,10 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEFAULT_FONT_FAMILY, DEFAULT_MONO_FAMILY, fallbackFamily } from '../src/shared/fonts.js';
 import { PAGE_CSP } from '../src/server/http.js';
 import { makeEnv, type Env } from './helpers.js';
+import { cssSource } from './css.js';
 
 const WEB = path.join(import.meta.dirname, '../src/web');
-const css = fs.readFileSync(path.join(WEB, 'styles.css'), 'utf8');
+const css = cssSource;
 const html = fs.readFileSync(path.join(WEB, 'index.html'), 'utf8');
 const faces = [...css.matchAll(/@font-face \{([^}]*)\}/g)].map((m) => {
   const d = (k: string) => new RegExp(`${k}: ([^;]+);`).exec(m[1])?.[1];

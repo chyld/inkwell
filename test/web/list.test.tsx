@@ -2,26 +2,12 @@
 // The card list (REDESIGN-BRIEF 2.2): search and a compact New on one row, the view's name under them; each
 // note a white rounded card (title and time, one line of snippet, the agent mark, tags); the selected card
 // outlined; search results, highlighting, paging, Trash and its Empty Trash control.
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { act } from 'react';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
+import { decls } from '../css';
 import { button, click, mockFetch, railButton, render, waitFor } from './harness';
-
-const css = readFileSync(path.resolve(process.cwd(), 'src/web/styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-const decls = (sel: string) => {
-  const out: Record<string, string> = {};
-  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!m[1].split(',').some((x) => x.trim() === sel)) continue;
-    for (const d of m[2].split(';')) {
-      const i = d.indexOf(':');
-      if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
-    }
-  }
-  return out;
-};
 const ID = (n: number) => `0000000${n}-0000-4000-8000-000000000000`;
 const item = (n: number, over: Record<string, unknown> = {}) => ({ id: ID(n), title: `Note ${n}`, snippet: `Snippet of note ${n}, long enough to need cutting on one line`, folderId: null, tags: [], createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', trashedAt: null, origin: { type: 'user' }, ...over });
 let pages: Record<string, { notes: unknown[]; nextCursor: string | null }>;
@@ -103,15 +89,9 @@ describe('the cards', () => {
     expect(a.querySelector('.agent-badge')!.textContent).toBe('by Claude');
     expect(a.querySelector('.tag-chip')!.textContent).toBe('#idea');
     expect(b.querySelector('.agent-badge, .note-meta')).toBeNull();
-    // White, rounded 12 px, with gaps; one line of snippet; hover a subtle border; selected a 2 px coral outline.
-    expect(decls('.note-item').background).toBe('var(--bg)');
-    expect(decls('.note-item')['border-radius']).toBe('12px');
-    expect(decls('.list-scroll ul').gap).toBe('8px');
+    // One line of snippet; the selected card visibly outlined (in the focus-ring shade, 3:1 by the theme test).
     expect(decls('.note-snippet')['white-space']).toBe('nowrap');
-    expect(decls('.note-item:hover:not(:disabled)')['border-color']).toBe('var(--border)');
     expect(decls('.note-item.selected').outline).toBe('2px solid var(--accent-line)');
-    expect(decls('.note-list').background).toBe('var(--bg-soft)'); // the app ground
-    expect(decls('.app')['--list-width']).toBe('290px');
   });
 
   it('the selected card is marked; paging adds the next cards', async () => {

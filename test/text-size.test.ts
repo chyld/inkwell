@@ -1,6 +1,6 @@
 // The fontSize mark (8-96 px) and underline, on the server: accepted as specified, every listed case
 // refused; search ignores them; a save round-trips.
-import fs from 'node:fs';
+import { cssSource } from './css.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FONT_SIZE_MAX, FONT_SIZE_MIN, HEADING_SIZES, TEXT_SIZE_DEFAULT, defaultSizeOf, validateBody } from '../src/shared/schema.js';
 import { makeEnv, userClient, type Client, type Env } from './helpers.js';
@@ -78,7 +78,7 @@ describe('search and saving', () => {
 });
 
 describe('the stylesheet', () => {
-  const css = fs.readFileSync(new URL('../src/web/styles.css', import.meta.url), 'utf8');
+  const css = cssSource;
   it('has one static px rule per size, a unitless line-height for sized text, and the defaults the editor shows', () => {
     const rules = [...css.matchAll(/\[data-font-size='(\d+)'\] \{\s*font-size: (\d+)px;\s*\}/g)].map((m) => [Number(m[1]), Number(m[2])]);
     expect(rules.length).toBe(89);

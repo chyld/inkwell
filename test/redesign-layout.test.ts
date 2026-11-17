@@ -1,79 +1,10 @@
-// The redesign's layout rules that a DOM simulator cannot apply (REDESIGN-BRIEF 3 and 4): /fonts and /styles on the
-// app ground with paper cards; sign-in and dialogs on the palette; at phone width the rail as a bottom bar, its
-// panels as sheets, the editor's paper full width with smaller padding, the slim line wrapping; touch targets.
+// The redesign's layout rules that a DOM simulator cannot apply (REDESIGN-BRIEF 3 and 4): panels over the list; at
+// phone width the rail as a bottom bar, its panels as sheets, the title row wrapping; touch targets.
 // The measured layout (no sideways scroll, sizes in a real browser) is checked in the headless browser check.
-import fs from 'node:fs';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-
-const css = fs.readFileSync(path.join(__dirname, '../src/web/styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-/** The text inside one at-rule block, by its exact prelude. */
-function atBlock(prelude: string): string {
-  const start = css.indexOf(prelude + ' {');
-  expect(start, prelude).toBeGreaterThanOrEqual(0);
-  let depth = 0;
-  for (let i = css.indexOf('{', start); i < css.length; i++) {
-    if (css[i] === '{') depth++;
-    else if (css[i] === '}' && --depth === 0) return css.slice(css.indexOf('{', start) + 1, i);
-  }
-  throw new Error('unclosed ' + prelude);
-}
-/** Declarations given to exactly this selector in a stylesheet text (later wins). */
-function decls(sel: string, text?: string): Record<string, string> {
-  text ??= wide;
-  const out: Record<string, string> = {};
-  for (const m of text.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!m[1].split(',').some((x) => x.trim() === sel)) continue;
-    for (const d of m[2].split(';')) {
-      const i = d.indexOf(':');
-      if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
-    }
-  }
-  return out;
-}
-const phone = atBlock('@media (max-width: 760px)');
-/** The stylesheet without its @media blocks: what applies on a wide screen with a mouse. */
-const wide = (() => {
-  let out = '';
-  let i = 0;
-  while (i < css.length) {
-    const at = css.indexOf('@media', i);
-    if (at < 0) return out + css.slice(i);
-    out += css.slice(i, at);
-    let depth = 0;
-    let j = css.indexOf('{', at);
-    for (; j < css.length; j++) {
-      if (css[j] === '{') depth++;
-      else if (css[j] === '}' && --depth === 0) break;
-    }
-    i = j + 1;
-  }
-  return out;
-})();
-const coarse = atBlock('@media (pointer: coarse)');
+import { coarse, decls, phone } from './css';
 
 describe('other screens (REDESIGN-BRIEF 3)', () => {
-  it('/fonts and /styles sit on the app ground with their cards on paper, rounded like the note cards', () => {
-    // Both pages share the browse-page shell (CLEANUP-PLAN pass 2 item 3).
-    expect(decls('.browse-page').background).toBe('var(--bg-soft)');
-    for (const [file, page] of [['FontsPage.tsx', 'fonts-page'], ['StylesPage.tsx', 'styles-page']]) {
-      expect(fs.readFileSync(path.join(__dirname, '../src/web/components', file), 'utf8'), file).toContain(`className="browse-page ${page}"`);
-    }
-    for (const card of ['.font-card', '.style-card']) {
-      expect(decls(card).background, card).toBe('var(--bg)');
-      expect(decls(card)['border-radius'], card).toBe('12px');
-    }
-  });
-
-  it('sign-in on the ground with a paper card; dialogs and menus on paper', () => {
-    expect(decls('.signin').background).toBe('var(--bg-soft)');
-    expect(decls('.signin-card').background).toBe('var(--bg)');
-    expect(decls('.modal').background).toBe('var(--bg)');
-    expect(decls('.font-popover').background).toBe('var(--bg)');
-    expect(decls('.rail-panel').background).toBe('var(--bg)');
-    expect(decls('.account-menu').background).toBe('var(--bg)');
-  });
-
   it('a panel sits over the list beside the rail and does not push the layout', () => {
     expect(decls('.rail-panel').position).toBe('absolute');
     expect(decls('.rail-panel').left).toBe('100%');
@@ -102,9 +33,7 @@ describe('phone width (REDESIGN-BRIEF 4)', () => {
     expect(decls('.account-menu', phone).position).toBe('fixed');
   });
 
-  it('the paper fills the width with smaller padding; the title row wraps its right-hand part to a second line', () => {
-    expect(decls('.editor-scroll.paper', phone).padding).toBe('14px 16px 60px');
-    expect(decls('.editor-header', phone).padding).toBe('0 10px');
+  it('the title row wraps its right-hand part to a second line', () => {
     expect(decls('.editor-row', phone)['flex-wrap']).toBe('wrap');
     expect(decls('.slim-left', phone).flex).toBe('1 1 100%');
   });

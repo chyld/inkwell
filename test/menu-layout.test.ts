@@ -1,24 +1,9 @@
 // Menus that grow (the Styles menu, the font menus): rows keep their natural height, only the list scrolls,
 // the footer stays below it, and the menu fits the viewport. What a stylesheet and a pure function can show;
 // the measured layout (row heights, overlap, the menu inside the viewport) is checked in a real browser.
-import fs from 'node:fs';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { MENU_MAX_HEIGHT, MENU_MIN_HEIGHT, fixedPosition, menuPlacement, placementStyle } from '../src/web/components/menuPlacement';
-
-const css = fs.readFileSync(path.join(__dirname, '../src/web/styles.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-/** Every declaration given to exactly this selector, in source order (later wins). */
-function decls(sel: string): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    if (!m[1].split(',').some((x) => x.trim() === sel)) continue;
-    for (const d of m[2].replace(/\/\*[\s\S]*?\*\//g, '').split(';')) {
-      const i = d.indexOf(':');
-      if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
-    }
-  }
-  return out;
-}
+import { css, decls } from './css';
 
 describe('menu rows never shrink (the crushed Styles menu)', () => {
   it('the menu itself does not scroll; it is a column whose list scrolls and whose footer stays', () => {
