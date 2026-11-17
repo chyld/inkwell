@@ -6,7 +6,7 @@ const PROXY = '172.30.87.2'; // Caddy's address on the Compose network (trusted)
 let env: Env;
 beforeEach(async () => {
   env = await makeEnv({ NOTES_TRUSTED_PROXY: '172.30.87.0/24' });
-  await env.store.createUser('alice', PASSWORD);
+  await env.store.identity.createUser('alice', PASSWORD);
 });
 afterEach(async () => env.close());
 
@@ -26,7 +26,7 @@ describe('sign-in rate limits', () => {
     const b = viaProxy('198.51.100.2');
     expect((await b('alice', PASSWORD)).statusCode).toBe(200);
     // Same address, other username: not blocked by the pair limit.
-    await env.store.createUser('bob', PASSWORD);
+    await env.store.identity.createUser('bob', PASSWORD);
     expect((await a('bob', PASSWORD)).statusCode).toBe(200);
   });
 

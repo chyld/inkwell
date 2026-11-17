@@ -11,7 +11,7 @@ afterEach(async () => env.close());
 
 describe('sessions', () => {
   it('sets a secure session cookie with the right attributes', async () => {
-    await env.store.createUser('alice', PASSWORD);
+    await env.store.identity.createUser('alice', PASSWORD);
     const c = new Client(env);
     const r = await c.signIn('ALICE');
     expect(r.statusCode).toBe(200);
@@ -85,7 +85,7 @@ describe('sessions', () => {
     const a = await userClient(env, 'alice');
     const b = await userClient(env, 'alice');
     const other = await userClient(env, 'bob');
-    await env.store.setPassword('alice', 'another long password');
+    await env.store.identity.setPassword('alice', 'another long password');
     expect((await a.get('/api/me')).statusCode).toBe(401);
     expect((await b.get('/api/me')).statusCode).toBe(401);
     expect((await other.get('/api/me')).statusCode).toBe(200);
@@ -94,21 +94,21 @@ describe('sessions', () => {
 
   it('is refused after the user is disabled, and sign-in is blocked until enabled', async () => {
     const a = await userClient(env, 'alice');
-    env.store.setDisabled('alice', true);
+    env.store.identity.setDisabled('alice', true);
     expect((await a.get('/api/me')).statusCode).toBe(401);
     expect((await new Client(env).signIn('alice')).statusCode).toBe(401);
-    env.store.setDisabled('alice', false);
+    env.store.identity.setDisabled('alice', false);
     expect((await new Client(env).signIn('alice')).statusCode).toBe(200);
   });
 
   it('removes expired rows at start-up', async () => {
     await userClient(env, 'alice');
     env.clock.t += 31 * DAY;
-    expect(env.store.purgeExpiredSessions()).toBe(1);
+    expect(env.store.identity.purgeExpiredSessions()).toBe(1);
   });
 
   it('returns one generic message for wrong password and unknown user', async () => {
-    await env.store.createUser('alice', PASSWORD);
+    await env.store.identity.createUser('alice', PASSWORD);
     const a = await new Client(env).signIn('alice', 'wrong password!!');
     const b = await new Client(env).signIn('nobody', 'wrong password!!');
     expect(a.statusCode).toBe(401);
@@ -132,7 +132,7 @@ describe('sessions', () => {
   });
 
   it('a sign-in that is verifying when the password changes does not get a session', async () => {
-    await env.store.createUser('alice', PASSWORD);
+    await env.store.identity.createUser('alice', PASSWORD);
     const newHash = await hashPassword('the new long password');
     // Make verification slow so the change lands while it runs.
     const real = crypto.argon2;
@@ -143,7 +143,7 @@ describe('sessions', () => {
       const pending = new Client(env).signIn('alice', PASSWORD);
       await new Promise((r) => setTimeout(r, 100));
       // Exactly what `notes user passwd` commits.
-      const user = env.store.getUserByUsername('alice')!;
+      const user = env.store.identity.getUserByUsername('alice')!;
       env.store.tx(() => {
         env.store.db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newHash, user.id);
         env.store.db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
@@ -157,7 +157,7 @@ describe('sessions', () => {
   });
 
   it('a sign-in that is verifying when the user is disabled does not get a session', async () => {
-    await env.store.createUser('alice', PASSWORD);
+    await env.store.identity.createUser('alice', PASSWORD);
     const real = crypto.argon2;
     const spy = vi.spyOn(crypto, 'argon2').mockImplementation(((alg: any, params: any, cb: any) => {
       setTimeout(() => real(alg, params, cb), 300);
@@ -165,7 +165,7 @@ describe('sessions', () => {
     try {
       const pending = new Client(env).signIn('alice', PASSWORD);
       await new Promise((r) => setTimeout(r, 100));
-      env.store.setDisabled('alice', true);
+      env.store.identity.setDisabled('alice', true);
       expect((await pending).statusCode).toBe(401);
       expect(env.store.db.prepare('SELECT count(*) c FROM sessions').get()).toEqual({ c: 0 });
     } finally {

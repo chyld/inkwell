@@ -333,7 +333,7 @@ describe('data copy and user deletion (criterion 18)', () => {
     expect(filesOnDisk().length).toBeGreaterThan(0);
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'fonts-copy-')), 'copy');
     try {
-      await env.store.dataCopy(out);
+      await env.store.copy.dataCopy(out);
       expect(fs.existsSync(path.join(out, 'fonts'))).toBe(false);
       const copy = new Database(path.join(out, 'notes.db'), { readonly: true });
       expect(copy.prepare('SELECT font_id FROM font_collection ORDER BY seq').all()).toEqual([{ font_id: 'titan-one' }, { font_id: 'lora' }]);
@@ -343,7 +343,7 @@ describe('data copy and user deletion (criterion 18)', () => {
     }
     const bob = await userClient(env, 'bob');
     expect((await bob.put('/api/fonts/collection/lora', undefined)).statusCode).toBe(201);
-    env.store.deleteUser('alice');
+    env.store.identity.deleteUser('alice');
     expect(env.store.db.prepare('SELECT user_id, font_id FROM font_collection').all()).toEqual([{ user_id: bob.userId, font_id: 'lora' }]);
     expect(env.store.fonts.getFaces('lora')).not.toBeNull(); // the shared store stays
   });

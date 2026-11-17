@@ -8,7 +8,7 @@ export class McpTestClient {
   static async connect(env: Env, username: string): Promise<McpTestClient> {
     await env.app.listen({ host: '127.0.0.1', port: 0 });
     const base = `http://127.0.0.1:${(env.app.server.address() as { port: number }).port}`;
-    const token = env.store.addAgent(username, 'bot').token;
+    const token = env.store.identity.addAgent(username, 'bot').token;
     const client = new McpClient({ name: 't', version: '1' });
     await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
     return new McpTestClient(client);

@@ -158,14 +158,14 @@ describe('privacy and deletion (criterion 4)', () => {
     await create(bob, { name: 'B' });
     const out = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'styles-copy-')), 'copy');
     try {
-      await env.store.dataCopy(out);
+      await env.store.copy.dataCopy(out);
       const copy = new Database(path.join(out, 'notes.db'), { readonly: true });
       expect(copy.prepare('SELECT name FROM styles ORDER BY name').all()).toEqual([{ name: 'A' }, { name: 'B' }]);
       copy.close();
     } finally {
       fs.rmSync(path.dirname(out), { recursive: true, force: true });
     }
-    env.store.deleteUser('alice');
+    env.store.identity.deleteUser('alice');
     expect(env.store.db.prepare('SELECT name FROM styles').all()).toEqual([{ name: 'B' }]);
   });
 });

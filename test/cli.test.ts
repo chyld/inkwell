@@ -56,7 +56,7 @@ describe('notes CLI against a running app', () => {
     expect(mismatch.err).toMatch(/do not match/);
     const short = await cli(['user', 'add', 'dave'], 'short\nshort\n');
     expect(short.code).toBe(1);
-    expect(env.store.getUserByUsername('dave')).toBeUndefined();
+    expect(env.store.identity.getUserByUsername('dave')).toBeUndefined();
     expect((await cli(['user', 'add', 'carol'], `${PASSWORD}\n${PASSWORD}\n`)).code).toBe(1);
     expect((await cli(['user', 'add', 'x'], `${PASSWORD}\n${PASSWORD}\n`)).code).toBe(1);
   });
@@ -73,9 +73,9 @@ describe('notes CLI against a running app', () => {
     const a = await userClient(env, 'alice');
     await a.post('/api/notes', {});
     await a.post('/api/notes', {});
-    env.store.addAgent('alice', 'bot');
-    await env.store.createUser('bob', PASSWORD);
-    env.store.setDisabled('bob', true);
+    env.store.identity.addAgent('alice', 'bot');
+    await env.store.identity.createUser('bob', PASSWORD);
+    env.store.identity.setDisabled('bob', true);
     const r = await cli(['user', 'list']);
     expect(r.code, r.err).toBe(0);
     const lines = r.out.trim().split('\n');
@@ -96,7 +96,7 @@ describe('notes CLI against a running app', () => {
 
   it('user disable / enable: sessions end, sign-in blocked, agents get 401', async () => {
     const a = await userClient(env, 'alice');
-    const token = env.store.addAgent('alice', 'bot').token;
+    const token = env.store.identity.addAgent('alice', 'bot').token;
     expect((await mcpList(token)).status).toBe(200);
     expect((await cli(['user', 'disable', 'alice'])).code).toBe(0);
     expect((await a.get('/api/me')).statusCode).toBe(401);
@@ -113,13 +113,13 @@ describe('notes CLI against a running app', () => {
     const n = (await a.post('/api/notes', {})).json().id;
     await a.patch(`/api/notes/${n}`, { tags: ['t'] });
     await a.post('/api/folders', { name: 'F' });
-    const token = env.store.addAgent('alice', 'bot').token;
+    const token = env.store.identity.addAgent('alice', 'bot').token;
     const wrong = await cli(['user', 'delete', 'alice'], 'bob\n');
     expect(wrong.code).toBe(1);
-    expect(env.store.getUserByUsername('alice')).toBeDefined();
+    expect(env.store.identity.getUserByUsername('alice')).toBeDefined();
     const r = await cli(['user', 'delete', 'alice'], 'alice\n');
     expect(r.code, r.err).toBe(0);
-    expect(env.store.getUserByUsername('alice')).toBeUndefined();
+    expect(env.store.identity.getUserByUsername('alice')).toBeUndefined();
     for (const t of ['notes', 'folders', 'tags', 'agents', 'sessions', 'images']) {
       const row = env.store.db.prepare(`SELECT count(*) c FROM ${t} WHERE ${t === 'notes' || t === 'folders' || t === 'tags' || t === 'agents' || t === 'sessions' || t === 'images' ? 'user_id' : 'id'} NOT IN (SELECT id FROM users)`).get();
       expect(row, t).toEqual({ c: 0 });
@@ -131,7 +131,7 @@ describe('notes CLI against a running app', () => {
   });
 
   it('agent add prints a working token once with the four client configurations; list and revoke work', async () => {
-    await env.store.createUser('alice', PASSWORD);
+    await env.store.identity.createUser('alice', PASSWORD);
     const r = await cli(['agent', 'add', 'alice', 'Claude Code']);
     expect(r.code, r.err).toBe(0);
     const token = /\n\s+(nta_[A-Za-z0-9_-]{43})\n/.exec(r.out)![1];

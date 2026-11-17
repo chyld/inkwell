@@ -151,8 +151,8 @@ describe('Trash', () => {
     const n = await note(null);
     await c.post(`/api/notes/${n}/trash`);
     env.clock.t += 400 * 24 * 3600 * 1000;
-    env.store.cleanupImages();
-    env.store.purgeExpiredSessions();
+    env.store.images.cleanupImages();
+    env.store.identity.purgeExpiredSessions();
     const c2 = await userClient(env, 'alice');
     expect((await c2.get('/api/notes?view=trash')).json().notes).toHaveLength(1);
   });

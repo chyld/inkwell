@@ -13,9 +13,9 @@ describe('logging', () => {
     const base = `http://127.0.0.1:${(env.app.server.address() as { port: number }).port}`;
     const alice = await userClient(env, 'alice');
     const sessionId = alice.cookie.split('=')[1];
-    const token = env.store.addAgent('alice', 'bot').token;
-    const revoked = env.store.addAgent('alice', 'old').token;
-    env.store.revokeAgent('alice', 'old');
+    const token = env.store.identity.addAgent('alice', 'bot').token;
+    const revoked = env.store.identity.addAgent('alice', 'old').token;
+    env.store.identity.revokeAgent('alice', 'old');
 
     // Normal use, failures and errors.
     await alice.get('/api/notes?view=tag&tag=secretquerytag');

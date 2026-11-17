@@ -1,5 +1,6 @@
 // Measured SQL work per request (CLEANUP-PLAN pass 1, items 1 and 2). Counts come from better-sqlite3's verbose
 // hook (statements executed) and a wrapper on prepare (statements compiled), so they include the session check.
+import fs from 'node:fs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Client, doc, makeEnv, p, upload, userClient, type Env } from './helpers.js';
 import sharp from 'sharp';
@@ -94,7 +95,7 @@ describe('SQL work per request', () => {
 describe('the session check (item 2)', () => {
   it('carries only the id and username on the request: no password hash', async () => {
     const token = c.cookie.split('=')[1];
-    expect(Object.keys(env.store.authenticateSession(token)!).sort()).toEqual(['id', 'username']);
+    expect(Object.keys(env.store.identity.authenticateSession(token)!).sort()).toEqual(['id', 'username']);
   });
 
   it('runs before the body is parsed: a refused request is not parsed', async () => {
@@ -115,8 +116,8 @@ describe('the session check (item 2)', () => {
 
   it('a session whose user has gone or is disabled is refused and deleted, as before', async () => {
     const token = c.cookie.split('=')[1];
-    env.store.setDisabled('alice', true); // also deletes the sessions
-    expect(env.store.authenticateSession(token)).toBeNull();
+    env.store.identity.setDisabled('alice', true); // also deletes the sessions
+    expect(env.store.identity.authenticateSession(token)).toBeNull();
     expect((await c.get('/api/me')).statusCode).toBe(401);
   });
 });
@@ -187,14 +188,16 @@ describe('image clean-up (item 5)', () => {
     env.clock.t += 25 * 60 * 60 * 1000; // past the 24-hour grace
     const n = (await c.post('/api/notes', { folderId: null })).json();
     await c.post(`/api/notes/${n.id}/trash`);
-    const copyChecks = vi.spyOn(env.store as any, 'copyInProgress');
+    // A copy check reads the copy-locks directory once.
+    const readdir = vi.spyOn(fs, 'readdirSync');
+    const copyChecks = () => readdir.mock.calls.filter((call) => String(call[0]).endsWith('copy-locks')).length;
     env.sql.reset();
     expect((await c.del(`/api/notes/${n.id}`)).statusCode).toBe(200);
     expect(env.sql.executed.filter((q) => /FROM images/.test(q))).toHaveLength(1); // before: a SELECT, then a check and a DELETE per image
-    expect(copyChecks).toHaveBeenCalledTimes(1); // before: once per image
+    expect(copyChecks()).toBe(1); // before: once per image
     expect((await c.get(alices[0].src)).statusCode).toBe(404);
     expect((await bob.get(bobs.src)).statusCode).toBe(200); // another user's is left to the daily run
-    expect(env.store.cleanupImages()).toBe(1);
+    expect(env.store.images.cleanupImages()).toBe(1);
     expect((await bob.get(bobs.src)).statusCode).toBe(404);
   });
 });
@@ -210,11 +213,11 @@ describe('the admin user list (CLEANUP-PLAN pass 2, a deferred b01 #3 item)', ()
       if (name !== 'dave') expect((await upload(u, 'a.png', 'image/png', png)).statusCode).toBe(201);
     }
     env.sql.reset();
-    const users = env.store.listUsers();
+    const users = env.store.identity.listUsers();
     if (REPORT) console.log(`SQL listUsers (4 users): executed ${env.sql.executed.length}`);
     expect(env.sql.executed).toHaveLength(1);
     expect(users.map((u) => u.username)).toEqual(['alice', 'bob', 'carol', 'dave']);
-    for (const u of users) expect(u.storageUsed, u.username).toBe(env.store.usage(env.store.getUserByUsername(u.username)!.id));
+    for (const u of users) expect(u.storageUsed, u.username).toBe(env.store.identity.usage(env.store.identity.getUserByUsername(u.username)!.id));
     expect(users.find((u) => u.username === 'bob')!.storageUsed).toBeGreaterThan(users.find((u) => u.username === 'dave')!.storageUsed);
   });
 });

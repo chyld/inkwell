@@ -105,15 +105,15 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
       fsyncPath(tmp);
       const id = crypto.randomUUID();
       // One transaction checks the storage limit and inserts the row; then the file is renamed into place.
-      store.insertImageRow(user.id, id, mime, size);
+      store.images.insertImageRow(user.id, id, mime, size);
       try {
-        const dest = store.imagePath(user.id, id);
+        const dest = store.images.imagePath(user.id, id);
         const created = fs.mkdirSync(path.dirname(dest), { recursive: true }) !== undefined;
         fs.renameSync(tmp, dest);
         fsyncPath(path.dirname(dest));
         if (created) fsyncPath(store.imagesDir); // the new user directory's own entry
       } catch (e) {
-        store.deleteImageRow(id);
+        store.images.deleteImageRow(id);
         throw e;
       }
       return reply.status(201).send({ id, src: imageSrc(id) });
@@ -123,7 +123,7 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
   });
 
   api.get('/images/:id', { config: { identity: true } }, async (req, reply) => {
-    const img = store.getImage(req.user!.id, (req.params as { id: string }).id);
+    const img = store.images.getImage(req.user!.id, (req.params as { id: string }).id);
     // Cached copies must be revalidated with the session on every use, so a cached
     // image is never shown to someone else using the same browser. Revalidation of
     // the owner's copy is cheap: image ids never change content.
@@ -137,7 +137,7 @@ export async function registerImageRoutes(api: FastifyInstance, opts: AppOptions
     // Opened once (no separate access check); a missing file is a 404.
     let file: fs.promises.FileHandle;
     try {
-      file = await fs.promises.open(store.imagePath(img.user_id, img.id), 'r');
+      file = await fs.promises.open(store.images.imagePath(img.user_id, img.id), 'r');
     } catch {
       throw new AppError(404, 'not_found', 'Not found.');
     }

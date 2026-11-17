@@ -17,7 +17,7 @@ async function setup(overrides: Record<string, string> = {}) {
   const addr = env.app.server.address() as { port: number };
   base = `http://127.0.0.1:${addr.port}`;
   alice = await userClient(env, 'alice');
-  token = env.store.addAgent('alice', 'Claude Code').token;
+  token = env.store.identity.addAgent('alice', 'Claude Code').token;
 }
 afterEach(async () => env.close());
 
@@ -204,22 +204,22 @@ describe('revoked tokens and disabled users (criterion 5)', () => {
   it('a revoked token gets 401', async () => {
     const client = await connect();
     await client.listTools();
-    env.store.revokeAgent('alice', 'Claude Code');
+    env.store.identity.revokeAgent('alice', 'Claude Code');
     const r = await rawMcp({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} });
     expect(r.status).toBe(401);
     await expect(connect()).rejects.toThrow();
   });
 
   it('a disabled user’s token gets 401, and works again once enabled', async () => {
-    env.store.setDisabled('alice', true);
+    env.store.identity.setDisabled('alice', true);
     expect((await rawMcp({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })).status).toBe(401);
-    env.store.setDisabled('alice', false);
+    env.store.identity.setDisabled('alice', false);
     expect((await rawMcp({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} })).status).toBe(200);
   });
 
   it('other agents keep working after one is revoked', async () => {
-    const other = env.store.addAgent('alice', 'Codex').token;
-    env.store.revokeAgent('alice', 'Claude Code');
+    const other = env.store.identity.addAgent('alice', 'Codex').token;
+    env.store.identity.revokeAgent('alice', 'Claude Code');
     const client = await connect(other);
     const r = await client.callTool({ name: 'create_note', arguments: { title: 't', content: 'c' } });
     expect(r.isError).toBeFalsy();
@@ -278,8 +278,8 @@ describe('agent limits (criteria 8 and 14)', () => {
     expect((await alice.get('/api/notes')).json().notes).toHaveLength(3);
     // Counted in the database: a fresh Store (as after a restart) sees the same count.
     const again = new Store(env.store.db, { ...env.store.opts, now: () => env.clock.t });
-    const agent = again.authenticateAgent(token)!;
-    expect(() => again.createAgentNote(agent, { title: 'x', body: validateBody(doc(p('x'))), tags: [] })).toThrow(/rate limit/i);
+    const agent = again.identity.authenticateAgent(token)!;
+    expect(() => again.notes.createAgentNote(agent, { title: 'x', body: validateBody(doc(p('x'))), tags: [] })).toThrow(/rate limit/i);
     // Rejected calls do not count; an hour after the first call there is room again.
     env.clock.t += HOUR - 2 * 60_000;
     const later = await client.callTool({ name: 'create_note', arguments: { title: 'later', content: 'x' } });

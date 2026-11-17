@@ -98,7 +98,7 @@ describe('adding to the collection (CLEANUP-PLAN pass 2, the deferred b08 #6 ite
     expect(onCollection()).toHaveLength(1);
     expect((await c.put('/api/fonts/collection/lora', undefined)).statusCode).toBe(201);
     expect((await c.get('/api/fonts/collection')).json()).toEqual(['abel', 'lora']); // in the order added
-    expect(env.store.fonts.collectionState(env.store.getUserByUsername('alice')!.id, 'zilla-slab')).toEqual({ present: false, count: 2, nextSeq: 3 });
+    expect(env.store.fonts.collectionState(env.store.identity.getUserByUsername('alice')!.id, 'zilla-slab')).toEqual({ present: false, count: 2, nextSeq: 3 });
   });
 });
 

@@ -49,7 +49,7 @@ describe('round trip', () => {
   it('an agent note with every Markdown element survives save, reload and search', async () => {
     await env.app.listen({ host: '127.0.0.1', port: 0 });
     const base = `http://127.0.0.1:${(env.app.server.address() as { port: number }).port}`;
-    const token = env.store.addAgent('alice', 'bot').token;
+    const token = env.store.identity.addAgent('alice', 'bot').token;
     const mcp = new McpClient({ name: 't', version: '1' });
     await mcp.connect(new StreamableHTTPClientTransport(new URL(`${base}/mcp`), { requestInit: { headers: { authorization: `Bearer ${token}` } } }));
     const r = await mcp.callTool({ name: 'create_note', arguments: { title: 'Agent everything yankee', content: FULL_MARKDOWN, tags: ['zulu'] } });

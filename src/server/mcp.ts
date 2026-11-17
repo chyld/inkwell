@@ -61,7 +61,7 @@ export function createNoteFromAgent(store: Store, agent: AgentAuth, args: { titl
     if (e instanceof NoteValidationError) throw new ToolInputError(`The converted note is not valid: ${e.message}`);
     throw e;
   }
-  return store.createAgentNote(agent, { title, body, tags });
+  return store.notes.createAgentNote(agent, { title, body, tags });
 }
 
 function buildServer(store: Store, agent: AgentAuth): McpServer {
@@ -136,7 +136,7 @@ export async function registerMcp(app: FastifyInstance, opts: AppOptions) {
       return reply.status(405).header('allow', 'POST').send(errorBody('method_not_allowed', 'Only POST is supported at /mcp.'));
     }
     const m = /^Bearer\s+(\S+)\s*$/i.exec(req.headers.authorization ?? '');
-    const agent = m ? store.authenticateAgent(m[1]) : null;
+    const agent = m ? store.identity.authenticateAgent(m[1]) : null;
     if (!agent) {
       return reply.status(401).header('www-authenticate', 'Bearer realm="notes"').send(errorBody('unauthorized', 'A valid agent token is required.'));
     }

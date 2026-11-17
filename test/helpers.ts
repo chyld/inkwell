@@ -54,7 +54,7 @@ export async function makeEnv(overrides: Record<string, string> = {}, extra: Env
   migrate(db, dir);
   const clock = { t: Date.UTC(2026, 0, 1) };
   const store = new Store(db, { dataDir: dir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, now: () => clock.t, fontCacheBytes: config.fontCacheBytes, ...extra.storeOptions });
-  store.reconcileImageFiles();
+  store.images.reconcileImageFiles();
   store.fonts.reconcile();
   const stream = new PassThrough();
   let logText = '';
@@ -124,7 +124,7 @@ export class Client {
 }
 
 export async function userClient(env: Env, username: string): Promise<Client> {
-  if (!env.store.getUserByUsername(username)) await env.store.createUser(username, PASSWORD);
+  if (!env.store.identity.getUserByUsername(username)) await env.store.identity.createUser(username, PASSWORD);
   const c = new Client(env);
   const r = await c.signIn(username);
   if (r.statusCode !== 200) throw new Error(`sign-in failed: ${r.body}`);

@@ -121,16 +121,16 @@ describe('image clean-up', () => {
     env.clock.t += 2 * DAY;
     await alice.post(`/api/notes/${one.id}/trash`);
     expect((await alice.del(`/api/notes/${one.id}`)).statusCode).toBe(200);
-    env.store.cleanupImages();
+    env.store.images.cleanupImages();
     expect((await alice.get(src)).statusCode).toBe(200);
     // Still referenced from Trash: kept.
     await alice.post(`/api/notes/${two.id}/trash`);
-    env.store.cleanupImages();
+    env.store.images.cleanupImages();
     expect((await alice.get(src)).statusCode).toBe(200);
     // Empty Trash removes the last reference; the image is old, so it goes (row first, then file).
     expect((await alice.del('/api/trash')).statusCode).toBe(200);
     expect((await alice.get(src)).statusCode).toBe(404);
-    expect(fs.existsSync(env.store.imagePath(env.store.getUserByUsername('alice')!.id, id))).toBe(false);
+    expect(fs.existsSync(env.store.images.imagePath(env.store.identity.getUserByUsername('alice')!.id, id))).toBe(false);
   });
 
   it('an unreferenced image older than 24 hours is removed; a younger one is kept', async () => {
@@ -138,29 +138,29 @@ describe('image clean-up', () => {
     env.clock.t += 20 * HOUR;
     const young = (await upload(alice, 'b.png', 'image/png', await img().png().toBuffer())).json();
     env.clock.t += 5 * HOUR;
-    expect(env.store.cleanupImages()).toBe(1);
+    expect(env.store.images.cleanupImages()).toBe(1);
     expect((await alice.get(old.src)).statusCode).toBe(404);
     expect((await alice.get(young.src)).statusCode).toBe(200);
     // A save that drops the reference makes an old image eligible.
     const n = await put(alice, 'n', imageNode(young.src));
     env.clock.t += 2 * DAY;
-    expect(env.store.cleanupImages()).toBe(0);
+    expect(env.store.images.cleanupImages()).toBe(0);
     await alice.put(`/api/notes/${n.id}`, { title: 'n', body: doc(p('no image now')), version: 2 });
-    expect(env.store.cleanupImages()).toBe(1);
+    expect(env.store.images.cleanupImages()).toBe(1);
     expect((await alice.get(young.src)).statusCode).toBe(404);
   });
 
   it('start-up removes leftover temporary files, files with no row and rows with no file', async () => {
     const keep = (await upload(alice, 'k.png', 'image/png', await img().png().toBuffer())).json();
     const rowOnly = (await upload(alice, 'r.png', 'image/png', await img().png().toBuffer())).json();
-    const aliceId = env.store.getUserByUsername('alice')!.id;
-    fs.rmSync(env.store.imagePath(aliceId, rowOnly.id));
+    const aliceId = env.store.identity.getUserByUsername('alice')!.id;
+    fs.rmSync(env.store.images.imagePath(aliceId, rowOnly.id));
     fs.writeFileSync(path.join(env.store.tmpDir, 'leftover.upload'), 'x');
-    const orphan = env.store.imagePath(aliceId, crypto.randomUUID());
+    const orphan = env.store.images.imagePath(aliceId, crypto.randomUUID());
     fs.writeFileSync(orphan, 'x');
     fs.mkdirSync(path.join(env.store.imagesDir, 'not-a-user'));
     fs.writeFileSync(path.join(env.store.imagesDir, 'not-a-user', 'f'), 'x');
-    const r = env.store.reconcileImageFiles();
+    const r = env.store.images.reconcileImageFiles();
     expect(r).toEqual({ tmp: 1, orphanFiles: 2, orphanRows: 1 });
     expect(fs.existsSync(orphan)).toBe(false);
     expect(env.store.db.prepare('SELECT id FROM images').all()).toEqual([{ id: keep.id }]);
@@ -183,24 +183,24 @@ describe('image clean-up', () => {
     expect((await alice.get('/api/me')).json().storageUsed).toBe(used);
     expect(env.store.db.prepare('SELECT count(*) c FROM images').get()).toEqual({ c: 2 });
     expect(fs.readdirSync(env.store.tmpDir)).toEqual([]);
-    const aliceDir = path.join(env.store.imagesDir, env.store.getUserByUsername('alice')!.id);
+    const aliceDir = path.join(env.store.imagesDir, env.store.identity.getUserByUsername('alice')!.id);
     expect(fs.readdirSync(aliceDir)).toHaveLength(2);
   });
 
   it('data copy includes the image files', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
     const dest = path.join(env.dir, 'copy');
-    const r = await env.store.dataCopy(dest);
+    const r = await env.store.copy.dataCopy(dest);
     expect(r.images).toBe(1);
-    const aliceId = env.store.getUserByUsername('alice')!.id;
+    const aliceId = env.store.identity.getUserByUsername('alice')!.id;
     expect(fs.existsSync(path.join(dest, 'images', aliceId, id))).toBe(true);
   });
 
   it('user delete removes the user’s image files', async () => {
     await upload(alice, 'a.png', 'image/png', await img().png().toBuffer());
-    const aliceId = env.store.getUserByUsername('alice')!.id;
+    const aliceId = env.store.identity.getUserByUsername('alice')!.id;
     expect(fs.existsSync(path.join(env.store.imagesDir, aliceId))).toBe(true);
-    env.store.deleteUser('alice');
+    env.store.identity.deleteUser('alice');
     expect(fs.existsSync(path.join(env.store.imagesDir, aliceId))).toBe(false);
     expect(env.store.db.prepare('SELECT count(*) c FROM images').get()).toEqual({ c: 0 });
   });
@@ -227,9 +227,9 @@ describe('image review fixes', () => {
 
   it('data copy fails, and leaves no partial directory, if an image file is missing', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
-    fs.rmSync(env.store.imagePath(env.store.getUserByUsername('alice')!.id, id));
+    fs.rmSync(env.store.images.imagePath(env.store.identity.getUserByUsername('alice')!.id, id));
     const dest = path.join(env.dir, 'copy-missing');
-    await expect(env.store.dataCopy(dest)).rejects.toThrow(/missing/i);
+    await expect(env.store.copy.dataCopy(dest)).rejects.toThrow(/missing/i);
     expect(fs.existsSync(dest)).toBe(false);
     expect(fs.readdirSync(env.dir).filter((f) => f.startsWith('copy-missing'))).toEqual([]);
   });
@@ -242,9 +242,9 @@ describe('image review fixes', () => {
     const n = await put(alice, 'n', imageNode(src));
     env.clock.t += 2 * DAY;
     await alice.post(`/api/notes/${n.id}/trash`);
-    const aliceId = env.store.getUserByUsername('alice')!.id;
+    const aliceId = env.store.identity.getUserByUsername('alice')!.id;
     const dest = path.join(env.dir, 'copy-cleanup');
-    await env.store.dataCopy(dest, {
+    await env.store.copy.dataCopy(dest, {
       afterSnapshot: async () => {
         // The snapshot still has the note and the image; now the note is deleted permanently,
         // which runs the clean-up for an unreferenced image older than 24 hours.
@@ -254,7 +254,7 @@ describe('image review fixes', () => {
     expect(fs.existsSync(path.join(dest, 'images', aliceId, id))).toBe(true);
     // Round 3: the postponed clean-up runs as soon as the copy ends (this used to call
     // cleanupImages() by hand here; now nothing has to).
-    expect(fs.existsSync(env.store.imagePath(aliceId, id))).toBe(false);
+    expect(fs.existsSync(env.store.images.imagePath(aliceId, id))).toBe(false);
     expect(env.store.db.prepare('SELECT count(*) c FROM images WHERE id = ?').get(id)).toEqual({ c: 0 });
   });
 
@@ -263,7 +263,7 @@ describe('image review fixes', () => {
     const other = new (await import('better-sqlite3')).default(path.join(env.dir, 'notes.db'));
     other.pragma('busy_timeout = 0');
     let wrote = false;
-    await env.store.dataCopy(path.join(env.dir, 'copy-nolock'), {
+    await env.store.copy.dataCopy(path.join(env.dir, 'copy-nolock'), {
       afterSnapshot: () => {
         other.prepare("UPDATE users SET created_at = created_at WHERE username = 'alice'").run();
         wrote = true;
@@ -275,17 +275,17 @@ describe('image review fixes', () => {
 
   it('an image whose file is renamed into place just after the snapshot is copied, not reported missing', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
-    const file = env.store.imagePath(env.store.getUserByUsername('alice')!.id, id);
+    const file = env.store.images.imagePath(env.store.identity.getUserByUsername('alice')!.id, id);
     const aside = file + '.aside';
     const dest = path.join(env.dir, 'copy-upload');
-    await env.store.dataCopy(dest, {
+    await env.store.copy.dataCopy(dest, {
       afterSnapshot: () => {
         // As during an upload: the row is committed, the rename follows a moment later.
         fs.renameSync(file, aside);
         setTimeout(() => fs.renameSync(aside, file), 200);
       },
     });
-    expect(fs.existsSync(path.join(dest, 'images', env.store.getUserByUsername('alice')!.id, id))).toBe(true);
+    expect(fs.existsSync(path.join(dest, 'images', env.store.identity.getUserByUsername('alice')!.id, id))).toBe(true);
   });
 
   it('the target directory appears only when the copy is complete; a partial one from an interrupted run does not block the next', async () => {
@@ -295,7 +295,7 @@ describe('image review fixes', () => {
     fs.mkdirSync(stale);
     fs.writeFileSync(path.join(stale, 'notes.db'), 'half');
     let seenDuring = true;
-    await env.store.dataCopy(dest, { afterSnapshot: () => void (seenDuring = fs.existsSync(dest)) });
+    await env.store.copy.dataCopy(dest, { afterSnapshot: () => void (seenDuring = fs.existsSync(dest)) });
     expect(seenDuring).toBe(false);
     expect(fs.existsSync(path.join(dest, 'notes.db'))).toBe(true);
     expect(fs.existsSync(stale)).toBe(false);
@@ -316,7 +316,7 @@ describe('image review fixes', () => {
     const n = await put(alice, 'n', imageNode(src));
     env.clock.t += 2 * DAY;
     await alice.post(`/api/notes/${n.id}/trash`);
-    const dir = path.join(env.store.imagesDir, env.store.getUserByUsername('alice')!.id);
+    const dir = path.join(env.store.imagesDir, env.store.identity.getUserByUsername('alice')!.id);
     fs.chmodSync(dir, 0o555);
     try {
       const r = await alice.del(`/api/notes/${n.id}`);
@@ -326,7 +326,7 @@ describe('image review fixes', () => {
       fs.chmodSync(dir, 0o755);
     }
     // The stranded file is removed by the start-up reconciliation.
-    expect(env.store.reconcileImageFiles().orphanFiles).toBe(1);
+    expect(env.store.images.reconcileImageFiles().orphanFiles).toBe(1);
   });
 });
 
@@ -334,12 +334,12 @@ describe('image review fixes, round 2', () => {
   it('syncs the uploaded file before recording it, and its directory after the rename', async () => {
     const calls: string[] = [];
     const realFsync = fs.fsyncSync;
-    const realInsert = env.store.insertImageRow.bind(env.store);
+    const realInsert = env.store.images.insertImageRow.bind(env.store.images);
     const spy = vi.spyOn(fs, 'fsyncSync').mockImplementation((fd: number) => {
       calls.push(fs.fstatSync(fd).isDirectory() ? 'fsync-dir' : 'fsync-file');
       return realFsync(fd);
     });
-    env.store.insertImageRow = (...a: Parameters<typeof realInsert>) => {
+    env.store.images.insertImageRow = (...a: Parameters<typeof realInsert>) => {
       calls.push('insert-row');
       return realInsert(...a);
     };
@@ -347,7 +347,7 @@ describe('image review fixes, round 2', () => {
       expect((await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).statusCode).toBe(201);
     } finally {
       spy.mockRestore();
-      env.store.insertImageRow = realInsert;
+      env.store.images.insertImageRow = realInsert;
     }
     // Round 3: a first upload creates the user's directory, so images/ (its parent) is synced too.
     expect(calls).toEqual(['fsync-file', 'insert-row', 'fsync-dir', 'fsync-dir']);
@@ -362,7 +362,7 @@ describe('image review fixes, round 2', () => {
       spy2.mockRestore();
     }
     // Later uploads: the user's directory already exists, only it is synced.
-    expect(dirs).toEqual([String(fs.statSync(path.join(env.store.imagesDir, env.store.getUserByUsername('alice')!.id)).ino)]);
+    expect(dirs).toEqual([String(fs.statSync(path.join(env.store.imagesDir, env.store.identity.getUserByUsername('alice')!.id)).ino)]);
   });
 });
 
@@ -378,21 +378,21 @@ describe('image review fixes, round 3', () => {
 
   it('deleting a user during a data copy does not remove image files the copy needs; they go when it ends', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
-    const aliceId = env.store.getUserByUsername('alice')!.id;
+    const aliceId = env.store.identity.getUserByUsername('alice')!.id;
     const dest = path.join(env.dir, 'copy-userdel');
-    await env.store.dataCopy(dest, { afterSnapshot: () => env.store.deleteUser('alice') });
+    await env.store.copy.dataCopy(dest, { afterSnapshot: () => env.store.identity.deleteUser('alice') });
     expect(fs.existsSync(path.join(dest, 'images', aliceId, id))).toBe(true);
     expect(fs.existsSync(path.join(env.store.imagesDir, aliceId))).toBe(false);
   });
 
   it('an image clean-up postponed by a data copy runs when the copy ends', async () => {
     const { id } = (await upload(alice, 'a.png', 'image/png', await img().png().toBuffer())).json();
-    const aliceId = env.store.getUserByUsername('alice')!.id;
+    const aliceId = env.store.identity.getUserByUsername('alice')!.id;
     env.clock.t += 2 * DAY; // old enough, and used by no note
-    await env.store.dataCopy(path.join(env.dir, 'copy-postponed'), {
-      afterSnapshot: () => expect(env.store.cleanupImages()).toBe(0), // postponed during the copy
+    await env.store.copy.dataCopy(path.join(env.dir, 'copy-postponed'), {
+      afterSnapshot: () => expect(env.store.images.cleanupImages()).toBe(0), // postponed during the copy
     });
-    expect(fs.existsSync(env.store.imagePath(aliceId, id))).toBe(false);
+    expect(fs.existsSync(env.store.images.imagePath(aliceId, id))).toBe(false);
     expect((await alice.get(`/api/images/${id}`)).statusCode).toBe(404);
   });
 

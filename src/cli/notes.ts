@@ -141,17 +141,17 @@ async function run(argv: string[], config: Config, store: Store): Promise<void> 
       const username = normalizeUsername(args[0]);
       const bad = checkUsername(username);
       if (bad) throw new UsageError(bad);
-      if (store.getUserByUsername(username)) throw new UsageError(`User "${username}" already exists.`);
+      if (store.identity.getUserByUsername(username)) throw new UsageError(`User "${username}" already exists.`);
       const generate = flags.includes('--generate');
       const password = generate ? generatePassword() : await askNewPassword();
-      await store.createUser(username, password);
+      await store.identity.createUser(username, password);
       console.log(`Created user "${username}" with an Inbox folder.`);
       if (generate) console.log(`Password (shown only once): ${password}`);
       return;
     }
     case 'user list': {
       need(0, 'user list');
-      const users = store.listUsers();
+      const users = store.identity.listUsers();
       if (users.length === 0) return void console.log('No users yet. Create one with: notes user add <username>');
       table([
         ['USERNAME', 'CREATED', 'STATUS', 'NOTES', 'STORAGE', 'AGENTS'],
@@ -161,16 +161,16 @@ async function run(argv: string[], config: Config, store: Store): Promise<void> 
     }
     case 'user passwd': {
       need(1, 'user passwd <username>');
-      store.requireUser(args[0]);
+      store.identity.requireUser(args[0]);
       const password = await askNewPassword();
-      await store.setPassword(args[0], password);
+      await store.identity.setPassword(args[0], password);
       console.log(`Password changed for "${normalizeUsername(args[0])}". All of their sessions have ended.`);
       return;
     }
     case 'user disable':
     case 'user enable': {
       need(1, `user ${cmd} <username>`);
-      store.setDisabled(args[0], cmd === 'disable');
+      store.identity.setDisabled(args[0], cmd === 'disable');
       console.log(
         cmd === 'disable'
           ? `Disabled "${normalizeUsername(args[0])}": sessions ended, sign-in blocked, agent tokens refused.`
@@ -180,17 +180,17 @@ async function run(argv: string[], config: Config, store: Store): Promise<void> 
     }
     case 'user delete': {
       need(1, 'user delete <username>');
-      const user = store.requireUser(args[0]);
+      const user = store.identity.requireUser(args[0]);
       console.error(`This permanently deletes "${user.username}" and all of their notes, folders, tags, images and agents.`);
       const typed = (await ask(`Type the username (${user.username}) to confirm: `, false)).trim().toLowerCase();
       if (typed !== user.username) throw new UsageError('The username did not match. Nothing was deleted.');
-      store.deleteUser(user.username);
+      store.identity.deleteUser(user.username);
       console.log(`Deleted user "${user.username}".`);
       return;
     }
     case 'agent add': {
       need(2, 'agent add <username> <agent-name>');
-      const r = store.addAgent(args[0], args[1]);
+      const r = store.identity.addAgent(args[0], args[1]);
       const url = `https://${config.host}/mcp`;
       console.log(`Created agent "${r.name}" for user "${r.username}".`);
       console.log('');
@@ -204,7 +204,7 @@ async function run(argv: string[], config: Config, store: Store): Promise<void> 
     }
     case 'agent list': {
       if (args.length > 1) throw new UsageError('Usage: notes agent list [<username>]');
-      const agents = store.listAgents(args[0]);
+      const agents = store.identity.listAgents(args[0]);
       if (agents.length === 0) return void console.log('No agents.');
       table([
         ['AGENT', 'OWNER', 'CREATED', 'LAST USED', 'NOTES', 'STATUS'],
@@ -214,13 +214,13 @@ async function run(argv: string[], config: Config, store: Store): Promise<void> 
     }
     case 'agent revoke': {
       need(2, 'agent revoke <username> <agent-name>');
-      store.revokeAgent(args[0], args[1]);
+      store.identity.revokeAgent(args[0], args[1]);
       console.log(`Revoked agent "${args[1]}" of "${normalizeUsername(args[0])}". Its token stops working now; its notes stay.`);
       return;
     }
     case 'data copy': {
       need(1, 'data copy <dir>');
-      const r = await store.dataCopy(args[0]);
+      const r = await store.copy.dataCopy(args[0]);
       console.log(`Wrote ${r.db} and ${r.images} image file(s) under ${args[0]}.`);
       console.log('This is a one-off copy. Move it off the server, for example with "docker compose cp", then delete it here.');
       return;
