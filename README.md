@@ -376,7 +376,7 @@ plugin required; ports 80 and 443 must be free):
 cp .env.example .env
 sed -i 's/^NOTES_HOST=.*/NOTES_HOST=localhost/' .env
 docker compose -p notes-dev up -d --build
-docker compose -p notes-dev exec app notes user add me
+docker compose -p notes-dev exec app notes user add tester
 ```
 
 (`-p notes-dev` keeps the local test separate from anything else; use it on
@@ -413,7 +413,7 @@ Then open <https://localhost> and sign in. Remove the authority again when you
 are done testing.
 
 **Agent clients** (create an agent with
-`docker compose -p notes-dev exec app notes agent add me test`, then use the
+`docker compose -p notes-dev exec app notes agent add tester test`, then use the
 commands from section 5 with `https://localhost/mcp`). These settings were
 found in each client's documentation or program and are **not yet verified**:
 
