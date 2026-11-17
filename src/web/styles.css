@@ -2286,6 +2286,11 @@ mark[data-highlight] {
   .app.screen-styles > .styles-page {
     display: flex;
   }
+  /* a screen whose code could not be loaded shows its message in its place (BUGFIX-LIST-2 item 1) */
+  .app.screen-fonts > .screen-error,
+  .app.screen-styles > .screen-error {
+    display: grid;
+  }
   .browse-scroll {
     padding: 0 12px 40px;
   }
