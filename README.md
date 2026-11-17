@@ -7,13 +7,20 @@ tables, resizable images, underline, text colours, highlights, fonts, text sizes
 text styles), organised in nested folders and with tags, and found with
 full-text search. Deleted notes go to Trash until you empty it.
 
-The screen ('Teal rail and paper'): a narrow teal **rail** of icons on the left
-(All notes, Inbox, Folders, Tags; Fonts, Styles, Trash and your account; on a
-phone it is a bar along the bottom), the **list** of notes as white cards, and
-the **editor**: a slim line with the folder, tags, dates and save status, the
-formatting toolbar as one dark pill, and the note on a sheet of paper with its
-title at the top. Folders and Tags open a panel over the list; the account
-button shows your storage and Sign out. Light and dark follow the device.
+The screen ('Slate and coral'): a narrow slate **rail** of icons on the left (a
+coral New note button, then All notes, Inbox, Folders, Tags; Fonts, Styles,
+Trash and your account; on a phone it is a bar along the bottom), the **list**
+of notes as white cards with search and New above them (it can be collapsed on a
+wide screen), and the **editor**: one title row (folder, "/", the title, the
+note's tags and Add tag; on the right the dates, save status and Move to Trash),
+under it the formatting toolbar as a flat slate bar running out of the rail
+(Styles, font, size, colours, bold to link, then Headings, Lists, Blocks and
+Insert menus, Undo and Redo; on a phone one row that scrolls sideways), and the
+note's body on the paper below, which is the only part that scrolls. Folders and
+Tags open a panel over the list; the account button shows your storage and Sign
+out. `/fonts` and `/styles` take the place of the list and the editor. Light and
+dark follow the device. The details and every choice the specs left open are in
+`DEVIATIONS.md`.
 
 An AI agent (Claude Code, Codex, Grok, Muse, …) can **add** notes to one user's
 Inbox through an MCP server at `https://<host>/mcp`, using a token you create.
@@ -60,6 +67,9 @@ Contents:
 9. [Troubleshooting](#9-troubleshooting)
 10. [Command reference](#10-command-line-reference)
 11. [Automated tests](#11-automated-tests)
+12. [Fonts](#12-fonts)
+13. [The app's own fonts](#13-the-apps-own-fonts)
+14. [Text styles](#14-text-styles)
 
 ---
 
@@ -542,6 +552,10 @@ run with one command from the project directory on a machine with Node.js 26
 npm ci
 npm test
 ```
+
+The suite takes about 16 seconds. Tests hash passwords cheaply (`TEST_PASSWORD_COST` in `test/helpers.ts`);
+one test in `test/sessions.test.ts` pins the production strength (Argon2id, 64 MiB, 3 passes). Tests that check
+what a browser engine would apply (tokens, contrast, layout rules) read the stylesheet through `test/css.ts`.
 
 | Criterion | Test file(s) |
 |---|---|
