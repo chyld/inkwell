@@ -7,7 +7,7 @@ import { APP_TITLE, STYLES_TITLE } from '../route';
 import { useDialogs } from './Dialogs';
 import { NEW_STYLE, StyleForm } from './StyleForm';
 import { SampleFontsProvider, StyleSample } from './StyleSample';
-import { refreshStyles, useStyles } from '../stylesStore';
+import { refreshStyles, useStyles, useStylesLoaded } from '../stylesStore';
 
 export const STYLES_MAX = 50;
 export const STYLES_FULL = `You can keep at most ${STYLES_MAX} styles. Delete one to add another.`;
@@ -32,6 +32,7 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
   const dialogs = useDialogs();
   // The shared list (stylesStore): the editor's Styles button matches against the same one.
   const styles = useStyles();
+  const loaded = useStylesLoaded(); // a list that could not be loaded is not "No styles yet" (nor "0 of 50")
   const [form, setForm] = useState<{ initial: StyleDraft; id?: string; title: string } | null>(null);
 
   useEffect(() => {
@@ -84,12 +85,12 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
           </button>
           <h2>Styles</h2>
           <p className="browse-count styles-count" role="status" aria-live="polite">
-            {styles === null ? '' : `${list.length} of ${STYLES_MAX}`}
+            {loaded ? `${list.length} of ${STYLES_MAX}` : ''}
           </p>
           {newButton}
           {full && <span className="styles-full">{STYLES_FULL}</span>}
         </header>
-        {styles !== null && list.length === 0 && (
+        {loaded && list.length === 0 && (
           <div className="styles-empty">
             <h3>No styles yet</h3>
             <p>A style is a saved set of text formatting you can apply with one click.</p>

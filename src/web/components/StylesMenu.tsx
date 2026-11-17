@@ -5,7 +5,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEve
 import { useEditorState, type Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import { applyStyle, styleFromText, styleIndex, styleState } from '../styleApply';
-import { refreshStyles, useStyles } from '../stylesStore';
+import { ApiError } from '../api';
+import { refreshStyles, useStyles, useStylesLoaded } from '../stylesStore';
 import { NOTE_FONTS_REFUSED } from './FontPicker';
 import { listKeys, runKey, usePopoverMenu } from './popoverMenu';
 import { StyleForm, type Style, type StyleDraft } from './StyleForm';
@@ -22,6 +23,7 @@ export const MENU_SAMPLE_CAP = 20;
 
 export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
   const styles = useStyles();
+  const loaded = useStylesLoaded();
   const [form, setForm] = useState<StyleDraft | null>(null);
   const m = usePopoverMenu({ placementDeps: [styles] });
   const { open, close, place } = m;
@@ -42,7 +44,15 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
     void refreshStyles();
   }, []);
   useEffect(() => {
-    if (open) void refreshStyles();
+    if (!open) return;
+    let alive = true;
+    void refreshStyles().then((e) => {
+      if (e && alive) notice(`Your styles could not be loaded: ${e instanceof ApiError ? e.message : 'could not reach the server.'}`);
+    });
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // Focus goes into the menu once the styles have loaded (so a quick Enter cannot pick the wrong entry): on the
@@ -104,7 +114,7 @@ export function StylesMenu({ editor, notice, onManage, onBrowseFonts }: Props) {
           <div {...m.popoverProps} className={'font-popover styles-popover' + (place?.above ? ' above' : '')} role="group" aria-label="Styles" onKeyDown={onKeyDown}>
             {/* The styles scroll on their own; each row keeps its height. The two entries stay below, always visible. */}
             <div className="menu-scroll">
-              {styles !== null && list.length === 0 && <p className="font-empty">No styles yet</p>}
+              {loaded && list.length === 0 && <p className="font-empty">No styles yet</p>}
               {list.map((s, i) =>
                 item(i, <StyleSample style={s} text={s.name} cap={MENU_SAMPLE_CAP} />, () => choose(s), 'font-item style-item', { 'aria-pressed': i === currentIdx }),
               )}

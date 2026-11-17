@@ -6,6 +6,8 @@ import { api, onNewAuthEpoch } from './api';
 import type { Style } from './api';
 
 let current: Style[] | null = null;
+/** The list was never loaded in this session: the empty list stands in for it, but is not "No styles yet". */
+let unloaded = false;
 let generation = 0;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
@@ -17,26 +19,31 @@ export async function refreshStyles(): Promise<unknown> {
     const s = await api<Style[]>('GET', '/styles');
     if (mine === generation) {
       current = Array.isArray(s) ? s : [];
+      unloaded = false;
       emit();
     }
     return null;
   } catch (e) {
     if (mine === generation && current === null) {
       current = [];
+      unloaded = true;
       emit();
     }
     return e;
   }
 }
 
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => listeners.delete(l);
+};
 export function useStyles(): Style[] | null {
-  return useSyncExternalStore(
-    (l) => {
-      listeners.add(l);
-      return () => listeners.delete(l);
-    },
-    () => current,
-  );
+  return useSyncExternalStore(subscribe, () => current);
+}
+/** Whether the list shown is a real one: false while it has never loaded (a failed first fetch). A list that could
+ *  not be loaded is not "No styles yet" (as the font collection, BUGFIX-LIST item 15). */
+export function useStylesLoaded(): boolean {
+  return useSyncExternalStore(subscribe, () => current !== null && !unloaded);
 }
 
 /** The list as it stands (null before the first load). */
@@ -46,6 +53,7 @@ export const currentStyles = (): Style[] | null => current;
 export function resetStyles(): void {
   generation++;
   current = null;
+  unloaded = false;
   emit();
 }
 

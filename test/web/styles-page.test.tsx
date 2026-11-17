@@ -6,6 +6,7 @@ import { act } from 'react';
 import { fontById } from '../../src/shared/fonts';
 import { setExpectedUser } from '../../src/web/api';
 import { App } from '../../src/web/App';
+import { encodeNoteId } from '../../src/shared/noteAddress';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { clearAllFonts } from '../../src/web/fonts/runtime';
 import { currentStyles, resetStyles } from '../../src/web/stylesStore';
@@ -22,6 +23,29 @@ const NOTE = '99999999-9999-4999-8999-999999999999';
 let noteBody: any;
 const plain = (name: string, over: Partial<S> = {}): S => ({ id: `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, name, font: null, size: 16, bold: false, italic: false, underline: false, strike: false, textColor: null, highlight: null, ...over });
 const sorted = (l: S[]) => [...l].sort((a, b) => (a.name.trim().toLowerCase() < b.name.trim().toLowerCase() ? -1 : a.name.trim().toLowerCase() > b.name.trim().toLowerCase() ? 1 : a.id < b.id ? -1 : 1));
+
+let failStyles = false;
+describe('a styles list that cannot be loaded (as BUGFIX-LIST item 15)', () => {
+  it('/styles and the editor’s Styles menu do not say "No styles yet"; they say it could not be loaded', async () => {
+    failStyles = true;
+    try {
+      server();
+      await start('/styles');
+      await waitFor(() => !!page() && document.body.textContent!.includes('Something went wrong on the server.'), 3000, 'the notice on /styles');
+      expect(view!.container.querySelector('.styles-empty')).toBeNull(); // before: "No styles yet"
+      expect(view!.container.querySelector('.styles-count')!.textContent).toBe(''); // before: "0 of 50"
+      await resetPage(view);
+      server();
+      await start(`/n/${encodeNoteId(NOTE)}`);
+      await waitFor(() => !!view!.container.querySelector('.styles-button'), 4000, 'the editor');
+      await click(view!.container.querySelector('.styles-button'));
+      await waitFor(() => document.body.textContent!.includes('Your styles could not be loaded'), 3000, 'the menu’s notice'); // before: nothing
+      expect(view!.container.querySelector('.styles-popover .font-empty')).toBeNull(); // before: "No styles yet"
+    } finally {
+      failStyles = false;
+    }
+  });
+});
 
 function server(opts: { signedIn?: boolean } = {}) {
   let signedIn = opts.signedIn ?? true;
@@ -42,7 +66,7 @@ function server(opts: { signedIn?: boolean } = {}) {
     if (faces) return failFaces.has(faces[1]) ? { status: 502, json: { error: { code: 'font_unavailable', message: 'x' } } } : { status: 200, json: { faces: [{ weight: '400', style: 'normal', unicodeRange: 'U+0000-00FF', file: HASH(7) }] } };
     if (path.startsWith('/api/fonts/preview/')) return { status: 200, json: { file: HASH(9) } };
     const mine = (styles[user] ??= []);
-    if (path === '/api/styles' && method === 'GET') return { status: 200, json: sorted(mine) };
+    if (path === '/api/styles' && method === 'GET') return failStyles ? { status: 500, json: { error: { code: 'internal', message: 'Something went wrong on the server.' } } } : { status: 200, json: sorted(mine) };
     const key = (n: string) => n.trim().toLowerCase();
     if (path === '/api/styles' && method === 'POST') {
       if (!b.name?.trim()) return { status: 400, json: { error: { code: 'invalid_name', message: 'Give the style a name.' } } };
