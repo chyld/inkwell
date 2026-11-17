@@ -9,6 +9,27 @@ let env: Env;
 beforeEach(async () => (env = await makeEnv()));
 afterEach(async () => env.close());
 
+describe('password hashing strength (production; the other tests use a cheap cost)', () => {
+  it('a store with no passwordCost (as main.ts and the CLI build it) hashes with Argon2id at 64 MiB and 3 passes', async () => {
+    const prod = await makeEnv({}, { storeOptions: { passwordCost: undefined } });
+    try {
+      await prod.store.identity.createUser('alice', PASSWORD);
+      const row = prod.store.db.prepare('SELECT password_hash FROM users').get() as { password_hash: string };
+      expect(row.password_hash).toMatch(/^\$argon2id\$v=19\$m=65536,t=3,p=1\$[A-Za-z0-9+/]{22}\$[A-Za-z0-9+/]{43}$/);
+      expect(await prod.store.identity.checkCredentials('alice', PASSWORD)).toBeTruthy();
+      expect(await prod.store.identity.checkCredentials('alice', 'a wrong long password')).toBeNull();
+    } finally {
+      await prod.close();
+    }
+  });
+  it('the tests\' own hashes are cheap and still verify', async () => {
+    await env.store.identity.createUser('alice', PASSWORD);
+    const row = env.store.db.prepare('SELECT password_hash FROM users').get() as { password_hash: string };
+    expect(row.password_hash).toMatch(/^\$argon2id\$v=19\$m=256,t=1,p=1\$/);
+    expect(await env.store.identity.checkCredentials('alice', PASSWORD)).toBeTruthy();
+  });
+});
+
 describe('sessions', () => {
   it('sets a secure session cookie with the right attributes', async () => {
     await env.store.identity.createUser('alice', PASSWORD);

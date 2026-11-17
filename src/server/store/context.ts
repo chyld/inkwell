@@ -1,6 +1,7 @@
 // What every part of the store shares: one database handle, the options, the clock, the data directories and the
 // one transaction helper (Store.tx, BEGIN IMMEDIATE).
 import type { DB } from '../db.js';
+import type { PasswordCost } from '../passwords.js';
 
 export interface StoreOptions {
   dataDir: string;
@@ -9,6 +10,8 @@ export interface StoreOptions {
   now?: () => number;
   /** Cap on the font store (default 500 MB). */
   fontCacheBytes?: number;
+  /** The cost of new password hashes. Production leaves it out (Argon2id, 64 MiB, 3 passes); tests set it low. */
+  passwordCost?: PasswordCost;
 }
 
 export interface StoreContext {

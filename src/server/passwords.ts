@@ -5,6 +5,15 @@ import crypto from 'node:crypto';
 const PARAMS = { memory: 65536, passes: 3, parallelism: 1, tagLength: 32 } as const;
 export const MIN_PASSWORD_LENGTH = 12;
 
+/**
+ * The cost of new hashes: memory in KiB and passes. Production always uses the defaults above (64 MiB, 3 passes);
+ * tests set cheap ones through StoreOptions.passwordCost. Checking a hash uses the parameters written in it.
+ */
+export interface PasswordCost {
+  memory: number;
+  passes: number;
+}
+
 function b64(buf: Buffer): string {
   return buf.toString('base64').replace(/=+$/, '');
 }
@@ -15,10 +24,11 @@ function argon2id(password: string, salt: Buffer, p: { memory: number; passes: n
   });
 }
 
-export async function hashPassword(password: string): Promise<string> {
+export async function hashPassword(password: string, cost?: PasswordCost): Promise<string> {
+  const p = { ...PARAMS, ...cost };
   const salt = crypto.randomBytes(16);
-  const hash = await argon2id(password, salt, PARAMS);
-  return `$argon2id$v=19$m=${PARAMS.memory},t=${PARAMS.passes},p=${PARAMS.parallelism}$${b64(salt)}$${b64(hash)}`;
+  const hash = await argon2id(password, salt, p);
+  return `$argon2id$v=19$m=${p.memory},t=${p.passes},p=${p.parallelism}$${b64(salt)}$${b64(hash)}`;
 }
 
 const ENCODED_RE = /^\$argon2id\$v=19\$m=(\d+),t=(\d+),p=(\d+)\$([A-Za-z0-9+/]+)\$([A-Za-z0-9+/]+)$/;
@@ -37,11 +47,12 @@ export async function verifyPassword(encoded: string, password: string): Promise
   return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
 }
 
-let dummy: string | null = null;
-/** Spend the same time as a real check, for unknown usernames. */
-export async function dummyVerify(password: string): Promise<void> {
-  if (!dummy) dummy = await hashPassword('not-a-real-password-placeholder');
-  await verifyPassword(dummy, password);
+const dummies = new Map<string, Promise<string>>();
+/** Spend the same time as a real check (at the cost real hashes have), for unknown usernames. */
+export async function dummyVerify(password: string, cost?: PasswordCost): Promise<void> {
+  const key = cost ? `${cost.memory},${cost.passes}` : '';
+  if (!dummies.has(key)) dummies.set(key, hashPassword('not-a-real-password-placeholder', cost));
+  await verifyPassword(await dummies.get(key)!, password);
 }
 
 export function checkPasswordRules(password: string): string | null {

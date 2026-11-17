@@ -62,7 +62,7 @@ export class IdentityStore extends StorePart {
     const username = normalizeUsername(rawUsername);
     const err = checkUsername(username);
     if (err) throw badRequest(err);
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password, this.opts.passwordCost);
     const now = this.now();
     const id = crypto.randomUUID();
     return this.tx(() => {
@@ -96,7 +96,7 @@ export class IdentityStore extends StorePart {
 
   async setPassword(rawUsername: string, password: string): Promise<void> {
     const user = this.requireUser(rawUsername);
-    const hash = await hashPassword(password);
+    const hash = await hashPassword(password, this.opts.passwordCost);
     this.tx(() => {
       stmt(this.db, 'UPDATE users SET password_hash = ? WHERE id = ?').run(hash, user.id);
       stmt(this.db, 'DELETE FROM sessions WHERE user_id = ?').run(user.id);
@@ -129,7 +129,7 @@ export class IdentityStore extends StorePart {
   async checkCredentials(rawUsername: string, password: string): Promise<UserRow | null> {
     const user = typeof password === 'string' ? this.getUserByUsername(rawUsername) : undefined;
     if (!user || typeof password !== 'string' || password.length > 1024) {
-      await dummyVerify(typeof password === 'string' ? password.slice(0, 1024) : '');
+      await dummyVerify(typeof password === 'string' ? password.slice(0, 1024) : '', this.opts.passwordCost);
       return null;
     }
     const ok = await verifyPassword(user.password_hash, password);

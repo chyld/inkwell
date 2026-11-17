@@ -24,6 +24,9 @@ export interface Env {
   close: () => Promise<void>;
 }
 
+/** Cheap password hashes for tests; production uses 64 MiB and 3 passes (pinned by sessions.test.ts). */
+export const TEST_PASSWORD_COST = { memory: 256, passes: 1 };
+
 /** Extra app options (e.g. a stand-in font fetcher) and store options (e.g. a small font cap). */
 export type EnvExtra = Partial<Pick<AppOptions, 'fonts'>> & { storeOptions?: Partial<StoreOptions> };
 
@@ -53,7 +56,7 @@ export async function makeEnv(overrides: Record<string, string> = {}, extra: Env
   }) as typeof db.prepare;
   migrate(db, dir);
   const clock = { t: Date.UTC(2026, 0, 1) };
-  const store = new Store(db, { dataDir: dir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, now: () => clock.t, fontCacheBytes: config.fontCacheBytes, ...extra.storeOptions });
+  const store = new Store(db, { dataDir: dir, userQuotaBytes: config.userQuotaBytes, agentRatePerHour: config.agentRatePerHour, now: () => clock.t, fontCacheBytes: config.fontCacheBytes, passwordCost: TEST_PASSWORD_COST, ...extra.storeOptions });
   store.images.reconcileImageFiles();
   store.fonts.reconcile();
   const stream = new PassThrough();
