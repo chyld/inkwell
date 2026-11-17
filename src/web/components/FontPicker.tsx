@@ -3,7 +3,8 @@ import type { Editor } from '@tiptap/react';
 import { ChevronDown } from 'lucide-react';
 import { DEFAULT_FONT_FAMILY, fontById, NOTE_FONTS_MAX } from '../../shared/fonts';
 import { fontsInDoc } from '../../shared/noteRules';
-import { api } from '../api';
+import { api, ApiError } from '../api';
+import { useDialogs } from './Dialogs';
 import { usePreviews } from '../fonts/previews';
 import { listKeys, runKey, usePopoverMenu } from './popoverMenu';
 
@@ -76,6 +77,7 @@ interface MenuProps {
 export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = false, refocusAfterChoose = false }: MenuProps) {
   const [collection, setCollection] = useState<string[] | null>(null);
   const m = usePopoverMenu({ placementDeps: [collection] });
+  const dialogs = useDialogs();
   const { open, close } = m;
   const fromCollection = (collection ?? []).filter((id) => fontById(id));
   const fonts = listCurrent && state.kind === 'one' && fontById(state.id) && !fromCollection.includes(state.id) ? [...fromCollection, state.id] : fromCollection;
@@ -91,7 +93,8 @@ export function FontMenu({ state, disabled, onBrowse, onChoose, listCurrent = fa
     let alive = true;
     api<string[]>('GET', '/fonts/collection').then(
       (ids) => alive && setCollection(Array.isArray(ids) ? ids : []),
-      () => alive && setCollection((c) => c ?? []),
+      // A failure keeps the list shown (none yet: no "No fonts yet", which would be untrue) and says so (item 15).
+      (e) => alive && dialogs.notice(`Your fonts could not be loaded: ${e instanceof ApiError ? e.message : 'could not reach the server.'}`),
     );
     return () => {
       alive = false;

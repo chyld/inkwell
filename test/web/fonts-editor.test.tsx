@@ -124,7 +124,7 @@ async function open(body: unknown, opts: { version?: number } = {}) {
       stored = b.body;
       return { status: 200, json: { version: (b?.version ?? 0) + 1, updatedAt: '2026-01-02T00:00:00Z' } };
     }
-    if (path === '/api/fonts/collection') return { status: 200, json: collection };
+    if (path === '/api/fonts/collection') return failCollection ? { status: 500, json: { error: { code: 'internal', message: 'Something went wrong on the server.' } } } : { status: 200, json: collection };
     const faces = /^\/api\/fonts\/faces\/([a-z0-9-]+)$/.exec(path);
     if (faces) return failFaces.has(faces[1]) ? { status: 502, json: { error: { code: 'font_unavailable', message: 'x' } } } : { status: 200, json: facesFor(faces[1]) };
     const preview = /^\/api\/fonts\/preview\/([a-z0-9-]+)$/.exec(path);
@@ -147,9 +147,36 @@ const select = async (from: number, to: number) =>
   });
 const menuItems = () => [...view!.container.querySelectorAll('.font-popover button')] as HTMLButtonElement[];
 
+let failCollection = false;
 beforeEach(() => {
   collection = ['titan-one', 'lora'];
   failFaces = new Set();
+  failCollection = false;
+});
+
+describe('a collection that cannot be loaded (BUGFIX-LIST item 15)', () => {
+  it('the menu keeps the list it had and says so; it never claims "No fonts yet"', async () => {
+    await open(docOf(text('hello')));
+    await click(fontButton());
+    await waitFor(() => menuItems().some((b) => b.textContent === 'Titan One'), 3000, 'the collection');
+    await click(fontButton()); // close
+    failCollection = true;
+    await click(fontButton());
+    await settle();
+    expect(menuItems().map((b) => b.textContent)).toContain('Titan One'); // before: emptied
+    expect(view!.container.querySelector('.font-empty')).toBeNull(); // before: "No fonts yet"
+    expect(document.body.textContent).toContain('Your fonts could not be loaded');
+  });
+
+  it('a first opening that fails does not say "No fonts yet"', async () => {
+    failCollection = true;
+    await open(docOf(text('hello')));
+    await click(fontButton());
+    await settle();
+    expect(view!.container.querySelector('.font-empty')).toBeNull(); // before: "No fonts yet" for a user who has fonts
+    expect(menuItems().some((b) => /Browse fonts/.test(b.textContent ?? ''))).toBe(true);
+    expect(document.body.textContent).toContain('Your fonts could not be loaded');
+  });
 });
 
 describe('applying a font (criteria 5 and 3)', () => {
