@@ -209,14 +209,22 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     else if (!uploadsDone) dialogs.notice('An image is still uploading; it will not be added to the note you are leaving.');
   }
 
+  // Every navigation takes a number; one that a later navigation superseded stops after each wait, so a navigation
+  // that waited for a slow save cannot override the one the user made since (BUGFIX-LIST item 4).
+  const navSeq = useRef(0);
+  const startNav = () => ++navSeq.current;
+  const superseded = (n: number) => n !== navSeq.current;
+
   /** Open a note: from the list, or from Back/Forward (which must not add history entries). */
   async function select(id: string, fromHistory = false) {
+    const n = startNav();
     if (id === selected && !notFound) {
       setScreen('editor');
       if (!fromHistory) setAddress(notePath(id), 'push');
       return;
     }
     await settleCurrent();
+    if (superseded(n)) return;
     setFresh(null);
     setNotFound(false);
     setSelected(id);
@@ -226,7 +234,9 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
 
   /** Close the open note (the same flush as switching notes); the address returns to "/". */
   async function closeNote(address: 'push' | 'replace' | 'none') {
+    const n = startNav();
     if (selected) await settleCurrent();
+    if (superseded(n)) return;
     setSelected(null);
     setNotFound(false);
     setScreen('list');
@@ -241,7 +251,9 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     if (r.kind === 'note') void select(r.id, true);
     else if (r.kind === 'notFound') {
       void (async () => {
+        const n = startNav();
         if (selected) await settleCurrent();
+        if (superseded(n)) return;
         setSelected(null);
         setNotFound(true);
         setScreen('editor');
@@ -259,7 +271,9 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
    * saved and closed first, as on any navigation; the page takes the place of the list and the editor.
    */
   async function openPage(p: 'fonts' | 'styles', fromHistory = false) {
+    const n = startNav();
     if (selected) await settleCurrent();
+    if (superseded(n)) return;
     setSelected(null);
     setNotFound(false);
     setScreen(p);
@@ -269,6 +283,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
 
   /** The phone's Back control on the fonts or styles page: to the notes. */
   function leavePage() {
+    startNav();
     setScreen('list');
     setAddress('/', 'push');
   }
@@ -281,6 +296,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
 
   async function changeView(v: RailView) {
     if (v.kind === 'fonts' || v.kind === 'styles') return openPage(v.kind);
+    startNav();
     // Choosing anything else on the rail leaves the fonts or styles page (the screen below is the list).
     if (page !== 'notes') setAddress('/', 'push');
     if (!sameView(v, view)) {
@@ -299,8 +315,10 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     if (view.kind === 'trash' && !anywhere) return;
     const ctx: View = view.kind === 'trash' ? { kind: 'all' } : view;
     const epoch = currentAuthEpoch();
+    const nav = startNav();
     await settleCurrent();
     if (epoch !== currentAuthEpoch()) return; // signed out (or refused) while waiting
+    if (superseded(nav)) return; // the user went elsewhere meanwhile
     if (ctx !== view) {
       setView(ctx);
       setItems([]);
@@ -309,8 +327,9 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     const folderId = ctx.kind === 'folder' ? ctx.id : ctx.kind === 'inbox' ? me.inboxId : null;
     try {
       const n = await api<NoteItem & { version: number }>('POST', '/notes', { folderId });
-      setQuery('');
       setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
+      if (superseded(nav)) return; // made, and listed, but not opened over where the user went meanwhile
+      setQuery('');
       setFresh(n.id);
       setNotFound(false);
       setSelected(n.id);
@@ -396,6 +415,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   }
 
   function removed(id: string) {
+    startNav();
     setItems((prev) => prev.filter((n) => n.id !== id));
     setSelected(null);
     setScreen('list');
