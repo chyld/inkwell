@@ -13,7 +13,7 @@ import { editorOf, mockFetch, render, requests, waitFor } from './harness';
 import { HASH, installFontEnv } from './fonts-env';
 
 const NOTE_ID = '99999999-1111-4111-8111-999999999999';
-const props = { noteId: NOTE_ID, me: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1 << 30, inboxId: 'inbox' }, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onTrashed: vi.fn(), onRestored: vi.fn(), onDeleted: vi.fn(), onTagsChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn(), onManageStyles: vi.fn() };
+const props = { noteId: NOTE_ID, me: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1 << 30, inboxId: 'inbox' }, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onRemoved: vi.fn(), onTagsChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn(), onManageStyles: vi.fn() };
 const KEYS = 20;
 
 let view: Awaited<ReturnType<typeof render>> | null = null;

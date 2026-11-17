@@ -104,3 +104,22 @@ export interface TagCount {
   name: string;
   count: number;
 }
+
+/** A style's eight settings (STYLES-SPEC 3). */
+export interface StyleSettings {
+  font: string | null;
+  size: number;
+  bold: boolean;
+  italic: boolean;
+  underline: boolean;
+  strike: boolean;
+  textColor: string | null;
+  highlight: string | null;
+}
+/** A saved style, as GET /styles lists it. */
+export interface Style extends StyleSettings {
+  id: string;
+  name: string;
+}
+/** A style being made or edited: its settings and name. */
+export type StyleDraft = StyleSettings & { name: string };

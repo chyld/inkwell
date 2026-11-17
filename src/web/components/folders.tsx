@@ -10,10 +10,10 @@ export type View =
   | { kind: 'unfiled' }
   | { kind: 'trash' }
   | { kind: 'folder'; id: string }
-  | { kind: 'tag'; name: string }
-  /** The /fonts page (FONTS-SPEC 7) and the /styles page (STYLES-SPEC 9): not lists of notes. */
-  | { kind: 'fonts' }
-  | { kind: 'styles' };
+  | { kind: 'tag'; name: string };
+
+/** What the rail can mark as current: a view of notes, or the /fonts page (FONTS-SPEC 7) or /styles (STYLES-SPEC 9). */
+export type RailView = View | { kind: 'fonts' } | { kind: 'styles' };
 
 export function sameView(a: View, b: View) {
   return a.kind === b.kind && (a as any).id === (b as any).id && (a as any).name === (b as any).name;
@@ -63,7 +63,7 @@ export function FolderTree({
   folders: FolderNode[];
   all: FolderNode[];
   depth: number;
-  view: View;
+  view: RailView;
   onView: (v: View) => void;
   run: (a: () => Promise<unknown>) => Promise<void>;
   newFolder: (parentId: string | null) => Promise<void>;
@@ -89,7 +89,7 @@ function FolderItem({
   folder: FolderNode;
   all: FolderNode[];
   depth: number;
-  view: View;
+  view: RailView;
   onView: (v: View) => void;
   run: (a: () => Promise<unknown>) => Promise<void>;
   newFolder: (parentId: string | null) => Promise<void>;

@@ -2,12 +2,12 @@
 import { useEffect, useState } from 'react';
 import { ChevronLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 import { DEFAULT_FONT_FAMILY, fontById } from '../../shared/fonts';
-import { api, ApiError } from '../api';
+import { api, ApiError, type Style, type StyleDraft } from '../api';
 import { APP_TITLE, STYLES_TITLE } from '../route';
 import { useDialogs } from './Dialogs';
-import { NEW_STYLE, StyleForm, type Style, type StyleDraft } from './StyleForm';
+import { NEW_STYLE, StyleForm } from './StyleForm';
 import { SampleFontsProvider, StyleSample } from './StyleSample';
-import { setStyles as publishStyles } from '../stylesStore';
+import { refreshStyles, useStyles } from '../stylesStore';
 
 export const STYLES_MAX = 50;
 export const STYLES_FULL = `You can keep at most ${STYLES_MAX} styles. Delete one to add another.`;
@@ -30,7 +30,8 @@ export function styleChips(s: Style): { key: string; text: string; dot?: { attr:
 
 export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBrowseFonts: () => void }) {
   const dialogs = useDialogs();
-  const [styles, setStyles] = useState<Style[] | null>(null);
+  // The shared list (stylesStore): the editor's Styles button matches against the same one.
+  const styles = useStyles();
   const [form, setForm] = useState<{ initial: StyleDraft; id?: string; title: string } | null>(null);
 
   useEffect(() => {
@@ -41,14 +42,8 @@ export function StylesPage({ onBack, onBrowseFonts }: { onBack: () => void; onBr
   }, []);
 
   async function load() {
-    try {
-      const list = await api<Style[]>('GET', '/styles');
-      setStyles(list);
-      publishStyles(list); // the editor's Styles button matches against the same list
-    } catch (e) {
-      setStyles((s) => s ?? []);
-      dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
-    }
+    const e = await refreshStyles();
+    if (e) dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');
   }
   useEffect(() => {
     void load();

@@ -92,7 +92,7 @@ async function open(content: unknown[]) {
     if (path === '/api/fonts/collection') return { status: 200, json: [] };
     return { status: 404, json: { error: { code: 'x', message: 'x' } } };
   });
-  const props = { noteId: NOTE_ID, me: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1 << 30, inboxId: 'inbox' }, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onTrashed: vi.fn(), onRestored: vi.fn(), onDeleted: vi.fn(), onTagsChanged: vi.fn(), onStorageChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn() };
+  const props = { noteId: NOTE_ID, me: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1 << 30, inboxId: 'inbox' }, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onRemoved: vi.fn(), onTagsChanged: vi.fn(), onStorageChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn() };
   view = await render(
     <DialogProvider>
       <NoteEditorPane {...(props as any)} />

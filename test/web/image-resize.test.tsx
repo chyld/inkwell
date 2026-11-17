@@ -21,7 +21,7 @@ const SRC = '/api/images/11111111-1111-4111-8111-111111111111';
 const COLUMN = 600;
 const p = (text: string) => ({ type: 'paragraph', content: [{ type: 'text', text }] });
 const image = (attrs: Record<string, unknown> = {}) => ({ type: 'image', attrs: { src: SRC, alt: 'A cat', ...attrs } });
-const props = { noteId: NOTE_ID, me: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1 << 30, inboxId: 'inbox' }, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onTrashed: vi.fn(), onRestored: vi.fn(), onDeleted: vi.fn(), onTagsChanged: vi.fn(), onStorageChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn(), onManageStyles: vi.fn() };
+const props = { noteId: NOTE_ID, me: { id: 'u1', username: 'alice', storageUsed: 0, storageLimit: 1 << 30, inboxId: 'inbox' }, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onRemoved: vi.fn(), onTagsChanged: vi.fn(), onStorageChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn(), onManageStyles: vi.fn() };
 
 let view: Awaited<ReturnType<typeof render>> | null = null;
 let stored: any;

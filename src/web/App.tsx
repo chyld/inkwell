@@ -4,7 +4,7 @@ import { api, ApiError, setUnauthorizedHandler, type FolderNode, type Me, type N
 import { localDrafts } from './drafts';
 import { DialogProvider, useDialogs } from './components/Dialogs';
 import { SignIn } from './components/SignIn';
-import { findFolder, sameView, type View } from './components/folders';
+import { findFolder, sameView, type RailView, type View } from './components/folders';
 import { Rail } from './components/Rail';
 import { NoteList } from './components/NoteList';
 import { NoteNotFound } from './components/NoteNotFound';
@@ -122,9 +122,10 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   const [selected, setSelected] = useState<string | null>(initial.kind === 'note' ? initial.id : null);
   const [notFound, setNotFound] = useState(initial.kind === 'notFound');
   const [fresh, setFresh] = useState<string | null>(null);
+  /** What is shown: on a phone one screen at a time; /fonts and /styles take the place of the list and the editor. */
   const [screen, setScreen] = useState<Screen>(initial.kind === 'list' ? 'list' : initial.kind === 'fonts' || initial.kind === 'styles' ? initial.kind : 'editor');
-  /** The /fonts page takes the place of the note list and the editor (FONTS-SPEC 7). */
-  const [page, setPage] = useState<Page>(initial.kind === 'fonts' || initial.kind === 'styles' ? initial.kind : 'notes');
+  /** The page: the notes (the list and the editor), /fonts or /styles (FONTS-SPEC 7, STYLES-SPEC 9). */
+  const page: Page = screen === 'fonts' || screen === 'styles' ? screen : 'notes';
   useEffect(() => initHistory(), []);
   // The collapsed note list (wide screens only). The rail is always shown.
   const [layout, setLayout] = useState<Layout>(loadLayout);
@@ -217,7 +218,6 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     await settleCurrent();
     setFresh(null);
     setNotFound(false);
-    setPage('notes');
     setSelected(id);
     setScreen('editor');
     if (!fromHistory) setAddress(notePath(id), 'push');
@@ -228,7 +228,6 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     if (selected) await settleCurrent();
     setSelected(null);
     setNotFound(false);
-    setPage('notes');
     setScreen('list');
     if (address !== 'none') setAddress('/', address);
   }
@@ -238,7 +237,6 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
   onPopRef.current = () => {
     const r = currentRoute();
     if (r.kind === 'fonts' || r.kind === 'styles') return void openPage(r.kind, true);
-    setPage('notes');
     if (r.kind === 'note') void select(r.id, true);
     else if (r.kind === 'notFound') {
       void (async () => {
@@ -263,7 +261,6 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     if (selected) await settleCurrent();
     setSelected(null);
     setNotFound(false);
-    setPage(p);
     setScreen(p);
     if (!fromHistory) setAddress(`/${p}`, 'push');
   }
@@ -271,7 +268,6 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
 
   /** The phone's Back control on the fonts or styles page: to the notes. */
   function leavePage() {
-    setPage('notes');
     setScreen('list');
     setAddress('/', 'push');
   }
@@ -282,13 +278,10 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
     void closeNote('replace');
   }
 
-  async function changeView(v: View) {
+  async function changeView(v: RailView) {
     if (v.kind === 'fonts' || v.kind === 'styles') return openPage(v.kind);
-    // Choosing anything else on the rail leaves the fonts or styles page.
-    if (page !== 'notes') {
-      setPage('notes');
-      setAddress('/', 'push');
-    }
+    // Choosing anything else on the rail leaves the fonts or styles page (the screen below is the list).
+    if (page !== 'notes') setAddress('/', 'push');
     if (!sameView(v, view)) {
       setView(v);
       setItems([]);
@@ -319,7 +312,6 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
       setItems((prev) => [{ ...n, snippet: '' }, ...prev.filter((p) => p.id !== n.id)]);
       setFresh(n.id);
       setNotFound(false);
-      setPage('notes');
       setSelected(n.id);
       setScreen('editor');
       setAddress(notePath(n.id), 'push');
@@ -456,9 +448,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
             ? 'Trash'
             : view.kind === 'tag'
               ? `#${view.name}`
-              : view.kind === 'folder'
-                ? (findFolder(folders, view.id)?.name ?? 'Folder')
-                : 'Fonts';
+              : (findFolder(folders, view.id)?.name ?? 'Folder');
 
   return (
     <div className={`app screen-${screen}${layout.list && page === 'notes' ? ' list-collapsed' : ''}`}>
@@ -502,9 +492,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
           allTags={tags}
           autoFocusTitle={fresh === selected}
           onMeta={patchItem}
-          onTrashed={removed}
-          onRestored={removed}
-          onDeleted={removed}
+          onRemoved={removed}
           onTagsChanged={refreshTags}
           onBack={() => void closeNote('push')}
           onAllNotes={allNotes}

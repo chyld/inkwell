@@ -32,9 +32,7 @@ function props(over: Record<string, unknown> = {}) {
     allTags: [],
     autoFocusTitle: false,
     onMeta: vi.fn(),
-    onTrashed: vi.fn(),
-    onRestored: vi.fn(),
-    onDeleted: vi.fn(),
+    onRemoved: vi.fn(),
     onTagsChanged: vi.fn(),
     onStorageChanged: vi.fn(),
     onBack: vi.fn(),
@@ -135,7 +133,7 @@ describe('Trash and Delete permanently', () => {
     await waitFor(() => !!document.querySelector('.modal'), 2000, 'confirm');
     expect(document.querySelector('.modal')!.textContent).toMatch(/only on this device/);
     await click([...document.querySelectorAll('.modal button')].find((b) => b.textContent === 'Delete permanently'));
-    await waitFor(() => p.onDeleted.mock.calls.length === 1, 2000, 'deleted');
+    await waitFor(() => p.onRemoved.mock.calls.length === 1, 2000, 'deleted');
     expect(localDrafts.get('u1', NOTE_ID)).toBe(null);
   });
 });

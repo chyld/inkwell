@@ -25,9 +25,8 @@ interface Props {
   allTags: TagCount[];
   autoFocusTitle: boolean;
   onMeta: (id: string, patch: Partial<NoteItem>) => void;
-  onTrashed: (id: string) => void;
-  onRestored: (id: string) => void;
-  onDeleted: (id: string) => void;
+  /** The note left the list it was in: moved to Trash, restored from it, or deleted for good. */
+  onRemoved: (id: string) => void;
   onTagsChanged: () => void;
   onBack: () => void;
   /** "Go to all notes" from the not-found state. */
@@ -348,10 +347,10 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
       dialogs.notice('The note was not moved to Trash: its latest changes are not saved yet. Try again once they are saved.');
       return;
     }
-    if (await act(() => api('POST', `/notes/${note.id}/trash`))) props.onTrashed(note.id);
+    if (await act(() => api('POST', `/notes/${note.id}/trash`))) props.onRemoved(note.id);
   }
   async function restore() {
-    if (await act(() => api('POST', `/notes/${note.id}/restore`))) props.onRestored(note.id);
+    if (await act(() => api('POST', `/notes/${note.id}/restore`))) props.onRemoved(note.id);
   }
   async function deleteForever() {
     const local = localDrafts.get(me.id, note.id) !== null;
@@ -366,7 +365,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
     if (!ok) return;
     if (await act(() => api('DELETE', `/notes/${note.id}`))) {
       localDrafts.remove(me.id, note.id);
-      props.onDeleted(note.id);
+      props.onRemoved(note.id);
     }
   }
 

@@ -5,7 +5,7 @@ import type { Mark, MarkType, Node as PMNode, Schema } from '@tiptap/pm/model';
 import { closeHistory } from '@tiptap/pm/history';
 import { NOTE_FONTS_MAX } from '../shared/fonts';
 import { defaultSizeOf, fontsInDoc } from '../shared/noteRules';
-import type { StyleSettings } from './components/StyleSample';
+import type { StyleSettings } from './api';
 
 /** The eight mark types a style sets. */
 export const STYLE_MARK_NAMES = ['fontFamily', 'fontSize', 'bold', 'italic', 'underline', 'strike', 'textColor', 'highlight'] as const;

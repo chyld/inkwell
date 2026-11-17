@@ -107,7 +107,7 @@ let stored: any;
 let collection: string[];
 let failFaces: Set<string>;
 let serverBody: () => unknown;
-const props = { noteId: NOTE_ID, me, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onTrashed: vi.fn(), onRestored: vi.fn(), onDeleted: vi.fn(), onTagsChanged: vi.fn(), onStorageChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn() };
+const props = { noteId: NOTE_ID, me, folders: [], allTags: [], autoFocusTitle: false, onMeta: vi.fn(), onRemoved: vi.fn(), onTagsChanged: vi.fn(), onStorageChanged: vi.fn(), onBack: vi.fn(), onBrowseFonts: vi.fn() };
 
 afterEach(async () => {
   await view?.unmount();

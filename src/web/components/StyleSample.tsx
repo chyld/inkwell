@@ -3,16 +3,8 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { SampleFontSession } from '../fonts/runtime';
 
-export interface StyleSettings {
-  font: string | null;
-  size: number;
-  bold: boolean;
-  italic: boolean;
-  underline: boolean;
-  strike: boolean;
-  textColor: string | null;
-  highlight: string | null;
-}
+import type { StyleSettings } from '../api';
+export type { StyleSettings };
 
 const SampleFonts = createContext<SampleFontSession | null>(null);
 
