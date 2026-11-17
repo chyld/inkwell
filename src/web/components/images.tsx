@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type MutableRefObject } from 'react';
 import type { Editor } from '@tiptap/react';
+import type { Node as PMNode } from '@tiptap/pm/model';
 import { api, ApiError } from '../api';
 import type { DialogApi } from './Dialogs';
 
@@ -48,6 +49,16 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
     };
   }, []);
 
+  /** The position just after the image with this (newly uploaded, so unique) src nearest to `near`. */
+  function afterImage(doc: PMNode, src: string, near: number): number | undefined {
+    let best: number | undefined;
+    doc.descendants((n, p) => {
+      if (n.type.name === 'image' && n.attrs.src === src && (best === undefined || Math.abs(p - near) < Math.abs(best - n.nodeSize - near))) best = p + n.nodeSize;
+      return !n.isTextblock;
+    });
+    return best;
+  }
+
   /** Returns the drop position for the next file: after this one's image (the insert is mapped too), so several
    *  dropped files land in their order (BUGFIX-LIST item 21). */
   async function uploadOne(file: File, dropPos?: number): Promise<number | undefined> {
@@ -76,8 +87,13 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
         return pos;
       }
       const node = { type: 'image', attrs: { src: r.src, alt: file.name.replace(/\.[a-z0-9]+$/i, '') } };
-      if (pos !== undefined) ed.chain().focus().insertContentAt(Math.min(pos, ed.state.doc.content.size), node).run();
-      else ed.chain().focus().insertContent(node).run();
+      if (pos !== undefined) {
+        const at = Math.min(pos, ed.state.doc.content.size);
+        ed.chain().focus().insertContentAt(at, node).run();
+        // The image is a block: inside a paragraph it goes after it (or splits it), beyond `at`, where mapping
+        // leaves the position. The next file goes right after this image (BUGFIX-LIST-2 item 2).
+        pos = afterImage(ed.state.doc, r.src, at) ?? pos;
+      } else ed.chain().focus().insertContent(node).run();
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? `Image not added: ${e.message}` : 'Image not added: the server could not be reached.');
     } finally {

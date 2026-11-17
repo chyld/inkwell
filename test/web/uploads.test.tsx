@@ -141,6 +141,33 @@ describe('image uploads', () => {
 
 
 describe('several images dropped at once (BUGFIX-LIST item 21)', () => {
+  // BUGFIX-LIST-2 item 2: an image is a block, so a drop inside a paragraph puts it after (or splitting) that
+  // paragraph, beyond the drop position; the next one must still go after it.
+  const dropAt = async (where: (doc: any) => number) => {
+    const t = setup();
+    let n = 0;
+    mockFetch(async (method, path) => {
+      if (method === 'POST' && path === '/api/images') {
+        const id = `22222222-2222-4222-8222-00000000000${++n}`;
+        return { status: 201, json: { id, src: `/api/images/${id}` } };
+      }
+      return { status: 404, json: {} };
+    });
+    t.editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'above' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'below' }] }] });
+    cleanup = (await render(<t.Probe />)).unmount;
+    const file = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' });
+    await act(async () => {
+      t.api().handleFiles([file('one.png'), file('two.png'), file('three.png')] as any, where(t.editor.state.doc));
+    });
+    await waitFor(() => (JSON.stringify(t.editor.getJSON()).match(/"image"/g) ?? []).length === 3, 3000, 'three images');
+    return (t.editor.getJSON() as any).content.map((c: any) => (c.type === 'image' ? c.attrs.alt : c.content?.[0]?.text));
+  };
+  it('at the end of a paragraph, land after it in their order', async () => {
+    expect(await dropAt((doc) => 1 + doc.child(0).content.size)).toEqual(['above', 'one', 'two', 'three', 'below']); // before: three, two, one
+  });
+  it('inside a paragraph, land at the split in their order', async () => {
+    expect(await dropAt(() => 3)).toEqual(['ab', 'one', 'two', 'three', 'ove', 'below']);
+  });
   it('land at the drop point in the order they were dropped', async () => {
     const t = setup();
     let n = 0;
