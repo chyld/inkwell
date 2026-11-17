@@ -129,7 +129,8 @@ export class PreviewLoader {
       if (err instanceof ApiError && err.status === 429) this.gate.pause(err.extra.retryAfter);
       else this.failed.add(id);
     } finally {
-      this.loading.delete(id);
+      // After reset, `loading` is the new session's: the same id may be loading there again (BUGFIX-LIST-2 item 6).
+      if (!stale()) this.loading.delete(id);
       this.notify();
       this.gate.finish(); // wakes this loader and the face loader
     }

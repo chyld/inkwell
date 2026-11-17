@@ -196,6 +196,9 @@ export class FaceLoader {
     this.epoch++;
     for (const j of this.queue) j.resolve(false);
     this.queue = [];
+    // A request still in flight is not joined by the next session: the same font asked for again gets its own
+    // (BUGFIX-LIST-2 item 6). The old one answers false to its callers when it ends.
+    this.pending.clear();
   }
 }
 

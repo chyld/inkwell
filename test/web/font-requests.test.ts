@@ -90,6 +90,47 @@ describe('requests in flight at sign-out (BUGFIX-LIST item 11)', () => {
     expect(isNoteFontRegistered(ids[10])).toBe(false); // before: registered for the next user
     expect(await done).toBe(false);
   });
+
+  // BUGFIX-LIST-2 item 6: the same font asked for in the new session, while the old request is still in flight.
+  it('a font asked for again after reset() gets its own request, and is registered', async () => {
+    setup();
+    const deps = { now: () => now, setTimeout: (fn: () => void, ms: number) => timers.push({ at: now + ms, fn }) };
+    const asked: (() => void)[] = [];
+    const face = { faces: [{ weight: '400', style: 'normal', unicodeRange: 'U+0000-00FF', file: HASH(1) }] };
+    const f = new FaceLoader({ ...deps, getFaces: () => new Promise((ok) => asked.push(() => ok(face))) }, new FontRequestGate(deps));
+    const before = f.ensure(ids[11], {});
+    await flush();
+    f.reset(); // sign-out, then sign-in
+    const after = f.ensure(ids[11], {});
+    await flush();
+    expect(asked).toHaveLength(2); // before: 1, the new session joined the old request
+    asked[0](); // the old answer: registers nothing
+    await flush();
+    expect(await before).toBe(false);
+    expect(isNoteFontRegistered(ids[11])).toBe(false);
+    asked[1]();
+    expect(await after).toBe(true); // before: false, and the note stayed on the fallback
+    expect(isNoteFontRegistered(ids[11])).toBe(true);
+  });
+
+  it('a preview asked for again after reset() is not asked for a third time when the old request ends', async () => {
+    setup();
+    let asked = 0;
+    const deps = { now: () => now, setTimeout: (fn: () => void, ms: number) => timers.push({ at: now + ms, fn }) };
+    const answers: ((h: string) => void)[] = [];
+    const q = new PreviewLoader({ ...deps, fetchPreview: () => (asked++, new Promise((ok) => answers.push(ok))) }, new FontRequestGate(deps));
+    q.setRendered('grid', [ids[12]]);
+    await flush();
+    q.reset();
+    q.setRendered('grid', [ids[12]]); // the new session renders it too
+    await flush();
+    expect(asked).toBe(2);
+    answers[0](HASH(3)); // the old request ends
+    await flush();
+    q.setRendered('grid', [ids[12]]); // any re-render
+    await flush();
+    expect(asked).toBe(2); // before: 3, the old request's end took the new one out of "loading"
+  });
 });
 
 describe('the 429 pause (BUGFIX-LIST item 14)', () => {
