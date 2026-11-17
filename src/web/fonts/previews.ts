@@ -5,8 +5,8 @@ import { useEffect, useMemo, useSyncExternalStore } from 'react';
 import { FONT_HASH_RE, FONT_ID_RE, fallbackFamily, fontById } from '../../shared/fonts';
 import { api, ApiError } from '../api';
 import { fileUrl, fontEnv, onFontsCleared, type FontFaceLike } from './runtime';
+import { FontRequestGate, fontRequests } from './requests';
 
-export const PREVIEW_CONCURRENCY = 6;
 export const MAX_REGISTERED_PREVIEWS = 400;
 
 export interface PreviewDeps {
@@ -29,13 +29,18 @@ export class PreviewLoader {
   private failed = new Set<string>();
   /** What each source (grid, chips, menu) renders now, top to bottom. */
   private sources = new Map<string, string[]>();
-  private pausedUntil = 0;
   private tick = 0;
   private listeners = new Set<() => void>();
   /** For tests: the most previews seen loading at once. */
   maxLoading = 0;
 
-  constructor(private deps: PreviewDeps = realDeps) {}
+  /** Within the font request gate (requests.ts): at most 6 font requests in flight, faces included; one 429 pause. */
+  constructor(
+    private deps: PreviewDeps = realDeps,
+    private gate: FontRequestGate = new FontRequestGate(deps),
+  ) {
+    gate.onWake(() => this.pump());
+  }
 
   subscribe = (l: () => void) => {
     this.listeners.add(l);
@@ -88,14 +93,14 @@ export class PreviewLoader {
   }
 
   private pump() {
-    if (this.deps.now() < this.pausedUntil) return;
     for (const id of this.candidates()) {
-      if (this.loading.size >= PREVIEW_CONCURRENCY) break;
+      if (!this.gate.canStart()) break;
       void this.load(id);
     }
   }
 
   private async load(id: string) {
+    this.gate.start();
     this.loading.add(id);
     this.maxLoading = Math.max(this.maxLoading, this.loading.size);
     let face: FontFaceLike | null = null;
@@ -110,17 +115,13 @@ export class PreviewLoader {
       this.releaseBeyondLimit();
     } catch (err) {
       if (face && e) e.fonts.delete(face);
-      if (err instanceof ApiError && err.status === 429) {
-        // Pause all loading until the time given; the card stays a candidate.
-        const s = Number(err.extra.retryAfter);
-        const ms = (Number.isFinite(s) && s > 0 ? s : 1) * 1000;
-        this.pausedUntil = Math.max(this.pausedUntil, this.deps.now() + ms);
-        this.deps.setTimeout(() => this.pump(), ms);
-      } else this.failed.add(id);
+      // A 429 pauses every font request until the time given; the card stays a candidate.
+      if (err instanceof ApiError && err.status === 429) this.gate.pause(err.extra.retryAfter);
+      else this.failed.add(id);
     } finally {
       this.loading.delete(id);
       this.notify();
-      this.pump();
+      this.gate.finish(); // wakes this loader and the face loader
     }
   }
 
@@ -143,12 +144,11 @@ export class PreviewLoader {
     this.loading.clear();
     this.failed.clear();
     this.sources.clear();
-    this.pausedUntil = 0;
     this.notify();
   }
 }
 
-let shared = new PreviewLoader();
+let shared = new PreviewLoader(realDeps, fontRequests());
 onFontsCleared(() => shared.reset());
 
 export function previewLoader() {

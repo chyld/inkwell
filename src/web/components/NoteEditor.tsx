@@ -9,7 +9,8 @@ import { Toolbar } from './Toolbar';
 import { TagEditor } from './TagEditor';
 import { fixPastedTables, limitPastedFonts } from '../paste';
 import { ImageResizeKeys, ResizableImage } from '../ImageView';
-import { NoteFontSession } from '../fonts/runtime';
+import { FontSession } from '../fonts/runtime';
+import { NOTE_FONTS_MAX } from '../../shared/fonts';
 import { relativeTime } from '../util';
 import { APP_TITLE, noteTitle } from '../route';
 import { useDialogs } from './Dialogs';
@@ -43,7 +44,7 @@ export function NoteEditorPane(props: Props) {
   const [missing, setMissing] = useState(false);
   const [reload, setReload] = useState(0);
   // The fonts of this opening of the note (FONTS-SPEC 8.3): kept across a conflict's reload.
-  const [fontSession] = useState(() => new NoteFontSession());
+  const [fontSession] = useState(() => new FontSession({ max: NOTE_FONTS_MAX }));
   useEffect(() => () => fontSession.close(), [fontSession]);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export function NoteEditorPane(props: Props) {
   return <EditorBody key={`${note.id}:${reload}`} {...props} note={note} reloadNote={() => setReload((r) => r + 1)} setNote={setNote} fontSession={fontSession} />;
 }
 
-function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote: (n: Note) => void; fontSession: NoteFontSession }) {
+function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote: (n: Note) => void; fontSession: FontSession }) {
   const { note, me } = props;
   const dialogs = useDialogs();
   const trashed = note.trashedAt !== null;
@@ -213,7 +214,7 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   // the document.
   const syncFonts = () => {
     const ed = editorRef.current;
-    if (ed && !ed.isDestroyed) props.fontSession.update(fontsInDoc(ed.state.doc));
+    if (ed && !ed.isDestroyed) props.fontSession.want(fontsInDoc(ed.state.doc));
   };
   useEffect(() => {
     if (!editor) return;

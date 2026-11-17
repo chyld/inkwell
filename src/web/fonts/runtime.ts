@@ -3,6 +3,7 @@
 import { FONT_HASH_RE, FONT_ID_RE, NOTE_FONTS_MAX, fallbackFamily, fontById } from '../../shared/fonts';
 import { api } from '../api';
 import { clearAllFonts, onFontsCleared } from './clearing';
+import { FontRequestGate, fontRequests } from './requests';
 
 /** What the font code needs from the browser; tests put stand-ins here. */
 export interface FontFaceLike {
@@ -99,8 +100,6 @@ function registerNoteFont(id: string, faces: FaceInfo[]) {
   for (const face of made) face.loaded.catch(() => noteFaces.get(id) === made && dropNoteFont(id));
 }
 
-export const NOTE_FONT_CONCURRENCY = 6;
-
 export interface FaceLoaderDeps {
   getFaces(id: string): Promise<{ faces: FaceInfo[] }>;
   now(): number;
@@ -115,19 +114,24 @@ interface Job {
 
 /**
  * The one app-wide loader of note faces (STYLES-SPEC 10, FONTS-SPEC 8.3): every /faces request of the
- * open note and of every style sample goes through it. At most 6 are in flight in total; requests for
- * the same id are joined; a 429 pauses it until the time given. A queued request that no one wants any
- * more (its note or page was closed) is dropped; one in flight finishes.
+ * open note and of every style sample goes through it, first come, first served, within the font request
+ * gate (requests.ts: at most 6 font requests in flight, previews included; a 429 pauses them all). Requests
+ * for the same id are joined. A queued request that no one wants any more (its note or page was closed) is
+ * dropped; one in flight finishes.
  */
 export class FaceLoader {
   private queue: Job[] = [];
   private pending = new Map<string, { job: Job; promise: Promise<boolean> }>();
   private active = 0;
-  private pausedUntil = 0;
   /** For tests: the most /faces requests seen in flight at once. */
   maxActive = 0;
 
-  constructor(private deps: FaceLoaderDeps) {}
+  constructor(
+    private deps: FaceLoaderDeps,
+    private gate: FontRequestGate = new FontRequestGate(deps),
+  ) {
+    gate.onWake(() => this.pump());
+  }
 
   /** Register a font's faces, asking /faces if needed; resolves true once registered, false on failure. */
   ensure(id: string, owner: object): Promise<boolean> {
@@ -158,14 +162,13 @@ export class FaceLoader {
   }
 
   private pump() {
-    if (this.deps.now() < this.pausedUntil) return;
-    while (this.active < NOTE_FONT_CONCURRENCY && this.queue.length) void this.run(this.queue.shift()!);
+    while (this.gate.canStart() && this.queue.length) void this.run(this.queue.shift()!);
   }
 
   private async run(job: Job) {
+    this.gate.start();
     this.active++;
     this.maxActive = Math.max(this.maxActive, this.active);
-    let requeued = false;
     try {
       const r = await this.deps.getFaces(job.id);
       if (!isNoteFontRegistered(job.id)) registerNoteFont(job.id, r.faces);
@@ -173,36 +176,34 @@ export class FaceLoader {
     } catch (e) {
       const status = (e as { status?: number })?.status;
       if (status === 429) {
-        // Pause everything until the time given, then ask again.
-        const s = Number((e as { extra?: { retryAfter?: unknown } }).extra?.retryAfter);
-        const ms = (Number.isFinite(s) && s > 0 ? s : 1) * 1000;
-        this.pausedUntil = Math.max(this.pausedUntil, this.deps.now() + ms);
+        // Pause every font request until the time given, then ask again.
+        this.gate.pause((e as { extra?: { retryAfter?: unknown } }).extra?.retryAfter);
         this.queue.unshift(job);
-        requeued = true;
-        this.deps.setTimeout(() => this.pump(), ms);
       } else job.resolve(false); // the fallback stays, with no message
     } finally {
       this.active--;
-      if (!requeued || this.deps.now() >= this.pausedUntil) this.pump();
+      this.gate.finish(); // wakes this loader and the preview loader
     }
   }
 
-  /** Sign-out. */
+  /** Sign-out (the gate's pause is reset with it). */
   reset() {
     for (const j of this.queue) j.resolve(false);
     this.queue = [];
-    this.pausedUntil = 0;
   }
 }
 
 let loader: FaceLoader | null = null;
 export function faceLoader(): FaceLoader {
   if (!loader)
-    loader = new FaceLoader({
-      getFaces: (id) => api<{ faces: FaceInfo[] }>('GET', `/fonts/faces/${id}`),
-      now: () => Date.now(),
-      setTimeout: (fn, ms) => setTimeout(fn, ms),
-    });
+    loader = new FaceLoader(
+      {
+        getFaces: (id) => api<{ faces: FaceInfo[] }>('GET', `/fonts/faces/${id}`),
+        now: () => Date.now(),
+        setTimeout: (fn, ms) => setTimeout(fn, ms),
+      },
+      fontRequests(),
+    );
   return loader;
 }
 /** For tests: a loader with stand-in dependencies. */
@@ -211,51 +212,29 @@ export function setFaceLoader(l: FaceLoader | null) {
 }
 
 /**
- * The fonts of one opening of a note: each id is asked for at most once (whether it succeeds or
- * fails), never more than 50 ids; the requests go through the app-wide loader.
+ * The fonts one opening asks the face loader for: a note's (at most `max` ids, 50: FONTS-SPEC 8.1), or the style
+ * samples of a card page, a menu or the form (no limit; they do not count toward a note's 50). Each id is asked
+ * for once per opening, whether it succeeds or fails; retry(id) asks again (the form's font changed to it).
  */
-export class NoteFontSession {
+export class FontSession {
   private attempted = new Set<string>();
   private closed = false;
+  private loader: FaceLoader;
+  private max: number;
 
-  constructor(private loader: FaceLoader = faceLoader()) {}
-
-  /** The font ids now in the document. */
-  update(ids: Iterable<string>) {
-    if (this.closed) return;
-    for (const id of ids) {
-      if (!fontById(id)) continue;
-      ensureFontRule(id);
-      if (this.attempted.has(id) || isNoteFontRegistered(id)) continue;
-      if (this.attempted.size >= NOTE_FONTS_MAX) continue;
-      this.attempted.add(id);
-      void this.loader.ensure(id, this);
-    }
+  constructor({ loader = faceLoader(), max = Infinity }: { loader?: FaceLoader; max?: number } = {}) {
+    this.loader = loader;
+    this.max = max;
   }
 
-  close() {
-    this.closed = true;
-    this.loader.release(this);
-  }
-}
-
-/**
- * The fonts of style samples on one opening of a card page, a menu or the form. They do not count
- * toward any note's limit of 50. An id is asked for once per opening (and again when the form's font
- * changes to it); a failed id is tried again the next time, not before.
- */
-export class SampleFontSession {
-  private attempted = new Set<string>();
-  private closed = false;
-
-  constructor(private loader: FaceLoader = faceLoader()) {}
-
+  /** The font ids now wanted (in a note: the ids in the document). */
   want(ids: Iterable<string>) {
     if (this.closed) return;
     for (const id of ids) {
       if (!fontById(id)) continue;
       ensureFontRule(id);
       if (this.attempted.has(id) || isNoteFontRegistered(id)) continue;
+      if (this.attempted.size >= this.max) continue;
       this.attempted.add(id);
       void this.loader.ensure(id, this);
     }

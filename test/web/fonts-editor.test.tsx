@@ -11,7 +11,7 @@ import { DialogProvider } from '../../src/web/components/Dialogs';
 import { NoteEditorPane } from '../../src/web/components/NoteEditor';
 import { limitPastedFonts } from '../../src/web/paste';
 import { localDrafts } from '../../src/web/drafts';
-import { clearAllFonts, fontRulesText, NoteFontSession } from '../../src/web/fonts/runtime';
+import { clearAllFonts, fontRulesText, FontSession } from '../../src/web/fonts/runtime';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { button, click, editorOf, mockFetch, render, requests, settle, waitFor } from './harness';
 import { FakeFontFace, HASH, installFontEnv, registeredFamilies } from './fonts-env';
@@ -288,7 +288,7 @@ describe('registering the fonts a document brings (criterion 16)', () => {
     await waitFor(() => facesRequests('buda') === 1, 2000, 'faces on paste');
     // Undo and redo recompute the set (the session is told after every change that alters the document, within
     // FONT_SCAN_MS: the scan is debounced rather than run per keystroke, CLEANUP-PLAN pass 1 item 3).
-    const spy = vi.spyOn(NoteFontSession.prototype, 'update');
+    const spy = vi.spyOn(FontSession.prototype, 'want');
     await act(async () => {
       editorOf(view!.container).commands.undo();
     });

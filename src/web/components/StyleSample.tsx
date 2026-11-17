@@ -1,21 +1,21 @@
 // Drawing text in a style outside the editor (STYLES-SPEC 10): the same elements the editor produces,
 // nested, in a container that gives them the rules they have in a note. Nothing uses an inline style.
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { SampleFontSession } from '../fonts/runtime';
+import { FontSession } from '../fonts/runtime';
 
 import type { StyleSettings } from '../api';
 export type { StyleSettings };
 
-const SampleFonts = createContext<SampleFontSession | null>(null);
+const SampleFonts = createContext<FontSession | null>(null);
 
 /** One opening of a card page, a menu or the form: its samples' fonts are asked for once. */
 export function SampleFontsProvider({ children }: { children: ReactNode }) {
-  const [session] = useState(() => new SampleFontSession());
+  const [session] = useState(() => new FontSession());
   useEffect(() => () => session.close(), [session]);
   return <SampleFonts.Provider value={session}>{children}</SampleFonts.Provider>;
 }
 
-export function useSampleFonts(): SampleFontSession | null {
+export function useSampleFonts(): FontSession | null {
   return useContext(SampleFonts);
 }
 

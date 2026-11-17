@@ -2,9 +2,9 @@
 // The app-wide note-face loader shared by open notes and style samples (STYLES-SPEC 10, criterion 16),
 // and the sample renderer's markup.
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FONT_CATALOGUE } from '../../src/shared/fonts';
+import { FONT_CATALOGUE, NOTE_FONTS_MAX } from '../../src/shared/fonts';
 import { ApiError } from '../../src/web/api';
-import { clearAllFonts, FaceLoader, fontRulesText, NoteFontSession, SampleFontSession, setFaceLoader } from '../../src/web/fonts/runtime';
+import { clearAllFonts, FaceLoader, fontRulesText, FontSession, setFaceLoader } from '../../src/web/fonts/runtime';
 import { SampleFontsProvider, StyleSample, type StyleSettings } from '../../src/web/components/StyleSample';
 import { render, settle } from './harness';
 import { HASH, installFontEnv, registeredFamilies } from './fonts-env';
@@ -53,10 +53,10 @@ beforeEach(() => {
 describe('the shared loader', () => {
   it('never more than 6 /faces in flight in total, across an open note and samples', async () => {
     const l = makeLoader();
-    const note = new NoteFontSession(l);
-    const page = new SampleFontSession(l);
-    const menu = new SampleFontSession(l);
-    note.update(ids(8));
+    const note = new FontSession({ loader: l, max: NOTE_FONTS_MAX });
+    const page = new FontSession({ loader: l });
+    const menu = new FontSession({ loader: l });
+    note.want(ids(8));
     page.want(ids(8, 100));
     menu.want(ids(8, 200));
     expect(pending.size).toBe(6);
@@ -68,25 +68,25 @@ describe('the shared loader', () => {
 
   it('one request for a font used by several styles, and by the note too (joined)', async () => {
     const l = makeLoader();
-    const page = new SampleFontSession(l);
-    const form = new SampleFontSession(l);
-    const note = new NoteFontSession(l);
+    const page = new FontSession({ loader: l });
+    const form = new FontSession({ loader: l });
+    const note = new FontSession({ loader: l, max: NOTE_FONTS_MAX });
     page.want(['lora', 'lora', 'caveat']);
     form.want(['lora']);
-    note.update(['lora']);
+    note.want(['lora']);
     await finishAll();
     expect(calls.sort()).toEqual(['caveat', 'lora']);
     // Registered for the session: a later opening does not ask again.
-    new SampleFontSession(l).want(['lora']);
+    new FontSession({ loader: l }).want(['lora']);
     await flush();
     expect(calls.length).toBe(2);
   });
 
   it('a note with 50 fonts still gets its fonts and the styles theirs; samples do not count toward the 50', async () => {
     const l = makeLoader();
-    const note = new NoteFontSession(l);
-    note.update(ids(51)); // the note's own limit: 50 ids
-    const page = new SampleFontSession(l);
+    const note = new FontSession({ loader: l, max: NOTE_FONTS_MAX });
+    note.want(ids(51)); // the note's own limit: 50 ids
+    const page = new FontSession({ loader: l });
     page.want(ids(3, 500));
     await finishAll();
     expect(calls.length).toBe(53);
@@ -96,7 +96,7 @@ describe('the shared loader', () => {
 
   it('a failed font shows the fallback and is asked for again at the next opening, not before', async () => {
     const l = makeLoader();
-    const page = new SampleFontSession(l);
+    const page = new FontSession({ loader: l });
     page.want(['lora']);
     pending.get('lora')!.fail(new ApiError(502, 'font_unavailable', 'x'));
     pending.delete('lora');
@@ -107,10 +107,10 @@ describe('the shared loader', () => {
     await flush();
     expect(calls).toEqual(['lora']);
     page.close();
-    new SampleFontSession(l).want(['lora']); // the next opening
+    new FontSession({ loader: l }).want(['lora']); // the next opening
     expect(calls).toEqual(['lora', 'lora']);
     // The form asks again when its font changes to it.
-    const form = new SampleFontSession(l);
+    const form = new FontSession({ loader: l });
     form.want(['caveat']);
     pending.get('caveat')!.fail(new Error('network'));
     pending.delete('caveat');
@@ -121,7 +121,7 @@ describe('the shared loader', () => {
 
   it('a 429 pauses the loader until the time given', async () => {
     const l = makeLoader();
-    const page = new SampleFontSession(l);
+    const page = new FontSession({ loader: l });
     page.want(ids(8));
     const first = ids(1)[0];
     pending.get(first)!.fail(new ApiError(429, 'font_rate_limited', 'x', { retryAfter: 5 }));
@@ -136,8 +136,8 @@ describe('the shared loader', () => {
 
   it("a closed note's queued requests are dropped; one in flight finishes (as before the loader was shared)", async () => {
     const l = makeLoader();
-    const note = new NoteFontSession(l);
-    note.update(ids(10));
+    const note = new FontSession({ loader: l, max: NOTE_FONTS_MAX });
+    note.want(ids(10));
     expect(pending.size).toBe(6);
     note.close();
     await finishAll();

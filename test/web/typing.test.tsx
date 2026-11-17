@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, Profiler } from 'react';
 import { DialogProvider } from '../../src/web/components/Dialogs';
 import { NoteEditorPane } from '../../src/web/components/NoteEditor';
-import { NoteFontSession, clearAllFonts, setFaceLoader } from '../../src/web/fonts/runtime';
+import { FontSession, clearAllFonts, setFaceLoader } from '../../src/web/fonts/runtime';
 import { PreviewLoader, setPreviewLoader } from '../../src/web/fonts/previews';
 import { resetStyles } from '../../src/web/stylesStore';
 import { localDrafts } from '../../src/web/drafts';
@@ -65,7 +65,7 @@ async function type() {
   const ed = editorOf(view!.container);
   const getJSON = vi.spyOn(ed, 'getJSON');
   const setDraft = vi.spyOn(localDrafts, 'set');
-  const scans = vi.spyOn(NoteFontSession.prototype, 'update');
+  const scans = vi.spyOn(FontSession.prototype, 'want');
   commits = 0;
   for (let i = 0; i < KEYS; i++) await act(async () => void ed.commands.insertContent(String.fromCharCode(97 + i)));
   const out = { commits, getJSON: getJSON.mock.calls.length, draftWrites: setDraft.mock.calls.length, fontScans: scans.mock.calls.length };
