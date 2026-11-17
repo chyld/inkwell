@@ -229,18 +229,17 @@ stateless, JSON responses). Every client authenticates with the header
 (`title`, `content` as Markdown, optional `tags`). OAuth is not supported, so
 claude.ai web connectors cannot use it; the command-line clients below can.
 
-> **Status: not yet verified.** The four configurations below were written from
-> each client's `--help` output on 2026-11-15 (Claude Code `claude mcp add`,
-> Codex CLI 0.169.0, Grok 1.0.77, Muse Code 1.4.20). None has yet been tried
-> by hand against a deployment. The server side was tested with the official
-> MCP SDK client (both the 2025 `initialize` handshake and the 2026-07-28
-> `server/discover` revision). If a client cannot be made to work with a static
-> bearer token, that will be reported here.
+> **Status: verified on 2026-11-16.** Each of the four clients below was set
+> up with the commands shown and created a note through a local deployment
+> (Claude Code 2.1.326, Codex CLI 0.169.0, Grok 1.0.77, Muse Code 1.4.20), with
+> a static bearer token and no OAuth. The server side is also tested with the
+> official MCP SDK client (both the 2025 `initialize` handshake and the
+> 2026-07-28 `server/discover` revision).
 
 **Worked example.** Suppose `notes agent add chyld "Claude Code"` printed the
 token `nta_EXAMPLEexampleEXAMPLEexampleEXAMPLEexample12`. Then:
 
-### Claude Code — not yet verified
+### Claude Code
 
 ```sh
 claude mcp add --transport http --scope user notes https://chyld-notes.duckdns.org/mcp \
@@ -250,7 +249,7 @@ claude mcp list        # "notes" should show as connected
 
 Then ask Claude Code, for example, "put a summary of this in my notes".
 
-### Codex — not yet verified
+### Codex
 
 Codex reads the token from an environment variable. Add the export to your
 shell profile (`~/.bashrc`, `~/.zshrc`) so it is set whenever Codex runs:
@@ -261,7 +260,11 @@ codex mcp add notes --url https://chyld-notes.duckdns.org/mcp --bearer-token-env
 codex mcp list
 ```
 
-### Grok — not yet verified
+In an interactive session Codex asks before each call to the tool. When Codex
+runs non-interactively (`codex exec`), add `--approve-for-me`; without it the
+call is refused with "MCP tool call requires approval".
+
+### Grok
 
 ```sh
 grok mcp add notes https://chyld-notes.duckdns.org/mcp --transport http \
@@ -269,7 +272,7 @@ grok mcp add notes https://chyld-notes.duckdns.org/mcp --transport http \
 grok mcp doctor        # checks configuration and connectivity
 ```
 
-### Muse — not yet verified
+### Muse
 
 Muse can read the token from an environment variable (as for Codex):
 
@@ -415,7 +418,7 @@ are done testing.
 **Agent clients** (create an agent with
 `docker compose -p notes-dev exec app notes agent add tester test`, then use the
 commands from section 5 with `https://localhost/mcp`). These settings were
-found in each client's documentation or program and are **not yet verified**:
+were verified on 2026-11-16 against a local deployment on another port:
 
 - Claude Code (Node.js): start it with
   `NODE_EXTRA_CA_CERTS=/path/to/caddy-local-root.crt claude`; this adds the
