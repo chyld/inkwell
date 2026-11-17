@@ -48,14 +48,16 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
     };
   }, []);
 
-  async function uploadOne(file: File, dropPos?: number) {
+  /** Returns the drop position for the next file: after this one's image (the insert is mapped too), so several
+   *  dropped files land in their order (BUGFIX-LIST item 21). */
+  async function uploadOne(file: File, dropPos?: number): Promise<number | undefined> {
     if (!ACCEPT.includes(file.type)) {
       dialogs.notice(`“${file.name}” is not a PNG, JPEG, GIF or WebP image.`);
-      return;
+      return dropPos;
     }
     if (file.size > MAX) {
       dialogs.notice(`“${file.name}” is larger than 10 MB.`);
-      return;
+      return dropPos;
     }
     const form = new FormData();
     form.append('file', file, file.name);
@@ -71,7 +73,7 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
       const ed = editorRef.current;
       if (!ed || ed.isDestroyed || ed !== started) {
         dialogs.notice(`“${file.name}” finished uploading after the note was closed, so it was not added to the note.`);
-        return;
+        return pos;
       }
       const node = { type: 'image', attrs: { src: r.src, alt: file.name.replace(/\.[a-z0-9]+$/i, '') } };
       if (pos !== undefined) ed.chain().focus().insertContentAt(Math.min(pos, ed.state.doc.content.size), node).run();
@@ -81,9 +83,11 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
     } finally {
       if (started && !started.isDestroyed) started.off('transaction', track);
     }
+    return pos;
   }
 
-  async function uploadAll(files: File[], pos?: number) {
+  async function uploadAll(files: File[], dropPos?: number) {
+    let pos = dropPos;
     setBusy(true);
     const epoch = uploadEpoch;
     const job = (async () => {
@@ -91,7 +95,7 @@ export function useImageUpload(editorRef: MutableRefObject<Editor | null>, dialo
         // Never send a queued file after sign-out (the next request would carry another
         // user's session) or after the note was closed.
         if (epoch !== uploadEpoch || closed.current) return;
-        await uploadOne(f, pos);
+        pos = await uploadOne(f, pos);
       }
     })();
     pendingUploads.set(job, epoch);

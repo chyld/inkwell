@@ -139,3 +139,27 @@ describe('image uploads', () => {
   });
 });
 
+
+describe('several images dropped at once (BUGFIX-LIST item 21)', () => {
+  it('land at the drop point in the order they were dropped', async () => {
+    const t = setup();
+    let n = 0;
+    mockFetch(async (method, path) => {
+      if (method === 'POST' && path === '/api/images') {
+        const id = `22222222-2222-4222-8222-00000000000${++n}`;
+        return { status: 201, json: { id, src: `/api/images/${id}` } };
+      }
+      return { status: 404, json: {} };
+    });
+    t.editor.commands.setContent({ type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'above' }] }, { type: 'paragraph', content: [{ type: 'text', text: 'below' }] }] });
+    cleanup = (await render(<t.Probe />)).unmount;
+    const between = t.editor.state.doc.child(0).nodeSize; // between the two paragraphs
+    const file = (name: string) => new File([new Uint8Array([137, 80, 78, 71])], name, { type: 'image/png' });
+    await act(async () => {
+      t.api().handleFiles([file('one.png'), file('two.png'), file('three.png')] as any, between);
+    });
+    await waitFor(() => (JSON.stringify(t.editor.getJSON()).match(/"image"/g) ?? []).length === 3, 3000, 'three images');
+    const json = t.editor.getJSON() as any;
+    expect(json.content.map((c: any) => (c.type === 'image' ? c.attrs.alt : c.content?.[0]?.text))).toEqual(['above', 'one', 'two', 'three', 'below']); // before: three, two, one
+  });
+});
