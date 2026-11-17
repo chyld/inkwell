@@ -32,7 +32,11 @@ const realTimers: Timers = {
 
 type Kind = 'preview' | 'faces';
 
-export const fontUnavailable = () => new AppError(502, 'font_unavailable', 'This font could not be downloaded. Try again later.');
+/** One font operation downloads at most this many files, and this many bytes in all (BUGFIX-LIST item 10). */
+export const MAX_OPERATION_FILES = 16;
+export const MAX_OPERATION_BYTES = 8 * 1024 * 1024;
+
+export const fontUnavailable =() => new AppError(502, 'font_unavailable', 'This font could not be downloaded. Try again later.');
 export const fontBusy = () => new AppError(503, 'font_busy', 'Fonts are busy downloading. Try again in a moment.');
 export const fontStoreFull = () => new AppError(507, 'font_store_full', 'The font store is full.');
 
@@ -202,20 +206,24 @@ export class FontService {
       }
     };
 
+    const budget = { bytes: 0 };
     try {
       if (kind === 'preview') {
         const css = (await request(previewUrl(f), MAX_STYLESHEET_BYTES)).toString('utf8');
         const block = checkPreview(f, css);
-        const file = await this.download(block.url, request, tmpFiles);
+        const file = await this.download(block.url, request, tmpFiles, budget);
         this.store.record(f.id, { kind: 'preview', file: file.hash }, [file]);
       } else {
         const css = (await request(facesUrl(f), MAX_STYLESHEET_BYTES)).toString('utf8');
         const blocks = checkFaces(f, css);
         const urls = [...new Set(blocks.map((b) => b.url))]; // only latin and latin-ext files are requested
+        // A broken or hostile answer cannot fill the disk (BUGFIX-LIST item 10): too many files fails before any
+        // download, and download() stops before writing past the operation's total.
+        if (urls.length > MAX_OPERATION_FILES) throw new FontFetchError(`more than ${MAX_OPERATION_FILES} files`);
         // On the first failure the rest are aborted; all settle before the downloads are cleaned up.
         const results = await Promise.allSettled(
           urls.map((u) =>
-            this.download(u, request, tmpFiles).catch((e) => {
+            this.download(u, request, tmpFiles, budget).catch((e) => {
               deadline.abort();
               throw e;
             }),
@@ -240,9 +248,11 @@ export class FontService {
     }
   }
 
-  private async download(url: string, request: (url: string, max: number) => Promise<Buffer>, tmpFiles: string[]): Promise<DownloadedFile> {
+  private async download(url: string, request: (url: string, max: number) => Promise<Buffer>, tmpFiles: string[], budget: { bytes: number }): Promise<DownloadedFile> {
     const buf = await request(url, MAX_FILE_BYTES);
     if (!isWoff2(buf)) throw new FontFetchError('not a WOFF2 file');
+    budget.bytes += buf.length;
+    if (budget.bytes > MAX_OPERATION_BYTES) throw new FontFetchError(`more than ${MAX_OPERATION_BYTES} bytes`); // not written
     const hash = crypto.createHash('sha256').update(buf).digest('hex');
     fs.mkdirSync(this.store.tmpDir, { recursive: true });
     const tmpPath = path.join(this.store.tmpDir, `font-${crypto.randomUUID()}`);
