@@ -2,6 +2,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { emptyTrashFlow } from '../../src/web/trash.js';
 import type { Draft, DraftStore } from '../../src/web/drafts.js';
+import { NoteSaver } from '../../src/web/saver.js';
 
 function drafts(): DraftStore & { map: Map<string, Draft> } {
   const map = new Map<string, Draft>();
@@ -30,6 +31,7 @@ describe('Empty Trash', () => {
       trashedAmong: async (ids) => ids.filter((id) => ['trashed-1', 'trashed-2'].includes(id)),
       confirm,
       emptyTrash: async () => ({ deleted: 2, deletedIds: ['trashed-1', 'trashed-2'] }),
+      closeNotes: () => {},
     });
     expect(r).toBe(true);
     expect(confirm.mock.calls[0][0]).toMatch(/only on this device/);
@@ -37,11 +39,32 @@ describe('Empty Trash', () => {
     expect(store.get('u1', 'live-1')).not.toBe(null);
   });
 
+  // BUGFIX-LIST-2 item 7: the open note is one of those deleted, and has changes not yet in its draft (here its save
+  // never answers). Before, its editor was closed only after the drafts were removed, and closing wrote it again.
+  it('closes the deleted notes before removing their drafts, so closing the editor writes none back', async () => {
+    const store = drafts();
+    const quiet = { onStatus: () => {}, onConflict: () => {}, setTimer: () => ({}), clearTimer: () => {} };
+    const s = new NoteSaver('u1', 'trashed-1', 1, { ...quiet, drafts: store, put: () => new Promise(() => {}) });
+    s.change('t', { type: 'doc', content: [] }, true); // the draft is written
+    s.change('t', { type: 'doc', content: [{ type: 'paragraph' }] }); // a later change, not in it yet
+    await emptyTrashFlow({
+      userId: 'u1',
+      drafts: store,
+      trashedAmong: async (ids) => ids,
+      confirm: async () => true,
+      emptyTrash: async () => ({ deleted: 1, deletedIds: ['trashed-1'] }),
+      closeNotes: (ids) => NoteSaver.disposeFor(ids),
+    });
+    s.dispose(); // the editor unmounts
+    await s.flush(10);
+    expect(store.map.size).toBe(0); // before: the draft of the deleted note was back
+  });
+
   it('does nothing if not confirmed', async () => {
     const store = drafts();
     store.set('u1', 'trashed-1', d);
     const empty = vi.fn();
-    expect(await emptyTrashFlow({ userId: 'u1', drafts: store, trashedAmong: async (ids) => ids.filter((id) => id === 'trashed-1'), confirm: async () => false, emptyTrash: empty as any })).toBe(false);
+    expect(await emptyTrashFlow({ userId: 'u1', drafts: store, trashedAmong: async (ids) => ids.filter((id) => id === 'trashed-1'), confirm: async () => false, emptyTrash: empty as any, closeNotes: () => {} })).toBe(false);
     expect(empty).not.toHaveBeenCalled();
     expect(store.get('u1', 'trashed-1')).not.toBe(null);
   });
@@ -50,7 +73,7 @@ describe('Empty Trash', () => {
     const store = drafts();
     const among = vi.fn(async (ids: string[]) => ids);
     const confirm = vi.fn(async (_m: string) => true);
-    await emptyTrashFlow({ userId: 'u1', drafts: store, trashedAmong: among, confirm, emptyTrash: async () => ({ deleted: 3, deletedIds: ['a', 'b', 'c'] }) });
+    await emptyTrashFlow({ userId: 'u1', drafts: store, trashedAmong: among, confirm, emptyTrash: async () => ({ deleted: 3, deletedIds: ['a', 'b', 'c'] }), closeNotes: () => {} });
     expect(among).not.toHaveBeenCalled();
     expect(confirm.mock.calls[0][0]).not.toMatch(/only on this device/);
   });
@@ -61,7 +84,7 @@ describe('Empty Trash', () => {
     store.set('u1', 'n2', d);
     const among = vi.fn(async (ids: string[]) => ids.filter((id) => id === 'n2'));
     const confirm = vi.fn(async (_m: string) => false);
-    await emptyTrashFlow({ userId: 'u1', drafts: store, trashedAmong: among, confirm, emptyTrash: vi.fn() as any });
+    await emptyTrashFlow({ userId: 'u1', drafts: store, trashedAmong: among, confirm, emptyTrash: vi.fn() as any, closeNotes: () => {} });
     expect(among).toHaveBeenCalledWith(['n1', 'n2']);
     expect(confirm.mock.calls[0][0]).toMatch(/One of them has changes that exist only on this device/);
   });

@@ -497,6 +497,7 @@ function Main({ me, onSignedOut }: { me: Me; onSignedOut: () => void }) {
         },
         confirm: (message) => dialogs.confirm({ title: 'Empty Trash', message, confirmLabel: 'Empty Trash', danger: true }),
         emptyTrash: () => api('DELETE', '/trash'),
+        closeNotes: (ids) => NoteSaver.disposeFor(ids),
       });
     } catch (e) {
       dialogs.notice(e instanceof ApiError ? e.message : 'Could not reach the server.');

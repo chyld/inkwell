@@ -32,6 +32,12 @@ export class NoteSaver {
     for (const s of [...NoteSaver.live]) s.dispose();
   }
 
+  /** Empty Trash: stop the savers of these deleted notes (each writes its pending draft, removed right after). */
+  static disposeFor(noteIds: string[]) {
+    const ids = new Set(noteIds);
+    for (const s of [...NoteSaver.live]) if (ids.has(s.noteId)) s.dispose();
+  }
+
   /**
    * Write every live saver's pending draft now. Called when the page is hidden or unloaded, so a tab closed
    * mid-typing still leaves its latest changes on this device (drafts are otherwise written with the save).
@@ -138,6 +144,7 @@ export class NoteSaver {
   }
 
   private writeDraft() {
+    if (this.disposed) return; // a stopped editor writes nothing (its draft may have been removed since)
     this.draftStale = false;
     const latest = this.resolved();
     if (!latest || !this.hasUnconfirmed()) return;
@@ -277,6 +284,7 @@ export class NoteSaver {
 
   /** Send any pending change now and wait up to `timeoutMs` for it. Resolves true if everything is confirmed. */
   flush(timeoutMs = 3000): Promise<boolean> {
+    if (this.disposed) return Promise.resolve(!this.hasUnconfirmed());
     if (this.draftStale) this.writeDraft();
     if (this.debounce) {
       this.clearTimer(this.debounce);

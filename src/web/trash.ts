@@ -10,6 +10,8 @@ export interface EmptyTrashDeps {
   confirm(message: string): Promise<boolean>;
   /** DELETE /api/trash. */
   emptyTrash(): Promise<{ deleted: number; deletedIds: string[] }>;
+  /** Stop the editors of these (deleted) notes, so that none writes its draft again once it is removed. */
+  closeNotes(ids: string[]): void;
 }
 
 export async function emptyTrashFlow(d: EmptyTrashDeps): Promise<boolean> {
@@ -25,6 +27,9 @@ export async function emptyTrashFlow(d: EmptyTrashDeps): Promise<boolean> {
   );
   if (!ok) return false;
   const r = await d.emptyTrash();
+  // The editor of a deleted note (open, in a conflict, or still flushing after a switch) is stopped first: closing
+  // it afterwards would write its pending changes as a draft again (BUGFIX-LIST-2 item 7).
+  d.closeNotes(r.deletedIds);
   for (const id of r.deletedIds) d.drafts.remove(d.userId, id);
   return true;
 }
