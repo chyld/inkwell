@@ -2,7 +2,7 @@
 // Loaded when an editor mounts, when the menu opens and when /styles opens; refreshed after every create, edit and
 // delete. One fetch path: refreshStyles.
 import { useSyncExternalStore } from 'react';
-import { api } from './api';
+import { api, onNewAuthEpoch } from './api';
 import type { Style } from './api';
 
 let current: Style[] | null = null;
@@ -42,9 +42,12 @@ export function useStyles(): Style[] | null {
 /** The list as it stands (null before the first load). */
 export const currentStyles = (): Style[] | null => current;
 
-/** For tests: forget the list. */
+/** Forget the list; a refresh still in flight is ignored when it answers. */
 export function resetStyles(): void {
   generation++;
   current = null;
   emit();
 }
+
+// The list is one session's: a new session (sign-in, sign-out, a lost session) forgets it (BUGFIX-LIST item 1).
+onNewAuthEpoch(resetStyles);

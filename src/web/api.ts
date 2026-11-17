@@ -13,8 +13,15 @@ export class NetworkError extends Error {}
 let unauthorizedHandler: () => void = () => {};
 /** Changes at every sign-in and sign-out; a 401 only counts for the epoch its request was sent in. */
 let authEpoch = 0;
+const epochListeners = new Set<() => void>();
 export function newAuthEpoch() {
   authEpoch++;
+  for (const f of [...epochListeners]) f();
+}
+/** Called at every new session (sign-in, sign-out, a lost session): what one user's session cached is forgotten. */
+export function onNewAuthEpoch(f: () => void) {
+  epochListeners.add(f);
+  return () => epochListeners.delete(f);
 }
 export function currentAuthEpoch() {
   return authEpoch;
