@@ -15,12 +15,19 @@ afterEach(async () => env.close());
 
 function memDrafts(): DraftStore & { map: Map<string, Draft> } {
   const map = new Map<string, Draft>();
+  // One draft per editor (owner) per note, as localDrafts; get gives the newest.
+  const of = (u: string, n: string) => [...map.keys()].filter((k) => k.startsWith(`${u}:${n}:`));
   return {
     map,
-    get: (u, n) => map.get(`${u}:${n}`) ?? null,
-    set: (u, n, d) => void map.set(`${u}:${n}`, d),
-    remove: (u, n) => void map.delete(`${u}:${n}`),
-    list: (u) => [...map.keys()].filter((k) => k.startsWith(u + ':')).map((k) => k.split(':')[1]),
+    get: (u, n, except) =>
+      of(u, n)
+        .map((k) => map.get(k)!)
+        .filter((d) => except === undefined || d.owner !== except)
+        .reduce<Draft | null>((best, d) => (!best || d.savedAt > best.savedAt ? d : best), null),
+    set: (u, n, d) => void map.set(`${u}:${n}:${d.owner ?? ''}`, d),
+    removeOne: (u, n, owner) => void map.delete(`${u}:${n}:${owner ?? ''}`),
+    remove: (u, n) => of(u, n).forEach((k) => map.delete(k)),
+    list: (u) => [...new Set([...map.keys()].filter((k) => k.startsWith(u + ':')).map((k) => k.split(':')[1]))],
     removeAllFor: (u) => [...map.keys()].filter((k) => k.startsWith(u + ':')).forEach((k) => map.delete(k)),
     removeAllExcept: (u) => [...map.keys()].filter((k) => !k.startsWith(u + ':')).forEach((k) => map.delete(k)),
   };
@@ -190,12 +197,12 @@ describe('NoteSaver review fixes', () => {
     const tabA = new NoteSaver('u', 'n1', 1, { put: a.put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
     const tabB = new NoteSaver('u', 'n1', 1, { put: deferredPut().put, drafts, onStatus: () => {}, onConflict: () => {}, ...noTimers });
     tabA.change('A', doc(p('from A')), true);
-    tabB.change('B', doc(p('from B'))); // debounced; A's draft is not overwritten (BUGFIX-LIST item 8)
-    expect(drafts.get('u', 'n1')!.title).toBe('A');
+    tabB.change('B', doc(p('from B'))); // debounced; each tab has its own draft (BUGFIX-LIST-2 item 3)
+    expect(drafts.get('u', 'n1', tabB.owner)!.title).toBe('A'); // A's draft is not overwritten (BUGFIX-LIST item 8)
+    expect(drafts.get('u', 'n1', tabA.owner)!.title).toBe('B');
     a.calls[0].resolve({ version: 2 });
     await tick();
-    expect(drafts.get('u', 'n1')).toBeNull(); // A cleared only its own draft
-    NoteSaver.writeAllDrafts(); // B's next chance (here pagehide) writes B's
+    expect(drafts.get('u', 'n1', tabB.owner)).toBeNull(); // A cleared only its own draft
     expect(drafts.get('u', 'n1')?.title).toBe('B');
     expect(tabB.hasUnconfirmed()).toBe(true);
   });
@@ -277,12 +284,34 @@ describe('two tabs on one note (BUGFIX-LIST item 8)', () => {
     b.dispose();
   });
 
+  // BUGFIX-LIST-2 item 3: tab A holds the draft after a conflict; tab B, offline, types and leaves the note (or the
+  // page is hidden). Before, B wrote no draft at all while saying its changes were kept on this device.
+  it("a tab whose note has another tab's draft still keeps its own changes as a draft", async () => {
+    const drafts = memDrafts();
+    const a = new NoteSaver('u', 'n1', 1, { ...quiet, drafts, put: () => new Promise(() => {}) }); // in conflict: never confirms
+    a.change('A', doc(p('A typed this')), true);
+    const b = new NoteSaver('u', 'n1', 1, { ...quiet, drafts, put: async () => Promise.reject(new NetworkError('offline')) });
+    b.change('B', doc(p('B typed')), true);
+    await new Promise((r) => setTimeout(r, 20));
+    b.change('B', doc(p('B typed more, offline')));
+    NoteSaver.writeAllDrafts(); // pagehide
+    expect(JSON.stringify(drafts.get('u', 'n1', a.owner)?.body)).toContain('B typed more, offline');
+    b.change('B', doc(p('B typed more, offline, then left the note')));
+    b.dispose();
+    expect(JSON.stringify(drafts.get('u', 'n1', a.owner)?.body)).toContain('then left the note'); // before: no draft
+    expect(drafts.get('u', 'n1', b.owner)?.title).toBe('A'); // and A's is as it was
+    expect(drafts.list('u')).toEqual(['n1']); // one note with unsaved changes
+    a.dispose();
+  });
+
   it('a restored draft is taken over: this tab replaces it and clears it once saved', async () => {
     const drafts = memDrafts();
     drafts.set('u', 'n1', { title: 'old', body: doc(p('old')), version: 1, savedAt: 0, owner: 'an earlier opening' });
     const s = new NoteSaver('u', 'n1', 1, { ...quiet, drafts, put: async () => ({ version: 2 }) });
-    s.takeOverDraft();
+    s.takeOverDraft({ owner: 'an earlier opening' });
     s.change('old', doc(p('old')), true);
+    expect(drafts.map.size).toBe(1); // the taken draft is replaced by this tab's own
+    expect(drafts.get('u', 'n1')!.owner).toBe(s.owner);
     await new Promise((r) => setTimeout(r, 20));
     expect(drafts.get('u', 'n1')).toBeNull();
     s.dispose();

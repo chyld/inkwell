@@ -10,6 +10,7 @@ function drafts(): DraftStore & { map: Map<string, Draft> } {
     map,
     get: (u, n) => map.get(`${u}:${n}`) ?? null,
     set: (u, n, d) => void map.set(`${u}:${n}`, d),
+    removeOne: (u, n) => void map.delete(`${u}:${n}`),
     remove: (u, n) => void map.delete(`${u}:${n}`),
     list: (u) => [...map.keys()].filter((k) => k.startsWith(u + ':')).map((k) => k.split(':')[1]),
     removeAllFor: (u) => [...map.keys()].filter((k) => k.startsWith(u + ':')).forEach((k) => map.delete(k)),

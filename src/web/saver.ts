@@ -52,7 +52,8 @@ export class NoteSaver {
   /** True when the stored draft is older than the latest change. */
   private draftStale = false;
   private draftWrittenAt = 0;
-  private takingOver = false;
+  /** The restored draft this editor took over, removed when this editor first writes its own. */
+  private takingOver: { owner?: string } | null = null;
   private latestSeq = 0;
   private confirmedSeq = 0;
   private inFlight: Promise<void> | null = null;
@@ -65,7 +66,7 @@ export class NoteSaver {
   private disposed = false;
   private waiters = new Set<() => boolean>();
   /** Identifies this editor's drafts, so another tab's draft for the same note is never deleted by this one. */
-  private readonly owner = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  readonly owner =Math.random().toString(36).slice(2) + Date.now().toString(36);
   private setTimer: (fn: () => void, ms: number) => unknown;
   private clearTimer: (h: unknown) => void;
   private now: () => number;
@@ -131,31 +132,29 @@ export class NoteSaver {
     return this.latest;
   }
 
-  /** The user restored the stored draft into this editor: it is this editor's now, to replace and to clear. */
-  takeOverDraft() {
-    this.takingOver = true;
+  /** The user restored this stored draft into this editor: it is this editor's now, replaced by its own draft. */
+  takeOverDraft(d: { owner?: string }) {
+    this.takingOver = { owner: d.owner };
   }
 
   private writeDraft() {
     this.draftStale = false;
     const latest = this.resolved();
     if (!latest || !this.hasUnconfirmed()) return;
-    // Two tabs on one note share one draft: a tab overwrites only a draft it wrote (or took over), so another tab's
-    // unsaved work is never replaced and then deleted by this tab's save (BUGFIX-LIST item 8).
-    const stored = this.deps.drafts.get(this.userId, this.noteId);
-    if (stored && stored.owner !== this.owner && !this.takingOver) {
-      this.draftStale = true; // written at the next chance (a keystroke, the send, pagehide) once that one is gone
-      return;
+    // Each editor writes and clears only its own draft, so two tabs on one note both keep their unsaved work and
+    // neither deletes the other's (BUGFIX-LIST item 8, and BUGFIX-LIST-2 item 3: before, a tab whose note had
+    // another tab's draft wrote none at all).
+    if (this.takingOver) {
+      if (this.takingOver.owner !== this.owner) this.deps.drafts.removeOne(this.userId, this.noteId, this.takingOver.owner);
+      this.takingOver = null;
     }
-    this.takingOver = false;
     this.draftWrittenAt = this.now();
     this.deps.drafts.set(this.userId, this.noteId, { title: latest.title, body: latest.body, version: this.base, savedAt: Date.now(), owner: this.owner });
   }
 
-  /** Remove the stored draft only if this editor wrote it. */
+  /** Remove this editor's own draft (another tab's stays). */
   private clearOwnDraft() {
-    const d = this.deps.drafts.get(this.userId, this.noteId);
-    if (d && d.owner === this.owner) this.deps.drafts.remove(this.userId, this.noteId);
+    this.deps.drafts.removeOne(this.userId, this.noteId, this.owner);
   }
 
   private send() {

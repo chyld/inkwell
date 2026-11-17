@@ -161,11 +161,14 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   useEffect(() => {
     makeSaver(note.version);
     if (!trashed) {
-      const d = localDrafts.get(me.id, note.id);
-      if (d) {
+      // The newest draft is offered; one that matches the saved note is no longer needed (each is one tab's).
+      for (let d = localDrafts.get(me.id, note.id); d; d = localDrafts.get(me.id, note.id)) {
         const same = d.title === note.title && JSON.stringify(d.body) === JSON.stringify(note.body);
-        if (same) localDrafts.remove(me.id, note.id);
-        else setDraft(d);
+        if (!same) {
+          setDraft(d);
+          break;
+        }
+        localDrafts.removeOne(me.id, note.id, d.owner);
       }
     }
     return () => {
@@ -255,31 +258,36 @@ function EditorBody(props: Props & { note: Note; reloadNote: () => void; setNote
   function restoreDraft() {
     if (!draft || !editor) return;
     // Use the draft as stored now: another tab may have changed or removed it since the offer appeared.
-    const current = localDrafts.get(me.id, note.id);
+    // Other tabs' drafts only: this editor's own (edits typed while the offer was shown) is replaced below.
+    const old = saverRef.current;
+    const current = localDrafts.get(me.id, note.id, old?.owner);
     setDraft(null);
     if (!current) {
       dialogs.notice('That draft is no longer on this device; the saved note is shown.');
       return;
     }
     const s = makeSaver(current.version);
+    if (old) localDrafts.removeOne(me.id, note.id, old.owner); // its edits are replaced by the restored text
     editor.commands.setContent(current.body as any, { emitUpdate: false });
     syncFonts();
     setTitle(current.title);
     titleRef.current = current.title;
-    s.takeOverDraft(); // restored here: this editor replaces it from now on, and clears it once saved
+    s.takeOverDraft(current); // restored here: this editor's own draft replaces it, and is cleared once saved
     s.change(current.title, editor.getJSON(), true);
   }
 
   function discardDraft() {
-    const current = localDrafts.get(me.id, note.id);
+    const mine = saverRef.current?.owner;
+    const current = localDrafts.get(me.id, note.id, mine);
     if (current && draft && (current.savedAt !== draft.savedAt || current.owner !== draft.owner)) {
       // Another tab wrote a newer draft since the offer appeared: keep it, and offer that one.
       setDraft(current);
       dialogs.notice('These unsaved changes were updated in another tab. Check them, then choose again.');
       return;
     }
-    localDrafts.remove(me.id, note.id);
-    setDraft(null);
+    if (current) localDrafts.removeOne(me.id, note.id, current.owner);
+    // Another tab's unsaved changes to this note, if any, are offered next (BUGFIX-LIST-2 item 3).
+    setDraft(localDrafts.get(me.id, note.id, mine));
   }
 
   /** Take images that no longer exist on the server out of the note, so it can be saved. */

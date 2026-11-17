@@ -91,7 +91,7 @@ describe('draft offer', () => {
     const v = await open();
     await waitFor(() => !!button(v.container, 'Restore'), 2000, 'restore banner');
     // Another tab changed the draft meanwhile.
-    localDrafts.set('u1', NOTE_ID, { ...storedDraft, title: 'Newer draft', body: doc('newer draft text'), version: 4, owner: 'other-tab' });
+    localDrafts.set('u1', NOTE_ID, { ...storedDraft, title: 'Newer draft', body: doc('newer draft text'), version: 4, savedAt: Date.now(), owner: 'other-tab' });
     await click(button(v.container, 'Restore'));
     await waitFor(() => requests.some((r) => r.method === 'PUT'), 3000, 'save');
     const put = requests.find((r) => r.method === 'PUT')!;
@@ -179,6 +179,10 @@ describe('draft offer, round 2', () => {
     await click(button(v.container, 'Discard'));
     expect(localDrafts.get('u1', NOTE_ID)?.title).toBe('Other tab');
     expect(button(v.container, 'Restore')).toBeDefined(); // the offer stays, now for the newer draft
+    await click(button(v.container, 'Discard'));
+    // Each tab keeps its own draft (BUGFIX-LIST-2 item 3): the first tab's is still there, and offered next.
+    expect(localDrafts.get('u1', NOTE_ID)?.title).toBe('Draft title');
+    expect(button(v.container, 'Restore')).toBeDefined();
     await click(button(v.container, 'Discard'));
     expect(localDrafts.get('u1', NOTE_ID)).toBe(null);
   });
